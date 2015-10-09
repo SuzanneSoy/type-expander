@@ -1,0 +1,8 @@
+[submodule "graph/lib/doc/bracket"]
+	path = graph/lib/doc/bracket
+	url = https://github.com/soegaard/bracket
+	branch = master
+[submodule "graph/lib/doc/MathJax"]
+	path = graph/lib/doc/MathJax
+	url = https://github.com/mathjax/MathJax.git
+	branch = master
