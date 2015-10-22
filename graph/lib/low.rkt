@@ -4,6 +4,30 @@
 (: degub (∀ (T) (→ T T)))
 (define (degub x) (display "degub:") (displayln x) x)
 
+;; ==== low/typed-untyped-module.rkt ====
+
+(define-syntax define-modules
+  (syntax-rules (no-submodule)
+    [(_ ([no-submodule] [name lang] ...) . body)
+     (begin (begin . body)
+            (module name lang . body) ...)]
+    [(_ ([name lang] ...) . body)
+     (begin (module name lang . body) ...)]))
+
+#|
+;; TODO: tests: test with a macro and check that we can use it in untyped.
+;; TODO: tests: test with two mini-languages with different semantics for some
+;; function.
+(define-modules ([foo typed/racket] [foo-untyped typed/racket/no-check])
+  (provide x)
+  (: x (→ Syntax Syntax))
+  (define (x s) s))
+
+(module test racket
+  (require (submod ".." foo-untyped))
+  (x #'a))
+|#
+
 ;; ==== low/require-provide.rkt ====
 (provide require/provide)
 
@@ -179,6 +203,11 @@
                                                          (syntax-e b)
                                                          (syntax-e a))])
                 '(3 2 1))
+  
+  (check-equal? (match #'(1 2 3)
+                  [(stx-list a ...) (map (inst syntax-e Positive-Byte) a)])
+                '(1 2 3))
+  
   #;(check-equal? (match #`(1 . (2 3)) [(stx-list a b c) (list (syntax-e c)
                                                                (syntax-e b)
                                                                (syntax-e a))])
@@ -342,3 +371,129 @@
          (rename-out [match-lambda match-λ]
                      [match-lambda* match-λ*]
                      [match-lambda** match-λ**]))
+
+
+;; ==== ids.rkt ====
+
+(define-modules ([no-submodule] [ids-untyped typed/racket/no-check])
+  (provide format-ids
+           hyphen-ids
+           format-temp-ids
+           #|t/gen-temp|#)
+  
+  (require/typed racket/syntax
+                 [format-id (→ Syntax String (U String Identifier) * Identifier)])
+  ;(require racket/sequence) ;; in-syntax
+  
+  (require "sequences.rkt"
+           #|"../low.rkt"|#) ;; my-in-syntax
+  
+  (define-type S-Id-List
+    (U String
+       Identifier
+       (Listof String)
+       (Listof Identifier)
+       (Syntaxof (Listof Identifier))))
+  
+  (: format-ids (→ (U Syntax (→ (U String Identifier) * Syntax))
+                   String
+                   S-Id-List *
+                   (Listof Identifier)))
+  (define (format-ids lex-ctx format . vs)
+    (let* ([seqs
+            (map (λ ([v : S-Id-List])
+                   (cond
+                     [(string? v) (in-cycle (in-value v))]
+                     [(identifier? v) (in-cycle (in-value v))]
+                     [(list? v) (in-list v)]
+                     [else (in-list (syntax->list v))]))
+                 vs)]
+           [justconstants (andmap (λ (x) (or (string? x) (identifier? x))) vs)]
+           [seqlst (apply sequence-list seqs)])
+      (for/list : (Listof Identifier)
+        ([items seqlst]
+         [bound-length (if justconstants
+                           (in-value 'yes)
+                           (in-cycle (in-value 'no)))])
+        
+        (apply format-id
+               (if (procedure? lex-ctx) (apply lex-ctx items) lex-ctx)
+               format
+               items))))
+  
+  (: hyphen-ids (→ (U Syntax (→ (U String Identifier) * Syntax))
+                   S-Id-List *
+                   (Listof Identifier)))
+  
+  (define (hyphen-ids lex-ctx . vs)
+    (apply format-ids
+           lex-ctx
+           (string-join (map (λ _ "~a") vs) "-")
+           vs))
+  
+  (: format-temp-ids (→ String
+                        S-Id-List *
+                        (Listof Identifier)))
+  
+  (define (format-temp-ids format . vs)
+    ;; Introduce the binding in a fresh scope.
+    (apply format-ids (λ _ ((make-syntax-introducer) #'())) format vs)))
+
+(module+ test
+  (require ;(submod "..")
+    ;"test-framework.rkt"
+    (for-syntax racket/syntax
+                (submod ".." ids-untyped)))
+  
+  (check-equal? (format-ids #'a "~a-~a" #'() #'())
+                '())
+  
+  (check-equal? (map syntax->datum
+                     (format-ids #'a "~a-~a" #'(x1 x2 x3) #'(a b c)))
+                '(x1-a x2-b x3-c))
+  
+  ;; Since the presence of "Syntax" in the parameters list makes format-ids
+  ;; require a chaperone contract instead of a flat contract, we can't run the
+  ;; two tests below directly, we would need to require the untyped version of
+  ;; this file, which causes a cycle in loading.
+  
+  (define-syntax (test1 stx)
+    (syntax-case stx ()
+      [(_ (let1 d1) x y)
+       (begin
+         (define/with-syntax (foo-x foo-y)
+           (format-ids (λ (xy)
+                         (if (string=? (symbol->string (syntax->datum xy))
+                                       "b")
+                             stx
+                             #'()))
+                       "foo-~a"
+                       #'(x y)))
+         #'(let1 d1 (let ((foo-b 2) (foo-c 'b)) (cons foo-x foo-y))))]))
+  
+  (check-equal? (test1 (let ((foo-b 1) (foo-c 'a))) b c)
+                '(1 . b))
+  
+  (define-syntax (fubar stx)
+    (define/with-syntax (v1 ...) #'(1 2 3))
+    (define/with-syntax (v2 ...) #'('a 'b 'c))
+    ;; the resulting ab and ab should be distinct identifiers:
+    (define/with-syntax (id1 ...) (format-temp-ids "~a" #'(ab cd ab)))
+    (define/with-syntax (id2 ...) (format-temp-ids "~a" #'(ab cd ab)))
+    #'(let ([id1 v1] ...)
+        (let ([id2 v2] ...)
+          (list (cons id1 id2) ...))))
+  
+  (check-equal? (fubar) '((1 . a) (2 . b) (3 . c))))
+
+#|
+(define-template-metafunction (t/gen-temp stx)
+  (syntax-parse stx
+    [(_ . id:id)
+     #:with (temp) (generate-temporaries #'(id))
+     #'temp]
+    [(_ id:id ...)
+     (generate-temporaries #'(id ...))]))
+|#
+
+;; ==== end ====

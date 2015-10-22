@@ -203,10 +203,6 @@ Library functions and utilities
   
   Wrapper around lib/low.rkt that allows using it from a untyped racket file.
 
-* lib/untyped/ids.rkt
-  
-  Some untyped racket utilities to manipulate identifiers inside macros.
-
 * lib/untyped/for-star-list-star.rkt
 
   A utility macro similar to for*/list to iterate over collections and return a
@@ -214,8 +210,7 @@ Library functions and utilities
 
 * lib/untyped.rkt
 
-  Aggregates lib/low-untyped.rkt, lib/untyped/ids.rkt and
-  lib/untyped/for-star-list-star.rkt.
+  Aggregates lib/low-untyped.rkt, and lib/untyped/for-star-list-star.rkt.
 
 * lib/test-framework.rkt
   
