@@ -378,7 +378,7 @@
 (define-modules ([no-submodule] [ids-untyped typed/racket/no-check])
   (provide format-ids
            hyphen-ids
-           format-temp-ids
+           format-temp-ids;
            #|t/gen-temp|#)
   
   (require/typed racket/syntax
@@ -495,5 +495,34 @@
     [(_ id:id ...)
      (generate-temporaries #'(id ...))]))
 |#
+
+;; ==== syntax.rkt ====
+
+(provide stx-assoc)
+;(require/typed racket/base [(assoc assoc3) (∀ (a b) (→ Any (Listof (Pairof a b)) (U False (Pairof a b))))])
+(require/typed racket/base
+               [(assoc assoc3)
+                (∀ (a b c) (case→ [→ Any
+                                     (Listof (Pairof a b))
+                                     (U False (Pairof a b))]
+                                  [-> c
+                                      (Listof (Pairof a b))
+                                      (→ c a Boolean)
+                                      (U False (Pairof a b))]))])
+
+(: stx-assoc (∀ (T) (→ Identifier
+                       (U (Syntaxof (Listof (Syntaxof (Pairof Identifier T))))
+                          (Listof (Syntaxof (Pairof Identifier T)))
+                          (Listof (Pairof Identifier T)))
+                       (U (Pairof Identifier T) #f))))
+(define (stx-assoc id alist)
+  (let* ([e-alist (if (syntax? alist)
+                      (syntax->list alist)
+                      alist)]
+         [e-e-alist (cond
+                        [(null? e-alist) '()]
+                        [(syntax? (car e-alist)) (map (inst syntax-e (Pairof Identifier T)) e-alist)]
+                        [else e-alist])])
+    (assoc3 id e-e-alist free-identifier=?)))
 
 ;; ==== end ====
