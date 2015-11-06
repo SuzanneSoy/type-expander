@@ -498,7 +498,7 @@
 
 ;; ==== syntax.rkt ====
 
-(provide stx-assoc)
+(provide stx-assoc cdr-stx-assoc)
 ;(require/typed racket/base [(assoc assoc3) (∀ (a b) (→ Any (Listof (Pairof a b)) (U False (Pairof a b))))])
 (require/typed racket/base
                [(assoc assoc3)
@@ -524,5 +524,15 @@
                         [(syntax? (car e-alist)) (map (inst syntax-e (Pairof Identifier T)) e-alist)]
                         [else e-alist])])
     (assoc3 id e-e-alist free-identifier=?)))
+
+(: cdr-stx-assoc
+   (∀ (T) (→ Identifier
+             (U (Syntaxof (Listof (Syntaxof (Pairof Identifier T))))
+                (Listof (Syntaxof (Pairof Identifier T)))
+                (Listof (Pairof Identifier T)))
+             (U T #f))))
+(define (cdr-stx-assoc id alist)
+  (let ((res (stx-assoc id alist)))
+    (if res (cdr res) #f)))
 
 ;; ==== end ====
