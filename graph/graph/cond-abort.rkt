@@ -1,7 +1,9 @@
 #lang typed/racket
 
 (provide cond-abort
-         match-abort)
+         match-abort
+         let-abort
+         let*-abort)
 
 (define-syntax (cond-abort orig-stx)
   (let rec ([stx orig-stx])
@@ -36,6 +38,23 @@
            [pattern (let () body0 . body)]
            [_ 'continue])]
      ...)))
+
+(define-syntax-rule (let-abort ([binding value] ...) . body)
+  (let ([binding value] ...)
+    (cond
+      [(or (eq? 'continue binding) (eq? 'break binding)) binding]
+      ...
+      [else (begin . body)])))
+
+(define-syntax (let*-abort stx)
+  (syntax-case stx ()
+    [(_ () . body)
+     #'(begin . body)]
+    [(_ ([binding0 value0] . rest) . body)
+     #'(let ([binding0 value0])
+         (if (or (eq? 'continue binding) (eq? 'break binding))
+             binding
+             (let*-abort rest . body)))]))
 
 (module* test typed/racket
   (require typed/rackunit)
