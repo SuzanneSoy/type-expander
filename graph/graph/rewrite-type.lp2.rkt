@@ -14,38 +14,31 @@ For example, one could replace all strings in a data structure by their length:
        (define-syntax (make-replace stx)
          (syntax-case stx ()
            [(_ name type . replace)
-            (displayln (syntax->datum #`(begin
-                                          (: name (→ type #,(replace-in-data-structure #'type #'replace)))
-                                          (define (name v)
-                                            #,(replace-in-instance #'v #'type #'replace)))))
-            #'(list)]))
+            #`(begin
+                (: name (→ type #,(replace-in-data-structure #'type #'replace)))
+                (define (name v)
+                  #,(replace-in-instance #'v #'type #'replace)))]))
        
        (make-replace test1
-                     (List (Pairof (List Symbol (Listof String)) String))
+                     (List (Pairof (U (List 'tag1 (List (Vector Symbol)
+                                                        Number
+                                                        (Listof String)))
+                                      (List 'tag2 (List (Vector Symbol)
+                                                        Number
+                                                        (Listof String))))
+                                   String))
                      [String Number string-length])
        
-       ;(test1 '((#(sym ("ab" "abc" "abcd")) . "a")))
-       
-       (begin-for-syntax 
-         #;(displayln
-            (syntax->datum
-             (replace-in-instance #'v
-                                  #'(List (Pairof (Vector Symbol
-                                                          (Vectorof String))
-                                                  String))
-                                  #'([String Number string-length]))))
-         (displayln
-          (syntax->datum
-           (replace-in-instance #'v
-                                #'(List Symbol String)
-                                #'([String Number string-length])))))
-       (define-syntax (string→number stx)
-         #`(define-type new-t
-             #,(replace-in-data-structure
-                #'(List (Pairof (Vector Symbol (Vectorof String)) String))
-                #'([String Number string-length]))))
-       
-       (string→number)]
+       (check-equal?
+        (ann (test1 '(((tag2 (#(sym) 7 ("ab" "abc" "abcd"))) . "a")))
+             (List (Pairof (U (List 'tag1 (List (Vector Symbol)
+                                                Number
+                                                (Listof Number)))
+                              (List 'tag2 (List (Vector Symbol)
+                                                Number
+                                                (Listof Number))))
+                           Number)))
+        '(((tag2 (#(sym) 7 (2 3 4))) . 1)))]
 
 @CHUNK[<replace-in-data-structure>
        (define-for-syntax (replace-in-data-structure t r)
@@ -68,13 +61,18 @@ For example, one could replace all strings in a data structure by their length:
             #`(Vectorof #,(recursive-replace #'a))]
            [((~literal U) a ...)
             #`(U #,@(stx-map recursive-replace #'(a ...)))]
+           [((~literal quote) a)
+            ;; TODO: if the quoted type is a primitive, we should replace it too
+            #`(quote a)]
            [x:id #'x]))]
 
-@CHUNK[<replace-in-instance_new>
+@CHUNK[<replace-in-instance>
        (define-for-syntax (replace-in-instance val t r)
          (define/with-syntax ([from to fun] ...) r)
+         <replace-in-union>
          (define (recursive-replace stx-val type)
            (define/with-syntax val stx-val)
+           (define/with-syntax (v-cache) (generate-temporaries #'(val-cache)))
            (syntax-parse type
              [x:id
               #:attr assoc-from-to (cdr-stx-assoc #'x
@@ -83,16 +81,57 @@ For example, one could replace all strings in a data structure by their length:
               #:with (to-type . to-fun) #'assoc-from-to
               (define/with-syntax (tmp) (generate-temporaries #'(x)))
               ;; TODO: Add predicate for to-type in the pattern.
-              #`(match-abort val [(and tmp) (protected (to-fun tmp))])]
+              #`(to-fun val)]
              [((~literal List) a ...)
               (define/with-syntax (tmp ...) (generate-temporaries #'(a ...)))
               #`(let-values ([(tmp ...) (apply values val)])
                   (list #,@(stx-map recursive-replace #'(tmp ...) #'(a ...))))]
-             ))
-         (recursive-replace val t r))]
+             [((~literal Pairof) a b)
+              #`(let ([v-cache val])
+                  (cons #,(recursive-replace #'(car v-cache) #'a)
+                        #,(recursive-replace #'(cdr v-cache) #'b)))]
+             [((~literal Listof) a)
+              (define/with-syntax (tmp) (generate-temporaries #'(a)))
+              #`(map (λ ([tmp : a]) #,(recursive-replace #'tmp #'a))
+                     val)]
+             [((~literal Vector) a ...)
+              (define/with-syntax (tmp ...) (generate-temporaries #'(a ...)))
+              (define/with-syntax (idx ...) (generate-indices #'(a ...)))
+              #`(let ([v-cache val])
+                  (let ([tmp (vector-ref v-cache idx)]
+                        ...)
+                    (vector #,@(stx-map recursive-replace
+                                        #'(tmp ...)
+                                        #'(a ...)))))]
+             [((~literal Vectorof) a)
+              (define/with-syntax (tmp) (generate-temporaries #'(a)))
+              #`(vector-map (λ ([tmp : a]) #,(recursive-replace #'tmp #'a))
+                            val)]
+             [((~literal U) a ...)
+              #`(let ([v-cache val])
+                  (cond
+                    #,@(stx-map (λ (ta) (replace-in-union #'v-cache ta r))
+                                #'(a ...))))]
+             [((~literal quote) a)
+              #'val]
+             [x:id
+              #'val]))
+         (recursive-replace val t))]
+
+@CHUNK[<replace-in-union>
+       (define (replace-in-union stx-v-cache t r)
+         (define/with-syntax v-cache stx-v-cache)
+         (syntax-parse t
+           [(List ((~literal quote) tag:id) b ...)
+            <replace-in-tagged-union-instance>]
+           [_ (error "Type-replace on untagged Unions isn't supported yet!")]))]
+
+@CHUNK[<replace-in-tagged-union-instance>
+       #`[(and (list? v-cache) (eq? 'tag (car v-cache)))
+          #,(recursive-replace #'v-cache t)]]
 
 
-@CHUNK[<replace-in-instance>
+@CHUNK[<replace-in-instance_old>
        (define-for-syntax (replace-in-instance val t r)
          (define/with-syntax ([from to fun] ...) r)
          (define (recursive-replace stx-val type)

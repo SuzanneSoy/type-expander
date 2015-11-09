@@ -60,6 +60,66 @@
  '(a b c))
 
 
+(begin
+  (:
+   test1a
+   (→
+    (List (Pairof (List Symbol (Listof String)) String))
+    (List (Pairof (List Symbol (Listof Number)) Number))))
+  (define (test1a v)
+    (let-values (((temp2) (apply values v)))
+      (list
+       (let ((val-cache3 temp2))
+         (cons
+          (let-values (((Symbol5 temp6) (apply values (car val-cache3))))
+            (list Symbol5 (map (λ ((String9 : String)) (string-length String9)) temp6)))
+          (string-length (cdr val-cache3))))))))
+
+
+
+(begin
+  (:
+   test1
+   (→
+    (List
+     (Pairof
+      (U
+       (List 'tag1 (List (Vector Symbol) (Listof String)))
+       (List 'tag2 (List (Vector Symbol) (Listof String))))
+      String))
+    (List
+     (Pairof
+      (U
+       (List 'tag1 (List (Vector Symbol) (Listof Number)))
+       (List 'tag2 (List (Vector Symbol) (Listof Number))))
+      Number))))
+  (define (test1 v)
+    (let-values (((temp2) (apply values v)))
+      (list
+       (let ((val-cache3 temp2))
+         (cons
+          (let ((val-cache4 (car val-cache3)))
+            (cond
+             ((and (list? val-cache4) (eq? 'tag1 (car val-cache4)))
+              (let-values (((temp6 temp7) (apply values val-cache4)))
+                (list
+                 temp6
+                 (let-values (((temp10 temp11) (apply values temp7)))
+                   (list
+                    (let ((val-cache12 temp10))
+                      (let ((Symbol13 (vector-ref val-cache12 0))) (vector Symbol13)))
+                    (map (λ ((String16 : String)) (string-length String16)) temp11))))))
+             ((and (list? val-cache4) (eq? 'tag2 (car val-cache4)))
+              (let-values (((temp20 temp21) (apply values val-cache4)))
+                (list
+                 temp20
+                 (let-values (((temp24 temp25) (apply values temp21)))
+                   (list
+                    (let ((val-cache26 temp24))
+                      (let ((Symbol27 (vector-ref val-cache26 0))) (vector Symbol27)))
+                    (map (λ ((String30 : String)) (string-length String30)) temp25))))))))
+          (string-length (cdr val-cache3))))))))
+
 #|
 (define-syntax-rule (map-abort lst v . body)
   #;(let ([l (foldl (λ (v acc)

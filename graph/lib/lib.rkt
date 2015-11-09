@@ -6,7 +6,7 @@
 ;; Types
 (provide AnyImmutable)
 ;; Functions
-(provide ∘ eval-get-values generate-indices)
+(provide ∘ eval-get-values)
 ;; Macros
 (provide mapp comment)
 
@@ -139,15 +139,4 @@
                                      body ...)
                                    result))
                        (set! l (cdr l))))))))]))
-(: generate-indices (∀ (T) (case→ (→ Integer (Syntax-Listof T) (Listof Integer))
-                                  (→ (Syntax-Listof T) (Listof Nonnegative-Integer)))))
-(define generate-indices
-  (case-lambda
-    [(start stx)
-     (for/list ([v (my-in-syntax stx)]
-                [i (in-naturals start)])
-       i)]
-    [(stx)
-     (for/list ([v (my-in-syntax stx)]
-                [i : Nonnegative-Integer (ann (in-naturals) (Sequenceof Nonnegative-Integer))])
-       i)]))
+
