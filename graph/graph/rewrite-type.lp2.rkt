@@ -11,21 +11,41 @@ result.
 For example, one could replace all strings in a data structure by their length:
 
 @CHUNK[<test-example>
+       (define-syntax (make-replace stx)
+         (syntax-case stx ()
+           [(_ name type . replace)
+            (displayln (syntax->datum #`(begin
+                                          (: name (→ type #,(replace-in-data-structure #'type #'replace)))
+                                          (define (name v)
+                                            #,(replace-in-instance #'v #'type #'replace)))))
+            #'(list)]))
+       
+       (make-replace test1
+                     (List (Pairof (List Symbol (Listof String)) String))
+                     [String Number string-length])
+       
+       ;(test1 '((#(sym ("ab" "abc" "abcd")) . "a")))
+       
        (begin-for-syntax 
          #;(displayln
-          (syntax->datum
-           (replace-in-instance #'(List (Pairof (Vector Symbol
-                                                              (Vectorof String))
-                                                      String))
-                                      #'([String Number string-length]))))
+            (syntax->datum
+             (replace-in-instance #'v
+                                  #'(List (Pairof (Vector Symbol
+                                                          (Vectorof String))
+                                                  String))
+                                  #'([String Number string-length]))))
          (displayln
           (syntax->datum
-           (replace-in-instance #'(List Symbol String)
-                                     #'([String Number string-length])))))
-       #;(define-syntax (string→number stx)
-           (replace-in-data-structure
-            #'(List (Pairof Symbol String))
-            #'[String Number string-length]))]
+           (replace-in-instance #'v
+                                #'(List Symbol String)
+                                #'([String Number string-length])))))
+       (define-syntax (string→number stx)
+         #`(define-type new-t
+             #,(replace-in-data-structure
+                #'(List (Pairof (Vector Symbol (Vectorof String)) String))
+                #'([String Number string-length]))))
+       
+       (string→number)]
 
 @CHUNK[<replace-in-data-structure>
        (define-for-syntax (replace-in-data-structure t r)
@@ -51,52 +71,70 @@ For example, one could replace all strings in a data structure by their length:
            [x:id #'x]))]
 
 @CHUNK[<replace-in-instance>
-       (define-for-syntax (replace-in-instance t r)
+       (define-for-syntax (replace-in-instance val t r)
          (define/with-syntax ([from to fun] ...) r)
-         (define (recursive-replace type)
+         (define (recursive-replace stx-val type)
+           (define/with-syntax val stx-val)
            (syntax-parse type
-           [x:id
-            #:attr assoc-from-to (cdr-stx-assoc #'x #'((from . (to . fun)) ...))
-            #:when (attribute assoc-from-to)
-            #:with (to-type . to-fun) #'assoc-from-to
-            (define/with-syntax (tmp) (generate-temporaries #'(x)))
-            ;; TODO: Add predicate for to-type in the pattern.
-            (cons #`(and tmp) #`(to-fun tmp))]
-           [((~literal List) a ...)
-            (define/with-syntax (tmp ...) (generate-temporaries #'(a ...)))
-            (define rec (stx-map recursive-replace #'(a ...)))
-            (cons #`(list #,@(map car rec))
-                  #`(list #,@(map cdr rec)))]
-           [((~literal Pairof) a b)
-            (define/with-syntax (tmpa tmpb) (generate-temporaries #'(a b)))
-            (define reca (recursive-replace #'a))
-            (define recb (recursive-replace #'b))
-            (cons #`(cons #,(car reca) #,(car recb))
-                  #`(cons #,(cdr reca) #,(cdr recb)))]
-           #| TODO:
-           [((~literal Listof) a)
-            #`(Listof #,(recursive-replace #'x))]
-           [((~literal Vector) a ...)
-            #`(Vector #,@(stx-map recursive-replace #'(a ...)))]
-           [((~literal Vectorof) a)
-            #`(Vectorof #,(recursive-replace #'a))]
-           |#
-           #|
-           [((~literal U) a ...)
-            ;; Use (app (λ _ 'a) U-case) to set U-case, so that we can do a
-            ;; very simple cond in the replacement.
-            ;; TODO: write a `bind` match-expander, much like syntax-parse's
-            ;; ~bind.
-            (define/with-syntax (tmp ...) (generate-temporaries #'(a ...)))
-            (cons #`(or (app (λ _')]
-           ;; DOES NOT ACTUALLY WORK, because match wants all `or` branches to
-           ;; have the same variables.
-           |#
-           [x:id
-            (define/with-syntax (tmp) (generate-temporaries #'(x)))
-            (cons #'tmp #'tmp)]))
-         (define whole-rec (recursive-replace t))
-         #`(λ (v) (match-abort v [#,(car whole-rec) #,(cdr whole-rec)])))]
+             [x:id
+              #:attr assoc-from-to (cdr-stx-assoc #'x
+                                                  #'((from . (to . fun)) ...))
+              #:when (attribute assoc-from-to)
+              #:with (to-type . to-fun) #'assoc-from-to
+              (define/with-syntax (tmp) (generate-temporaries #'(x)))
+              ;; TODO: Add predicate for to-type in the pattern.
+              #`(match-abort val [(and tmp) (protected (to-fun tmp))])]
+             [((~literal List) a ...)
+              (define/with-syntax (tmp1 ...) (generate-temporaries #'(a ...)))
+              (define/with-syntax (tmp2 ...) (generate-temporaries #'(a ...)))
+              (define/with-syntax (rec ...)
+                (stx-map recursive-replace #'(tmp1 ...) #'(a ...)))
+              #`(match-abort val
+                  [(list tmp1 ...)
+                   (let-abort ([tmp2 rec] ...)
+                              (protected (list (unprotect tmp2) ...)))])]
+             [((~literal Pairof) a b)
+              (define/with-syntax (tmpa1 tmpb1) (generate-temporaries #'(a b)))
+              (define/with-syntax (tmpa2 tmpb2) (generate-temporaries #'(a b)))
+              (define/with-syntax reca (recursive-replace #'tmpa1 #'a))
+              (define/with-syntax recb (recursive-replace #'tmpb1 #'b))
+              #'(match-abort val
+                  [(cons tmpa1 tmpb1)
+                   (let-abort ([tmpa2 reca] [tmpb2 recb])
+                              (protected (cons (unprotect tmpa2)
+                                               (unprotect tmpb2))))])]
+             #| TODO: |#
+             [((~literal Listof) a)
+              (define/with-syntax (tmp1) (generate-temporaries #'(a)))
+              (define/with-syntax (tmp1x) (generate-temporaries #'(a)))
+              (define/with-syntax rec (recursive-replace #'tmp1x #'a))
+              #'(match-abort val
+                  [(list tmp1 (... ...))
+                   (map-abort tmp1 tmp1x rec)])]
+             [((~literal Vector) a ...)
+              (define/with-syntax (tmp1 ...) (generate-temporaries #'(a ...)))
+              (define/with-syntax (tmp2 ...) (generate-temporaries #'(a ...)))
+              (define/with-syntax (rec ...)
+                (stx-map recursive-replace #'(tmp1 ...) #'(a ...)))
+              #`(match-abort val
+                  [(vector tmp1 ...)
+                   (let-abort ([tmp2 rec] ...)
+                              (protected (list (unprotect tmp2) ...)))])]
+             #| TODO:
+             [((~literal Vectorof) a)
+              #`(Vectorof #,(recursive-replace #'a))]
+             ;|#
+             [((~literal U) a ...)
+              (define/with-syntax (tmp1 ...) (generate-temporaries #'(a ...)))
+              (define/with-syntax (rec ...)
+                (stx-map recursive-replace #'(tmp1 ...) #'(a ...)))
+              #`(match-abort val
+                  [tmp1 rec]
+                  ...)]
+             [x:id
+              #'(protected val)]))
+         ;; TODO: if we recieve a 'continue or 'break, give a type error.
+         #`(unprotect #,(recursive-replace val t)))]
 
 @chunk[<*>
        (begin

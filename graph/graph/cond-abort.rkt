@@ -1,9 +1,23 @@
 #lang typed/racket
 
-(provide cond-abort
+(provide (struct-out protected)
+         unprotect
+         cond-abort
          match-abort
          let-abort
-         let*-abort)
+         let*-abort
+         map-abort)
+
+(struct (A) protected ([value : A]))
+
+(define-syntax (unprotect stx)
+  (syntax-case stx ()
+    [(_ e0 . e)
+     (with-syntax ([(tmp) (generate-temporaries #'(e0))])
+       #'(let ([tmp (let () e0 . e)])
+           (if (protected? tmp)
+               (protected-value tmp)
+               tmp)))]))
 
 (define-syntax (cond-abort orig-stx)
   (let rec ([stx orig-stx])
@@ -44,7 +58,7 @@
     (cond
       [(or (eq? 'continue binding) (eq? 'break binding)) binding]
       ...
-      [else (begin . body)])))
+      [else (let () . body)])))
 
 (define-syntax (let*-abort stx)
   (syntax-case stx ()
@@ -55,6 +69,30 @@
          (if (or (eq? 'continue binding) (eq? 'break binding))
              binding
              (let*-abort rest . body)))]))
+
+(define-syntax (map-abort stx)
+  (syntax-case stx ()
+    [(_ lst var . body)
+     #'(let ([l lst])
+         (if (null? l)
+             ;; Special-case to avoid type inference issues with an empty
+             ;; result-list.
+             '()
+             (let ([result-list (list (let ([var (car l)]) . body))])
+               (set! l (cdr l))
+               (do ([stop : (U #f #t 'continue 'break)
+                          #f])
+                 (stop (if (or (eq? stop 'continue) (eq? stop 'break))
+                           stop
+                           (reverse result-list)))
+                 (if (null? l)
+                     (set! stop #t)
+                     (let ([result (let ([var (car l)]) . body)])
+                       (if (or (eq? result 'continue) (eq? result 'break))
+                           (set! stop result)
+                           (begin
+                             (set! result-list (cons result result-list))
+                             (set! l (cdr l))))))))))]))
 
 (module* test typed/racket
   (require typed/rackunit)
