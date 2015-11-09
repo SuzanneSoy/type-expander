@@ -70,6 +70,28 @@ For example, one could replace all strings in a data structure by their length:
             #`(U #,@(stx-map recursive-replace #'(a ...)))]
            [x:id #'x]))]
 
+@CHUNK[<replace-in-instance_new>
+       (define-for-syntax (replace-in-instance val t r)
+         (define/with-syntax ([from to fun] ...) r)
+         (define (recursive-replace stx-val type)
+           (define/with-syntax val stx-val)
+           (syntax-parse type
+             [x:id
+              #:attr assoc-from-to (cdr-stx-assoc #'x
+                                                  #'((from . (to . fun)) ...))
+              #:when (attribute assoc-from-to)
+              #:with (to-type . to-fun) #'assoc-from-to
+              (define/with-syntax (tmp) (generate-temporaries #'(x)))
+              ;; TODO: Add predicate for to-type in the pattern.
+              #`(match-abort val [(and tmp) (protected (to-fun tmp))])]
+             [((~literal List) a ...)
+              (define/with-syntax (tmp ...) (generate-temporaries #'(a ...)))
+              #`(let-values ([(tmp ...) (apply values val)])
+                  (list #,@(stx-map recursive-replace #'(tmp ...) #'(a ...))))]
+             ))
+         (recursive-replace val t r))]
+
+
 @CHUNK[<replace-in-instance>
        (define-for-syntax (replace-in-instance val t r)
          (define/with-syntax ([from to fun] ...) r)
@@ -138,7 +160,7 @@ For example, one could replace all strings in a data structure by their length:
 
 @chunk[<*>
        (begin
-         (module main typed/racket;;;;;;;;;;
+         (module main typed/racket
            (require (for-syntax syntax/parse
                                 racket/syntax
                                 syntax/stx

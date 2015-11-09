@@ -1,6 +1,7 @@
 #lang typed/racket
 
 (require "cond-abort.rkt")
+(require "variant.lp2.rkt")
 
 (match-abort '(1 (a b) 3)
   [(list x y z)
@@ -11,6 +12,12 @@
                [new-z z])
               (list new-x new-y new-z))])
 
+(λ ([x : (U (Vector Number) (Vector String String))])
+  (if (= (vector-length x) 1)
+      x
+      x))
+
+#|
 
 (λ ((v : (List Symbol String)))
   (match-abort
@@ -37,11 +44,43 @@
        ((Symbol3 (protected Symbol1)) (String4 (match-abort String2 ((and String5) (protected (string-length String5))))))
        (protected (list (unprotect Symbol3) (unprotect String4))))))))
 
+|#
+
+
+
+
+(foldl
+ (λ (x acc)
+   (if (null? x)
+       acc;(reverse acc)
+       (if (eq? x 'boo)
+           'continue
+           (cons x acc))))
+ '()
+ '(a b c))
+
+
+#|
+(define-syntax-rule (map-abort lst v . body)
+  #;(let ([l (foldl (λ (v acc)
+                    (let ([result (let () . body)])
+                      (if (eq? result 'continue)
+                          'continue
+                          (if (eq? result 'break)
+                              'break
+                              (cons (unprotect result) acc)))))
+                  '()
+                  lst)])
+    (if (or (eq? l 'continue) (eq? l 'break))
+        l
+        (reverse l))))
 
 (begin
   (:
    test1
-   (→ (List (Pairof (List Symbol (Listof String)) String)) (List (Pairof (List Symbol (Listof Number)) Number))))
+   (→
+    (List (Pairof (List Symbol (Listof String)) String))
+    (List (Pairof (List Symbol (Listof Number)) Number))))
   (define (test1 v)
     (unprotect
      (match-abort
@@ -60,50 +99,26 @@
                     (let-abort
                      ((Symbol9 (protected Symbol7))
                       (temp10
+                       #;(match-abort
+                             temp8
+                           ((list String11 ...)
+                            (begin String11 (error "e"))))
                        (match-abort
                            temp8
                          ((list String11 ...)
-                          #;(map (λ ([String12 : String])
-                                   (unprotect (match-abort String12 ((and String13) (protected (string-length String13))))))
-                                 String11)
-                          #;(map-abort
-                             String11
-                             String12
-                             3 #;(match-abort String12 ((and String13) (protected (string-length String13)))))
-                          
-                          
-                          
-                          (let ([l String11])
-                            (if (null? l)
-                                ;; Special-case to avoid type inference issues with an empty
-                                ;; result-list.
-                                '()
-                                (let ([result-list (list (let ([String12 (car l)]) 3))])
-                                  (set! l (cdr l))
-                                  (do : (U 'continue 'break (Listof Number)) ([stop : (U #f #t 'continue 'break)
-                                             #f])
-                                    (stop (if (eq? stop 'continue)
-                                              'continue
-                                              (if (eq? stop 'break)
-                                                  'break
-                                                  (reverse result-list))))
-                                    (if (null? l)
-                                        (set! stop #t)
-                                        (let ([result (let ([String12 (car l)]) 3)])
-                                          (if (or (eq? result 'continue) (eq? result 'break))
-                                              (set! stop result)
-                                              (begin
-                                                (set! result-list (cons result result-list))
-                                                (set! l (cdr l))))))))))
-                          
-                          
-                          
-                          
-                          
-                          
-                          
-                          ))))
-                     (protected (list (unprotect Symbol9) (unprotect temp10)))))))
-                (String6 (match-abort String4 ((and String14) (protected (string-length String14))))))
+                          (map-abort
+                           String11
+                           String12
+                           (match-abort
+                               String12
+                             ((and String13)
+                              (protected (string-length String13)))))))))
+                     (protected
+                      (list (unprotect Symbol9) (unprotect temp10)))))))
+                (String6
+                 (match-abort
+                     String4
+                   ((and String14) (protected (string-length String14))))))
                (protected (cons (unprotect temp5) (unprotect String6))))))))
          (protected (list (unprotect temp2)))))))))
+|#
