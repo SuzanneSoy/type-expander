@@ -30,12 +30,16 @@ Blah @math{n}, as described by M@._ Foo@.__
        (define (foo)
          (syntax-e #`#,"foo"))]
 
+@itemlist[
+ @item{Item 1}
+ @item{Item 2}]
+
 @(define to-insert 42)
 @chunk[<*>
        ;(displayln #,to-insert) ;; Should work.
        (provide foo)
        <foo>
-
+       
        (module* test racket
          (require (submod ".."))
          (require rackunit)
@@ -56,4 +60,4 @@ But we would actually want:
        (define-syntax-rule (double x) -- should be greyed out
          (let ((x-cache x))
            (+ x-cache x-cache))) -- everything except the changed bits should
-                                 -- be greyed out]
+       -- be greyed out]
