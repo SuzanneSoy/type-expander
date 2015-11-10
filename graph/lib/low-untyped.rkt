@@ -6,9 +6,10 @@
 ;(require sugar/include)
 ;(include-without-lang-line "low.rkt")
 
-;; typed/racket/no-check does not require (for-syntax racket/base).
 ;; TODO: file a bug report?
+;; typed/racket/no-check does not require (for-syntax racket/base).
 (require (for-syntax racket/base))
+
 (include/reader "low.rkt" (λ (source-name in)
                             (port-count-lines! in)
                             (do ()

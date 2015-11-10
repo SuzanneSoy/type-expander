@@ -8,8 +8,8 @@ This module provides (a simplified form of) recursive algebraic data structures,
 with the ability to handle the structure as a collection of nodes, and process
 them all in a way similar to what @tc[map] provides. Traditionally, immutable
 data structures can't form cycles, but can easily be traversed to reach all
-nodes. Conversely, traversing a cyclic data structure (based on lazy evaluation
-or thunks) is difficult if at all possible.
+nodes. Conversely, iterating over a cyclic data structure (created via lazy
+evaluation or thunks) is difficult if at all possible.
 
 More formally, this module offers fold operations on heterogeneous, richly typed
 graphs.

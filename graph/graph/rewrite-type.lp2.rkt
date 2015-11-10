@@ -34,11 +34,17 @@ relies on the lower-level utilities provided by this module, namely
 @CHUNK[<test-make-replace>
        (define-syntax (make-replace stx)
          (syntax-case stx ()
-           [(_ name type . replace)
+           [(_ name type [from to fun] ...)
             #`(begin
-                (: name (→ type #,(replace-in-type #'type #'replace)))
+                (: name (→ type #,(replace-in-type #'type #'([from to] ...))))
                 (define (name v)
-                  #,(replace-in-instance #'v #'type #'replace)))]))]
+                  #,(replace-in-instance #'v
+                                         #'type
+                                         #'<make-replace-wrapped-fun>)))]))]
+
+@CHUNK[<make-replace-wrapped-fun>
+       ([from to (λ ([x : from] [acc : Any]) (fun x))]
+        ...)]
 
 @subsection{A bigger example}
 
@@ -83,7 +89,7 @@ calls itself on the components of the type.
 @CHUNK[<replace-in-type>
        (define-for-syntax (replace-in-type t r)
          (define (recursive-replace new-t) (replace-in-type new-t r))
-         (define/with-syntax ([from to fun] ...) r)
+         (define/with-syntax ([from to] ...) r)
          (syntax-parse t
            <replace-in-type-substitute>
            <replace-in-type-other-cases>))]
@@ -171,7 +177,7 @@ The other cases are similarly defined:
             #:with (to-type . to-fun) #'assoc-from-to
             (define/with-syntax (tmp) (generate-temporaries #'(x)))
             ;; TODO: Add predicate for to-type in the pattern.
-            #`(to-fun val)]
+            #`(to-fun val '())]
            [((~literal List) a ...)
             (define/with-syntax (tmp ...) (generate-temporaries #'(a ...)))
             #`(let-values ([(tmp ...) (apply values val)])
@@ -243,6 +249,80 @@ detail in the
                           "Rethink-how-to-do-the-multi-step-types-more-inside")]
 {FogBugz case 54}.
 
+@section{Extracting parts of an instance}
+
+Replacing parts of an instance may require first extracting them. We define here
+a general fold over some data structures, that allows the replacement function
+to know a value returned by previous replacements. It can be easily adapted to
+have each substitution have a different accumulator by using @tc[list] or
+@tc[struct] of these accumulators as the main one.
+
+The order in which the elements of the structure are passed to the substitution
+functions is undefined.
+
+@subsection{Tests}
+
+@CHUNK[<test-fold-instance>
+       (make-fold test-fold
+                  (List String Number (List String String Symbol String))
+                  Number
+                  [String Number (λ ([x : String] [acc : Number])
+                                   (values (+ (string-length x) acc)
+                                           (+ acc 1)))])
+       
+       (test-fold '("a" 7 ("b" "c" x "d")) 0)]
+
+@CHUNK[<test-make-fold>
+       (define-syntax (make-fold stx)
+         (syntax-case stx ()
+           [(_ name type acc-type [from to fun] ...)
+            #`(begin
+                (: name (→ type
+                           acc-type
+                           (values #,(replace-in-type #'type #'([from to] ...))
+                                   acc-type)))
+                (define name
+                  #,(fold-instance #'v
+                                   #'type
+                                   #'acc-type
+                                   #'([from to fun] ...))))]))]
+
+@subsection{The code}
+
+@CHUNK[<fold-instance>
+       (define-for-syntax (fold-instance val t stx-acc-type r)
+         (define/with-syntax acc-type stx-acc-type)
+         (define/with-syntax ([from to fun] ...) r)
+         <recursive-replace-fold-instance>
+         ;<replace-fold-union>
+         (recursive-replace t))]
+
+@CHUNK[<recursive-replace-fold-instance>
+       (define (recursive-replace type)
+         (define/with-syntax (v-cache) (generate-temporaries #'(val-cache)))
+         (syntax-parse type
+           [x:id
+            #:attr assoc-from-to (cdr-stx-assoc #'x #'((from . (to . fun)) ...))
+            #:when (attribute assoc-from-to)
+            #:with (to-type . to-fun) #'assoc-from-to
+            (define/with-syntax (tmp) (generate-temporaries #'(x)))
+            ;; TODO: Add predicate for x-to in the pattern.
+            #`to-fun]
+           [((~literal List) a ...)
+            (define/with-syntax (tmp1 ...) (generate-temporaries #'(a ...)))
+            (define/with-syntax (tmp2 ...) (generate-temporaries #'(a ...)))
+            (define/with-syntax (new-acc ...) (generate-temporaries #'(a ...)))
+            (define/with-syntax (new-acc1 ... new-acc-last) #'(acc new-acc ...))
+            (define/with-syntax (rec ...)
+              (stx-map recursive-replace #'(a ...)))
+            #`(λ ([val : (List a ...)] [acc : acc-type])
+                (let*-values ([(tmp1 ...) (apply values val)]
+                              [(tmp2 new-acc) (rec tmp1 new-acc1)]
+                              ...)
+                  (values (list tmp2 ...) new-acc-last)))]
+           [x:id
+            #'values]))]
+
 @section{Conclusion}
 
 @chunk[<*>
@@ -258,10 +338,12 @@ detail in the
                     "../type-expander/type-expander.lp2.rkt"
                     "cond-abort.rkt")
            (begin-for-syntax (provide replace-in-type
-                                      replace-in-instance))
+                                      replace-in-instance
+                                      fold-instance))
            
            <replace-in-type>
-           <replace-in-instance>)
+           <replace-in-instance>
+           <fold-instance>)
          
          (require 'main)
          (provide (all-from-out 'main))
@@ -278,5 +360,8 @@ detail in the
            <test-make-replace>
            <test-example>
            <test-big>
+           
+           <test-make-fold>
+           <test-fold-instance>
            
            (require (submod ".." doc))))]
