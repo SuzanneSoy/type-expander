@@ -499,6 +499,17 @@
 ;; ==== syntax.rkt ====
 
 (provide stx-assoc cdr-stx-assoc)
+#|
+(require/typed syntax/stx
+               [stx-car (∀ (A B) (→ (Syntaxof (Pairof A B)) A))]
+               [stx-cdr (∀ (A B) (→ (Syntaxof (Pairof A B)) B))])
+|#
+(: stx-car (∀ (A B) (→ (Syntaxof (Pairof A B)) A)))
+(define (stx-car p) (car (syntax-e p)))
+
+(: stx-cdr (∀ (A B) (→ (Syntaxof (Pairof A B)) B)))
+(define (stx-cdr p) (cdr (syntax-e p)))
+
 ;(require/typed racket/base [(assoc assoc3) (∀ (a b) (→ Any (Listof (Pairof a b)) (U False (Pairof a b))))])
 (require/typed racket/base
                [(assoc assoc3)
@@ -510,30 +521,50 @@
                                       (→ c a Boolean)
                                       (U False (Pairof a b))]))])
 
-(: stx-assoc (∀ (T) (→ Identifier
-                       (U (Syntaxof (Listof (Syntaxof (Pairof Identifier T))))
-                          (Listof (Syntaxof (Pairof Identifier T)))
-                          (Listof (Pairof Identifier T)))
-                       (U (Pairof Identifier T) #f))))
+(: stx-assoc (∀ (T) (case→
+                     (→ Identifier
+                        (U (Syntaxof (Listof (Syntaxof (Pairof Identifier T))))
+                           (Listof (Syntaxof (Pairof Identifier T))))
+                        (U (Syntaxof (Pairof Identifier T)) #f))
+                     (→ Identifier
+                        (Listof (Pairof Identifier T))
+                        (U (Pairof Identifier T) #f)))))
 (define (stx-assoc id alist)
   (let* ([e-alist (if (syntax? alist)
                       (syntax->list alist)
                       alist)]
          [e-e-alist (cond
-                        [(null? e-alist) '()]
-                        [(syntax? (car e-alist)) (map (inst syntax-e (Pairof Identifier T)) e-alist)]
-                        [else e-alist])])
-    (assoc3 id e-e-alist free-identifier=?)))
+                      [(null? e-alist) '()]
+                      [(syntax? (car e-alist))
+                       (map (λ ([x : (Syntaxof (Pairof Identifier T))])
+                              (cons (stx-car x) x))
+                            e-alist)]
+                      [else
+                       (map (λ ([x : (Pairof Identifier T)])
+                              (cons (car x) x))
+                            e-alist)])]
+         [result (assoc3 id e-e-alist free-identifier=?)])
+    (if result (cdr result) #f)))
 
 (: cdr-stx-assoc
-   (∀ (T) (→ Identifier
-             (U (Syntaxof (Listof (Syntaxof (Pairof Identifier T))))
-                (Listof (Syntaxof (Pairof Identifier T)))
-                (Listof (Pairof Identifier T)))
-             (U T #f))))
+   (∀ (T) (case→ (→ Identifier
+                    (U (Syntaxof (Listof (Syntaxof (Pairof Identifier T))))
+                       (Listof (Syntaxof (Pairof Identifier T)))
+                       (Listof (Pairof Identifier T)))
+                    (U T #f)))))
 (define (cdr-stx-assoc id alist)
-  (let ((res (stx-assoc id alist)))
-    (if res (cdr res) #f)))
+  (if (null? alist)
+      #f
+      ;; The typechecker is not precise enough, and the code below does not work
+      ;; if we factorize it: (if (and (list? alist) (syntax? (car alist))) … …)
+      (if (list? alist)
+          (if (syntax? (car alist))
+              (let ((res (stx-assoc id alist)))
+                (if res (stx-cdr res) #f))
+              (let ((res (stx-assoc id alist)))
+                (if res (cdr res) #f)))
+          (let ((res (stx-assoc id alist)))
+            (if res (stx-cdr res) #f)))))
 
 ;; ==== generate-indices ====
 

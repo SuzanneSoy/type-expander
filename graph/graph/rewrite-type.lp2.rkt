@@ -272,30 +272,73 @@ functions is undefined.
                   (List String Number (List String String Symbol String))
                   Number
                   [String Number (λ ([x : String] [acc : Number])
-                                   (values (+ (string-length x) acc)
-                                           (+ acc 1)))])
+                                   (values (string-length x)
+                                           (+ acc (string-length x))))])
        
-       (test-fold-1 '("a" 7 ("b" "c" x "d")) 0)]
+       (check-equal? (test-fold-1 '("a" 7 ("bb" "cccc" x "dddddddd")) 0)
+                     '((1 7 (2 4 x 8)) . 15))]
 
 @CHUNK[<test-fold-instance>
-       (make-fold test-fold-2
+       (make-fold test-fold-list
                   (List String Number (Pairof String String) Symbol)
                   Number
                   [String Number (λ ([x : String] [acc : Number])
-                                   (values (+ (string-length x) acc)
-                                           (+ acc 1)))])
+                                   (values (string-length x)
+                                           (+ acc (string-length x))))])
        
-       (test-fold-2 '("a" 7 ("b" . "c") x) 0)]
+       (check-equal? (test-fold-list '("a" 9 ("bb" . "cccc") x) 0)
+                     '((1 9 (2 . 4) x) . 7))]
+
+@CHUNK[<test-fold-instance>
+       (make-fold test-fold-pairof
+                  (Pairof String (Pairof Number String))
+                  Number
+                  [String Number (λ ([x : String] [acc : Number])
+                                   (values (string-length x)
+                                           (+ acc (string-length x))))])
+       
+       (check-equal? (test-fold-pairof '("a" 7 . "bb") 0)
+                     '((1 7 . 2) . 3))]
 
 @CHUNK[<test-fold-instance>
        (make-fold test-fold-listof
                   (List String Number (Listof String) Symbol String)
                   Number
                   [String Number (λ ([x : String] [acc : Number])
-                                   (values (+ (string-length x) acc)
-                                           (+ acc 1)))])
+                                   (values (string-length x)
+                                           (+ acc (string-length x))))])
        
-       (test-fold-listof '("a" 7 ("b" "c" "d") x "e") 0)]
+       (check-equal? (test-fold-listof
+                      '("a" 7 ("bb" "cccc" "dddddddd") x "eeeeeeeeeeeeeeee")
+                      0)
+                     '((1 7 (2 4 8) x 16) . 31))]
+
+@CHUNK[<test-fold-instance>
+       (make-fold test-fold-vector
+                  (Vector String Number (Vectorof String) Symbol String)
+                  Number
+                  [String Number (λ ([x : String] [acc : Number])
+                                   (values (string-length x)
+                                           (+ acc (string-length x))))])
+       
+       (check-equal? (test-fold-vector
+                      '#("a" 7 #("bb" "cccc" "dddddddd") x "eeeeeeeeeeeeeeee")
+                      0)
+                     '(#(1 7 #(2 4 8) x 16) . 31))]
+
+@CHUNK[<test-fold-instance>
+       (make-fold test-fold-vectorof
+                  (Vectorof (U (List 'tag1 String String) (List 'tag2 Number)))
+                  Number
+                  [String Number (λ ([x : String] [acc : Number])
+                                   (values (string-length x)
+                                           (+ acc (string-length x))))])
+       
+       (check-equal? (test-fold-vectorof
+                      '#((tag1 "a" "bb") (tag2 7) (tag1 "cccc" "dddddddd"))
+                      0)
+                     '(#((tag1 1 2) (tag2 7) (tag1 4 8)) . 15))]
+
 
 @CHUNK[<test-fold-instance>
        (make-fold test-fold-big
@@ -308,12 +351,12 @@ functions is undefined.
                                 String))
                   Number
                   [String Number (λ ([x : String] [acc : Number])
-                                   (values (+ (string-length x) acc)
-                                           (+ acc 1)))])
+                                   (values (string-length x)
+                                           (+ acc (string-length x))))])
        
-       (test-fold-big '(((tag2 (#(sym) 7 ("ab" "abc" "abcd"))) . "a")) 0)]
-
-
+       (check-equal?
+        (test-fold-big '(((tag2 (#(sym) 7 ("a" "bb" "cccc"))) . "dddddddd")) 0)
+        '((((tag2 (#(sym) 7 (1 2 4))) . 8)) . 15))]
 
 @CHUNK[<test-make-fold>
        (define-syntax (make-fold stx)
@@ -322,13 +365,19 @@ functions is undefined.
             #`(begin
                 (: name (→ type
                            acc-type
-                           (values #,(replace-in-type #'type #'([from to] ...))
+                           (Pairof #,(replace-in-type #'type #'([from to] ...))
                                    acc-type)))
-                (define name
-                  #,(fold-instance #'v
-                                   #'type
-                                   #'acc-type
-                                   #'([from to fun] ...))))]))]
+                (define (name [val : type] [acc : acc-type])
+                  (let-values ([([res : #,(replace-in-type #'type
+                                                           #'([from to] ...))]
+                                 [res-acc : acc-type])
+                                (#,(fold-instance #'v
+                                                  #'type
+                                                  #'acc-type
+                                                  #'([from to fun] ...))
+                                 val
+                                 acc)])
+                    (cons res res-acc))))]))]
 
 @subsection{The code}
 
@@ -344,12 +393,12 @@ functions is undefined.
          (define/with-syntax (v-cache) (generate-temporaries #'(val-cache)))
          (syntax-parse type
            [x:id
-            #:attr assoc-from-to (cdr-stx-assoc #'x #'((from . (to . fun)) ...))
-            #:when (attribute assoc-from-to)
-            #:with (to-type . to-fun) #'assoc-from-to
+            #:attr assoc-from-to-fun (stx-assoc #'x #'((from to fun) ...))
+            #:when (attribute assoc-from-to-fun)
+            #:with (x-from x-to x-fun) #'assoc-from-to-fun
             (define/with-syntax (tmp) (generate-temporaries #'(x)))
             ;; TODO: Add predicate for x-to in the pattern.
-            #`to-fun]
+            #`(ann x-fun (→ x-from acc-type (values x-to acc-type)))]
            [((~literal List) a ...)
             (define/with-syntax (tmp1 ...) (generate-temporaries #'(a ...)))
             (define/with-syntax (tmp2 ...) (generate-temporaries #'(a ...)))
@@ -408,6 +457,7 @@ functions is undefined.
             (define/with-syntax new-a-type
               (replace-in-type #'a #'([from to] ...)))
             #`(λ ([val : (Vectorof a)] [acc : acc-type])
+                : (values (Vectorof new-a-type) acc-type)
                 (let ([f (foldl
                           (λ ([x : a]
                               [acc1 : (Pairof (Listof new-a-type) acc-type)])
@@ -426,9 +476,9 @@ functions is undefined.
                               #'(a ...))
                   [(typecheck-fail #'#,type)]))]
            [((~literal quote) a)
-            #'values]
+            #'(inst values 'a acc-type)]
            [x:id
-            #'values]))]
+            #'(inst values x acc-type)]))]
 
 @CHUNK[<replace-fold-union>
        (syntax-parse ta
