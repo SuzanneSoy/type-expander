@@ -40,11 +40,7 @@ relies on the lower-level utilities provided by this module, namely
                 (define (name v)
                   #,(replace-in-instance #'v
                                          #'type
-                                         #'<make-replace-wrapped-fun>)))]))]
-
-@CHUNK[<make-replace-wrapped-fun>
-       ([from to (λ ([x : from] [acc : Any]) (fun x))]
-        ...)]
+                                         #'([from to fun] ...))))]))]
 
 @subsection{A bigger example}
 
@@ -78,7 +74,7 @@ return type containing no more strings, and the correct return value.
                            Number)))
         '(((tag2 (#(sym) 7 (2 3 4))) . 1)))]
 
-@section{Replacing parts of a type}
+@section[#:tag "sec:replace-in-type"]{Replacing parts of a type}
 
 The @tc[replace-in-type] @tc[for-syntax] function is pretty straightforward: it
 checks whether the given type matches one of the substitution rules given in
@@ -134,7 +130,7 @@ TODO: If the type is a quoted primitive, we should replace it too, for example
        [((~literal quote) a)
         #`(quote a)]]
 
-@section{Replacing parts of an instance}
+@section[#:tag "sec:replace-in-instance"]{Replacing parts of an instance}
 
 The @tc[replace-in-instance] for-syntax function is defined in a similar way,
 with an internal definition for @tc[recursive-replace]. The case of unions is
@@ -177,7 +173,7 @@ The other cases are similarly defined:
             #:with (to-type . to-fun) #'assoc-from-to
             (define/with-syntax (tmp) (generate-temporaries #'(x)))
             ;; TODO: Add predicate for to-type in the pattern.
-            #`(to-fun val '())]
+            #`(to-fun val)]
            [((~literal List) a ...)
             (define/with-syntax (tmp ...) (generate-temporaries #'(a ...)))
             #`(let-values ([(tmp ...) (apply values val)])
@@ -254,7 +250,7 @@ detail in the
                           "Rethink-how-to-do-the-multi-step-types-more-inside")]
 {FogBugz case 54}.
 
-@section{Extracting parts of an instance}
+@section[#:tag "sec:fold"]{Folding over an instance}
 
 Replacing parts of an instance may require first extracting them. We define here
 a general fold over some data structures, that allows the replacement function
@@ -371,8 +367,7 @@ functions is undefined.
                   (let-values ([([res : #,(replace-in-type #'type
                                                            #'([from to] ...))]
                                  [res-acc : acc-type])
-                                (#,(fold-instance #'v
-                                                  #'type
+                                (#,(fold-instance #'type
                                                   #'acc-type
                                                   #'([from to fun] ...))
                                  val
@@ -382,7 +377,7 @@ functions is undefined.
 @subsection{The code}
 
 @CHUNK[<fold-instance>
-       (define-for-syntax (fold-instance val t stx-acc-type r)
+       (define-for-syntax (fold-instance t stx-acc-type r)
          (define/with-syntax acc-type stx-acc-type)
          (define/with-syntax ([from to fun] ...) r)
          <recursive-replace-fold-instance>
@@ -495,6 +490,28 @@ For cases of the union which are a tagged list, we use a simple guard, and call
                (eq? 'tag (car val)))
           (#,(recursive-replace ta) val acc)]]
 
+@section{Replacing parts of an instance using fold}
+
+We can use the @tc[fold-instance] for-syntax function defined in section
+@secref{sec:fold} as a building block to write a new, simpler definition of the
+@tc[replace-in-instance] for-syntax function defined in section
+@secref{sec:replace-in-instance}. This method should give better consistency
+between the behaviour of @tc[replace-in-instance] and @tc[fold-instance] as well
+as better maintainability, but is slightly less efficient than the separate
+implementation.
+
+@CHUNK[<replace-in-instance2>
+       (define-for-syntax (replace-in-instance2 val t r)
+         (define/with-syntax ([from to fun] ...) r)
+         #`(first-value
+            (#,(fold-instance t
+                              #'Void
+                              #'([from to (λ ([x : from] [acc : Void])
+                                            (values (fun x) acc))]
+                                 ...))
+             #,val
+             (void))))]
+
 @section{Conclusion}
 
 @chunk[<*>
@@ -508,13 +525,17 @@ For cases of the union which are a tagged list, we use a simple guard, and call
                     "variant.lp2.rkt"
                     "../type-expander/multi-id.lp2.rkt"
                     "../type-expander/type-expander.lp2.rkt"
+                    "../lib/low.rkt"
                     "cond-abort.rkt")
            (begin-for-syntax (provide replace-in-type
-                                      replace-in-instance
-                                      fold-instance))
+                                      ;replace-in-instance
+                                      fold-instance
+                                      (rename-out [replace-in-instance2
+                                                   replace-in-instance])))
            
            <replace-in-type>
            <replace-in-instance>
+           <replace-in-instance2>
            <fold-instance>)
          
          (require 'main)
