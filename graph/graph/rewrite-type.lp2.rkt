@@ -193,13 +193,18 @@ The other cases are similarly defined:
             #`(let ([v-cache val])
                 (let ([tmp (vector-ref v-cache idx)]
                       ...)
-                  (vector #,@(stx-map recursive-replace
-                                      #'(tmp ...)
-                                      #'(a ...)))))]
+                  (vector-immutable #,@(stx-map recursive-replace
+                                                #'(tmp ...)
+                                                #'(a ...)))))]
            [((~literal Vectorof) a)
             (define/with-syntax (tmp) (generate-temporaries #'(a)))
-            #`(vector-map (λ ([tmp : a]) #,(recursive-replace #'tmp #'a))
-                          val)]
+            ;; Inst because otherwise it won't widen the inferred mutable vector
+            ;; elements' type.
+            #`((inst vector->immutable-vector
+                     #,(replace-in-type #'a #'([from to] ...)))
+               (list->vector
+                (map (λ ([tmp : a]) #,(recursive-replace #'tmp #'a))
+                     (vector->list val))))]
            [((~literal U) a ...)
             #`(let ([v-cache val])
                 (cond
@@ -292,6 +297,23 @@ functions is undefined.
        
        (test-fold-listof '("a" 7 ("b" "c" "d") x "e") 0)]
 
+@CHUNK[<test-fold-instance>
+       (make-fold test-fold-big
+                  (List (Pairof (U (List 'tag1 (List (Vector Symbol)
+                                                     Number
+                                                     (Listof String)))
+                                   (List 'tag2 (List (Vector Symbol)
+                                                     Number
+                                                     (Listof String))))
+                                String))
+                  Number
+                  [String Number (λ ([x : String] [acc : Number])
+                                   (values (+ (string-length x) acc)
+                                           (+ acc 1)))])
+       
+       (test-fold-big '(((tag2 (#(sym) 7 ("ab" "abc" "abcd"))) . "a")) 0)]
+
+
 
 @CHUNK[<test-make-fold>
        (define-syntax (make-fold stx)
@@ -315,7 +337,6 @@ functions is undefined.
          (define/with-syntax acc-type stx-acc-type)
          (define/with-syntax ([from to fun] ...) r)
          <recursive-replace-fold-instance>
-         ;<replace-fold-union>
          (recursive-replace t))]
 
 @CHUNK[<recursive-replace-fold-instance>
@@ -365,8 +386,64 @@ functions is undefined.
                           (cons '() acc)
                           val)])
                   (values (reverse (car f)) (cdr f))))]
+           [((~literal Vector) a ...)
+            (define/with-syntax (tmp1 ...) (generate-temporaries #'(a ...)))
+            (define/with-syntax (idx ...) (generate-indices #'(a ...)))
+            (define/with-syntax (tmp2 ...) (generate-temporaries #'(a ...)))
+            (define/with-syntax (new-acc ...) (generate-temporaries #'(a ...)))
+            (define/with-syntax (new-acc1 ... new-acc-last) #'(acc new-acc ...))
+            (define/with-syntax (rec ...)
+              (stx-map recursive-replace #'(a ...)))
+            #`(λ ([val : (Vector a ...)] [acc : acc-type])
+                (let*-values ([(tmp1) (vector-ref val idx)]
+                              ...
+                              [(tmp2 new-acc) (rec tmp1 new-acc1)]
+                              ...)
+                  (values (vector-immutable tmp2 ...) new-acc-last)))]
+           ;; Vectorof
+           [((~literal Vectorof) a)
+            ;(define/with-syntax (x) (generate-temporaries #'(x)))
+            ;(define/with-syntax (acc1) (generate-temporaries #'(acc)))
+            (define/with-syntax rec (recursive-replace #'a))
+            (define/with-syntax new-a-type
+              (replace-in-type #'a #'([from to] ...)))
+            #`(λ ([val : (Vectorof a)] [acc : acc-type])
+                (let ([f (foldl
+                          (λ ([x : a]
+                              [acc1 : (Pairof (Listof new-a-type) acc-type)])
+                            (let-values ([(res res-acc) (rec x (cdr acc1))])
+                              (cons (cons res (car acc1)) res-acc)))
+                          (cons '() acc)
+                          (vector->list val))])
+                  (values (vector->immutable-vector
+                           (list->vector
+                            (reverse (car f))))
+                          (cdr f))))]
+           [((~literal U) a ...)
+            #`(λ ([val : (U a ...)] [acc : acc-type])
+                (cond
+                  #,@(stx-map (λ (ta) <replace-fold-union>)
+                              #'(a ...))
+                  [(typecheck-fail #'#,type)]))]
+           [((~literal quote) a)
+            #'values]
            [x:id
             #'values]))]
+
+@CHUNK[<replace-fold-union>
+       (syntax-parse ta
+         [(List ((~literal quote) tag:id) b ...)
+          <replace-fold-tagged-union-instance>]
+         [_ (error "Type-replace on untagged Unions isn't supported yet!")])]
+
+For cases of the union which are a tagged list, we use a simple guard, and call
+@tc[recursive-replace] on the whole @tc[(List 'tag b ...)] type.
+
+@CHUNK[<replace-fold-tagged-union-instance>
+       #`[(and (list? val)
+               (not (null? val))
+               (eq? 'tag (car val)))
+          (#,(recursive-replace ta) val acc)]]
 
 @section{Conclusion}
 
