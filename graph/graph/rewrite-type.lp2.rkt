@@ -263,14 +263,35 @@ functions is undefined.
 @subsection{Tests}
 
 @CHUNK[<test-fold-instance>
-       (make-fold test-fold
+       (make-fold test-fold-1
                   (List String Number (List String String Symbol String))
                   Number
                   [String Number (λ ([x : String] [acc : Number])
                                    (values (+ (string-length x) acc)
                                            (+ acc 1)))])
        
-       (test-fold '("a" 7 ("b" "c" x "d")) 0)]
+       (test-fold-1 '("a" 7 ("b" "c" x "d")) 0)]
+
+@CHUNK[<test-fold-instance>
+       (make-fold test-fold-2
+                  (List String Number (Pairof String String) Symbol)
+                  Number
+                  [String Number (λ ([x : String] [acc : Number])
+                                   (values (+ (string-length x) acc)
+                                           (+ acc 1)))])
+       
+       (test-fold-2 '("a" 7 ("b" . "c") x) 0)]
+
+@CHUNK[<test-fold-instance>
+       (make-fold test-fold-listof
+                  (List String Number (Listof String) Symbol String)
+                  Number
+                  [String Number (λ ([x : String] [acc : Number])
+                                   (values (+ (string-length x) acc)
+                                           (+ acc 1)))])
+       
+       (test-fold-listof '("a" 7 ("b" "c" "d") x "e") 0)]
+
 
 @CHUNK[<test-make-fold>
        (define-syntax (make-fold stx)
@@ -320,6 +341,30 @@ functions is undefined.
                               [(tmp2 new-acc) (rec tmp1 new-acc1)]
                               ...)
                   (values (list tmp2 ...) new-acc-last)))]
+           [((~literal Pairof) a b)
+            ;(define/with-syntax (tmp-a tmp-b) (generate-temporaries #'(a b)))
+            ;(define/with-syntax (acc-a acc-b) (generate-temporaries #'(a b)))
+            (define/with-syntax rec-a (recursive-replace #'a))
+            (define/with-syntax rec-b (recursive-replace #'b))
+            #`(λ ([val : (Pairof a b)] [acc : acc-type])
+                (let*-values ([(tmp-a acc-a) (rec-a (car val) acc)]
+                              [(tmp-b acc-b) (rec-b (cdr val) acc-a)])
+                  (values (cons tmp-a tmp-b) acc-b)))]
+           [((~literal Listof) a)
+            ;(define/with-syntax (x) (generate-temporaries #'(x)))
+            ;(define/with-syntax (acc1) (generate-temporaries #'(acc)))
+            (define/with-syntax rec (recursive-replace #'a))
+            (define/with-syntax new-a-type
+              (replace-in-type #'a #'([from to] ...)))
+            #`(λ ([val : (Listof a)] [acc : acc-type])
+                (let ([f (foldl
+                          (λ ([x : a]
+                              [acc1 : (Pairof (Listof new-a-type) acc-type)])
+                            (let-values ([(res res-acc) (rec x (cdr acc1))])
+                              (cons (cons res (car acc1)) res-acc)))
+                          (cons '() acc)
+                          val)])
+                  (values (reverse (car f)) (cdr f))))]
            [x:id
             #'values]))]
 
