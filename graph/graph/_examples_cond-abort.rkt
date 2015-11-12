@@ -2,20 +2,25 @@
 
 (require "cond-abort.rkt")
 (require "variant.lp2.rkt")
+(require typed/rackunit)
 
-(match-abort '(1 (a b) 3)
-  [(list x y z)
-   (let-abort ([new-x x]
-               [new-y (match-abort y
-                        [(list n p) (list 'A n p)]
-                        [(list q r s) (list 'B q r s)])]
-               [new-z z])
-              (list new-x new-y new-z))])
+(check-equal?
+ (match-abort '(1 (a b) 3)
+   [(list x y z)
+    (let-abort ([new-x x]
+                [new-y (match-abort y
+                         [(list n p) (list 'A n p)]
+                         [(list q r s) (list 'B q r s)])]
+                [new-z z])
+               (list new-x new-y new-z))])
+ '(1 (A a b) 3))
 
-(λ ([x : (U (Vector Number) (Vector String String))])
-  (if (= (vector-length x) 1)
-      x
-      x))
+(let ()
+  (λ ([x : (U (Vector Number) (Vector String String))])
+    (if (= (vector-length x) 1)
+        x ;; Occurrence typing didn't narrow the type of x to (Vector Number).
+        x))
+  (void))
 
 #|
 
@@ -48,16 +53,17 @@
 
 
 
-
-(foldl
- (λ (x acc)
-   (if (null? x)
-       acc;(reverse acc)
-       (if (eq? x 'boo)
-           'continue
-           (cons x acc))))
- '()
- '(a b c))
+(check-equal?
+ (foldl
+  (λ (x acc)
+    (if (null? x)
+        acc;(reverse acc)
+        (if (eq? x 'boo)
+            'continue
+            (cons x acc))))
+  '()
+  '(a b c))
+ '(c b a))
 
 
 (begin
@@ -100,24 +106,24 @@
          (cons
           (let ((val-cache4 (car val-cache3)))
             (cond
-             ((and (list? val-cache4) (eq? 'tag1 (car val-cache4)))
-              (let-values (((temp6 temp7) (apply values val-cache4)))
-                (list
-                 temp6
-                 (let-values (((temp10 temp11) (apply values temp7)))
-                   (list
-                    (let ((val-cache12 temp10))
-                      (let ((Symbol13 (vector-ref val-cache12 0))) (vector Symbol13)))
-                    (map (λ ((String16 : String)) (string-length String16)) temp11))))))
-             ((and (list? val-cache4) (eq? 'tag2 (car val-cache4)))
-              (let-values (((temp20 temp21) (apply values val-cache4)))
-                (list
-                 temp20
-                 (let-values (((temp24 temp25) (apply values temp21)))
-                   (list
-                    (let ((val-cache26 temp24))
-                      (let ((Symbol27 (vector-ref val-cache26 0))) (vector Symbol27)))
-                    (map (λ ((String30 : String)) (string-length String30)) temp25))))))))
+              ((and (list? val-cache4) (eq? 'tag1 (car val-cache4)))
+               (let-values (((temp6 temp7) (apply values val-cache4)))
+                 (list
+                  temp6
+                  (let-values (((temp10 temp11) (apply values temp7)))
+                    (list
+                     (let ((val-cache12 temp10))
+                       (let ((Symbol13 (vector-ref val-cache12 0))) (vector Symbol13)))
+                     (map (λ ((String16 : String)) (string-length String16)) temp11))))))
+              ((and (list? val-cache4) (eq? 'tag2 (car val-cache4)))
+               (let-values (((temp20 temp21) (apply values val-cache4)))
+                 (list
+                  temp20
+                  (let-values (((temp24 temp25) (apply values temp21)))
+                    (list
+                     (let ((val-cache26 temp24))
+                       (let ((Symbol27 (vector-ref val-cache26 0))) (vector Symbol27)))
+                     (map (λ ((String30 : String)) (string-length String30)) temp25))))))))
           (string-length (cdr val-cache3))))))))
 
 #|

@@ -84,7 +84,7 @@
                 (syntax->datum #'n))
         #'n)
      ;; Just for testing:
-     #''error]))
+     #''test]))
 
 (define-type C Boolean)
 
@@ -116,18 +116,18 @@
     
     (define-type TA A)
     (define-type TAI (incomplete A))
-    (displayln (ann '(A . 1) TAI))
+    (ann '(A . 1) TAI)
     
     (define-type TC C)
     (define-type TCI (incomplete C))
-    (displayln (ann #t TC))
-    (displayln (ann '(C . #t) TCI))
+    (ann #t TC)
+    (ann '(C . #t) TCI)
     
     (let ()
       (define-type A Boolean)
       (define-type TA A)
       (define-type TAI (incomplete A))
-      (displayln (ann 'error TAI))
+      (ann 'test TAI)
       (void))))
 
 (require (prefix-in tr: typed/racket))

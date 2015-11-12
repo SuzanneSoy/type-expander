@@ -1,18 +1,17 @@
 #lang typed/racket
 
 (require "low.rkt")
-(provide (all-from-out "low.rkt"))
+(require "eval-get-values.rkt")
+
+(provide (all-from-out "low.rkt")
+         (all-from-out "eval-get-values.rkt"))
 
 ;; Types
 (provide AnyImmutable)
 ;; Functions
-(provide ∘ eval-get-values)
+(provide (rename-out [∘ compose]))
 ;; Macros
 (provide mapp comment)
-
-(require "eval-get-values.rkt")
-
-(define ∘ compose)
 
 (require (for-syntax syntax/parse
                      racket/syntax))
