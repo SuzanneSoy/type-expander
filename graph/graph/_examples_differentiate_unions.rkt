@@ -1,4 +1,4 @@
-#lang typed/racket
+#lang typed/racket/no-check
 
 
 #;(λ ([x : (U (Vector Number) (Vector String String))])

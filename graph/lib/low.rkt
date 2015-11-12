@@ -6,6 +6,47 @@
 
 ;; ==== low/typed-untyped-module.rkt ====
 
+(require typed/untyped-utils)
+(provide half-typed-module typed/untyped-prefix define-modules)
+
+;; half-typed-module
+(define-syntax-rule (typed-module m typed-language untyped-language . body)
+  (module m typed-language . body))
+
+(define-syntax-rule (untyped-module m typed-language untyped-language . body)
+  (module m untyped-language . body))
+
+(define-typed/untyped-identifier half-typed-module typed-module untyped-module)
+
+#| ;; test: should work in no-check but not in typed:
+(half-typed-module moo typed/racket typed/racket/no-check
+  (: foo One)
+  (define foo 2))
+|#
+
+;; typed/untyped-prefix
+(define-syntax-rule
+  (typed-typed/untyped-prefix [typed-prefix ...] [untyped-prefix ...] . rest)
+  (typed-prefix ... . rest))
+
+(define-syntax-rule
+  (untyped-typed/untyped-prefix [typed-prefix ...] [untyped-prefix ...] . rest)
+  (untyped-prefix ... . rest))
+
+(define-typed/untyped-identifier typed/untyped-prefix
+  typed-typed/untyped-prefix
+  untyped-typed/untyped-prefix)
+
+#|
+;; test: should work in no-check but not in typed:
+(typed/untyped-prefix
+ [module moo2 typed/racket]
+ [module moo2 typed/racket/no-check]
+ (: foo One)
+ (define foo 2))
+|#
+
+;; define-modules
 (define-syntax define-modules
   (syntax-rules (no-submodule)
     [(_ ([no-submodule] [name lang] ...) . body)
@@ -29,6 +70,7 @@
 |#
 
 ;; ==== low/require-provide.rkt ====
+
 (provide require/provide)
 
 (define-syntax (require/provide stx)
