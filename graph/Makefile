@@ -12,4 +12,4 @@ clean:
 
 .PHONY: build-dep
 build-dep:
-	raco pkg install --deps search-auto --update-deps --skip-installed alexis-util cover
+	raco pkg install --deps search-auto --update-deps --skip-installed alexis-util cover debug

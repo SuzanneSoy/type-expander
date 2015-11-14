@@ -105,7 +105,7 @@ don't really know how to solve that. It should be noted that constructors are
 likely to have names starting with a capital letter, so maybe this reduces the
 number of name collisions.
 
-@section{@racket{tagged}}
+@section{@racket[tagged]}
 
 @CHUNK[<tagged>
        (define-multi-id tagged
@@ -131,7 +131,7 @@ number of name collisions.
                        [(tagged foo z x y) (list z y x)])
                      '(z 3 "o"))]
 
-@section{@racket{define-tagged}}
+@section{@racket[define-tagged]}
 
 @chunk[<define-tagged>
        (define-syntax/parse (define-tagged tag:id [field type] ...

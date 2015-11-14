@@ -23,15 +23,21 @@
 (define scrbl-files (exclude-dirs (find-files-by-extension ".scrbl")))
 (define lp2-files (exclude-dirs (find-files-by-extension ".lp2.rkt")))
 (define rkt-files (exclude-dirs (find-files-by-extension ".rkt")))
-(define html-sources (append scrbl-files lp2-files))
+(define doc-sources (append scrbl-files lp2-files))
 (define html-files (map (λ ([scrbl-or-lp2 : Path]) (build-path "docs/" (regexp-case (path->string scrbl-or-lp2) [#rx"\\.scrbl" ".html"] [#rx"\\.lp2\\.rkt" ".lp2.html"])))
-                        html-sources))
+                        doc-sources))
+(define pdf-files (map (λ ([scrbl-or-lp2 : Path]) (build-path "docs/" (regexp-case (path->string scrbl-or-lp2) [#rx"\\.scrbl" ".pdf"] [#rx"\\.lp2\\.rkt" ".lp2.pdf"])))
+                       doc-sources))
 (define mathjax-links (map (λ ([d : Path]) (build-path d "MathJax")) (remove-duplicates (map dirname html-files))))
 
-(: scribble (→ Path (Listof Path) Any))
-(define (scribble file all-files)
+(define-type ScribbleRenderers
+  ; TODO: add --html-tree <n> and '(other . "…") to be future-proof.
+  (U "--html" "--htmls" "--latex" "--pdf" "--dvipdf" "--latex-section"
+     "--text" "--markdown"))
+(: scribble (→ Path (Listof Path) ScribbleRenderers Any))
+(define (scribble file all-files renderer)
   (run `(,(or (find-executable-path "scribble") (error "Can't find executable 'scribble'"))
-         "--html"
+         ,renderer
          "--dest" ,(build-path "docs/" (dirname file))
          "+m"
          "--redirect-main" "http://docs.racket-lang.org/"
@@ -59,24 +65,30 @@
 ;  (managed-compile-zo (build-path (current-directory) rkt)))
 
 (run! `(,(or (find-executable-path "raco") (error "Can't find executable 'raco'"))
-       "make"
-       ,@rkt-files))
+        "make"
+        ,@rkt-files))
 
 (make/proc
  (rules (list "zo" (append html-files
+                           pdf-files
                            mathjax-links))
-        (for/rules ([scrbl-or-lp2 html-sources]
+        (for/rules ([scrbl-or-lp2 doc-sources]
                     [html html-files])
-                   (html)
-                   (scrbl-or-lp2)
-                   (scribble scrbl-or-lp2 html-sources))
+          (html)
+          (scrbl-or-lp2)
+          (scribble scrbl-or-lp2 doc-sources "--html"))
+        (for/rules ([scrbl-or-lp2 doc-sources]
+                    [pdf pdf-files])
+          (pdf)
+          (scrbl-or-lp2)
+          (scribble scrbl-or-lp2 doc-sources "--pdf"))
         (for/rules ([mathjax-link mathjax-links])
-                   (mathjax-link)
-                   ()
-                   (make-file-or-directory-link (simplify-path (apply build-path `(same ,@(map (λ (x) 'up) (explode-path (dirname mathjax-link))) "lib" "doc" "MathJax")) #f)
-                                                mathjax-link)))
+          (mathjax-link)
+          ()
+          (make-file-or-directory-link (simplify-path (apply build-path `(same ,@(map (λ (x) 'up) (explode-path (dirname mathjax-link))) "lib" "doc" "MathJax")) #f)
+                                       mathjax-link)))
  (argv))
 
 (run! `(,(or (find-executable-path "raco") (error "Can't find executable 'raco'"))
-       "cover"
-       ,@(exclude-dirs rkt-files (list "make/"))))
+        "cover"
+        ,@(exclude-dirs rkt-files (list "make/"))))

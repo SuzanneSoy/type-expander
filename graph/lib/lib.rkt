@@ -11,7 +11,8 @@
 ;; Functions
 (provide (rename-out [∘ compose]))
 ;; Macros
-(provide mapp comment)
+;(provide mapp)
+(provide comment)
 
 (require (for-syntax syntax/parse
                      racket/syntax))
@@ -95,6 +96,7 @@
                              ; maybe Prefab? Or are they mutable?
                              ))
 
+#|
 (define-syntax (mapp stx)
   (syntax-parse stx
     [(_ var:id lst:expr body ...)
@@ -114,6 +116,8 @@
                                      body ...)
                                    result))
                        (set! l (cdr l))))))))]))
+|#
+
 
 ;; TODO: this does not work, because Null is (Listof Any)
 ; (mapp x (cdr '(1)) (* x x))

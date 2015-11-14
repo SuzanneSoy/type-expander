@@ -161,7 +161,11 @@
   (check-equal? (fxxor 13206 23715 314576) 304101))
 
 ;; ==== Rest ====
-(provide nameof
+(provide hash-set**
+         map+fold
+         cons→values
+         (rename-out [cons→values cons->values])
+         nameof
          first-value second-value third-value fourth-value fifth-value sixth-value seventh-value eighth-value ninth-value tenth-value
          (rename-out [compose ∘])
          stx-list
@@ -179,9 +183,31 @@
          my-in-syntax
          indexof
          Syntax-Listof
-         check-duplicate-identifiers)
+         check-duplicate-identifiers
+         generate-temporary)
 
 (require (for-syntax syntax/parse syntax/parse/experimental/template))
+
+(: hash-set** (∀ (K V)
+                 (→ (HashTable K V) (Listof (Pairof K V)) (HashTable K V))))
+(define (hash-set** h l)
+  (if (null? l)
+      h
+      (hash-set** (hash-set h (caar l) (cdar l)) (cdr l))))
+
+
+(define #:∀ (A B) (cons→values [x : (Pairof A B)]) (values (car x) (cdr x)))
+
+(: map+fold (∀ (E R A) (→ (→ E A (values R A)) A (Listof E)
+                          (Values (Listof R) A))))
+(define (map+fold f init-acc lst)
+  (let ([result (foldl (λ ([item : E] [acc : (Pairof (Listof R) A)])
+                         (let-values ([(item new-acc) (f item (cdr acc))])
+                           (cons (cons item (car acc))
+                                 new-acc)))
+                       (cons '() init-acc)
+                       lst)])
+    (values (car result) (cdr result))))
 
 (define-syntax-rule (nameof x) (begin x 'x))
 
@@ -405,6 +431,8 @@
 (define (check-duplicate-identifiers ids)
   (if (check-duplicate-identifier (my-in-syntax ids)) #t #f))
 
+(require/typed racket/syntax [generate-temporary (→ Syntax Identifier)])
+
 (require syntax/parse/define)
 (provide define-simple-macro)
 
@@ -625,5 +653,88 @@
      (for/list ([v (my-in-syntax stx)]
                 [i : Nonnegative-Integer (ann (in-naturals) (Sequenceof Nonnegative-Integer))])
        i)]))
+
+;; ==== set.rkt ====
+
+(provide set-map→set)
+(: set-map→set (∀ (e b) (→ (Setof e) (→ e b) (Setof b))))
+(define (set-map→set s f) (list->set (set-map s f)))
+
+;; ==== type-inference-helpers.rkt ====
+
+#|
+;; This does not work, in the end.
+(provide imap)
+(define-syntax (imap stx)
+  (syntax-parse stx
+    [(_ lst:expr var:id (~optional (~literal →)) . body)
+     #'(let ()
+         (define #:∀ (T) (inlined-map [l : (Listof T)])
+           (if (null? l)
+               '()
+               (cons (let ([var (car l)]) . body)
+                     (inlined-map (cdr l)))))
+         (inlined-map lst))]))
+|#
+
+;; ==== percent.rkt ====
+
+(provide % define%)
+#|(define-syntax (% stx)
+  (syntax-parse stx #:literals (= → :)
+    [(_ (~seq (~or ((~and var (~not :)) ...)
+                   (~seq (~and var (~not (~or = → :))) ...)) = expr)
+        ...
+        (~optional (~literal →)) . body)
+     #'(let-values ([(var ...) expr] ...) . body)]))|#
+
+(begin-for-syntax
+  (define-syntax-class %pat
+    (pattern v:id
+             #:with expanded #'v)
+    (pattern ()
+             #:with expanded #'(list))
+    (pattern (x:%pat . rest:%pat)
+             #:with expanded #'(cons x.expanded rest.expanded)))
+  (define-splicing-syntax-class %assignment
+    #:attributes ([pat.expanded 1] [expr 0])
+    #:literals (= →)
+    (pattern (~seq (~and maybe-pat (~not (~or = →))) ... (~datum =) expr:expr)
+             #:with [pat:%pat ...] #'(maybe-pat ...))))
+
+(define-syntax (% stx)
+  (syntax-parse stx #:literals (= →)
+    [(_ :%assignment ... (~optional (~literal →)) . body)
+     #'(match-let*-values ([(pat.expanded ...) expr] ...) . body)]))
+
+(begin-for-syntax
+  (define-syntax-class typed-pat
+    (pattern [x:%pat (~literal :) type:expr]
+             #:with (tmp) (generate-temporaries #'(x))
+             #:with var-type #`[tmp : type]
+             #:with (expanded ...) #'([x.expanded tmp]))
+    (pattern x:%pat
+             #:with var-type #'x
+             #:with (expanded ...) #'())))
+
+(define-syntax (define% stx)
+  (syntax-parse stx
+    [(_ (name param:typed-pat ...)
+        (~and (~seq ret ...) (~optional (~seq (~literal :) ret-type)))
+        . body)
+     #'(define (name param.var-type ...)
+         (match-let (param.expanded ... ...) ret ... . body))]))
+
+#|
+(begin-for-syntax
+  (define-syntax-class λ%expr
+    (pattern e:id #:where (symbol->string e))
+    (pattern e)
+    (pattern (e . rest:λ%expr))))
+
+(define-syntax (λ% stx)
+  (syntax-parse stx
+    [(_ expr )]))
+|#
 
 ;; ==== end ====

@@ -514,6 +514,9 @@ implementation.
 
 @section{Conclusion}
 
+TODO: to test the two versions of replace-in-instance, just use the chunk twice,
+with a let.
+
 @chunk[<*>
        (begin
          (module main typed/racket
