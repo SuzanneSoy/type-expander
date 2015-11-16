@@ -713,15 +713,21 @@
              #:with (tmp) (generate-temporaries #'(x))
              #:with var-type #`[tmp : type]
              #:with (expanded ...) #'([x.expanded tmp]))
-    (pattern x:%pat
+    (pattern x:id
              #:with var-type #'x
-             #:with (expanded ...) #'())))
+             #:with (expanded ...) #'())
+    (pattern x:%pat
+             #:with (tmp) (generate-temporaries #'(x))
+             #:with var-type #'tmp
+             #:with (expanded ...) #'([x.expanded tmp]))))
 
 (define-syntax (define% stx)
   (syntax-parse stx
     [(_ (name param:typed-pat ...)
         (~and (~seq ret ...) (~optional (~seq (~literal :) ret-type)))
         . body)
+     (displayln #'(define (name param.var-type ...)
+                    (match-let (param.expanded ... ...) ret ... . body)))
      #'(define (name param.var-type ...)
          (match-let (param.expanded ... ...) ret ... . body))]))
 

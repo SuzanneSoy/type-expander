@@ -258,7 +258,7 @@ to the queue).
              (λ (e acc)
                (let ([new-tagged ((inst set (Pairof Element Tag)))])
                  <mutable-get-tag-for>
-                 (% result new-acc = (process (car e) acc get-tag-for)
+                 (% result new-acc = (process (car e) acc mget-tag-for)
                     (values result new-acc new-tagged))))
              (cons ((inst hash Element Result)) ((inst hash Tag Result)))
              (λ (e r racc)
@@ -268,7 +268,7 @@ to the queue).
             (values ht-element ht-tag last-accumulator)))]
 
 @chunk[<mutable-get-tag-for>
-       (define (get-tag-for [x : Element] [acc : Accumulator])
+       (define (mget-tag-for [x : Element] [acc : Accumulator])
          (if (hash-has-key? all-tags x)
              (values (hash-ref all-tags x) acc)
              (% tag new-acc = (make-tag x acc)
@@ -297,7 +297,10 @@ provider, which uses an opaque database type @tc[X] to know for which elements
 was a tag requested.
 
 @chunk[<fold-queue-sets-immutable-tags-process-type>
-       (∀ (X) (→ Element Accumulator X (→ Element Accumulator X (Values Tag Accumulator X))
+       (∀ (X) (→ Element
+                 Accumulator
+                 X
+                 (→ Element Accumulator X (Values Tag Accumulator X))
                  (Values Result Accumulator X)))]
 
 @chunk[<inst-fold-queue-sets-immutable-tags>
@@ -342,10 +345,15 @@ was a tag requested.
             (values ht-element ht-tag result-acc)))]
 
 @chunk[<immutable-get-tag-for>
-       (define% (get-tag-for [x : Element]
-                             [acc : Accumulator]
-                             [(h . s) : (Pairof (HashTable Element Tag)
-                                                (Setof (Pairof Element Tag)))])
+       (: get-tag-for (→ Element
+                         Accumulator
+                         (Pairof (HashTable Element Tag)
+                                 (Setof (Pairof Element Tag)))
+                         (values Tag
+                                 Accumulator 
+                                 (Pairof (HashTable Element Tag)
+                                         (Setof (Pairof Element Tag))))))
+       (define% (get-tag-for x acc (h . s))
          (if (hash-has-key? h x)
              (values (hash-ref h x)
                      acc
