@@ -28,6 +28,9 @@ same street.
 
 @subsection{Example usage}
 
+We will start with a running example, which will help us both show the macro's
+syntax, and show some of the key advantages offered by this graph library.
+
 @subsubsection{A seed from which to unravel the graph: the root parameters}
 
 In order to build a graph with that type, we start from the root parameters.
@@ -46,8 +49,9 @@ create other nodes.
 
 @subsubsection{Mapping the root parameters to the root node}
 
-Here is the root mapping for our example. It calls the @tc[street] and
-@tc[person] mappings.
+Here is the root mapping for our example. It maps over the list of names and
+street names @tc[c], and calls for each element the @tc[street] and @tc[person]
+mappings.
 
 @chunk[<example-mappings>
        [(city [c : (Listof (Pairof String String))]) : City
@@ -93,7 +97,7 @@ creation of these nodes by calling yet another mapping.
 
 @; TODO: above: Should we merge two identical instances of Person? They won't
 @; necessarily be eq? if they contain cycles deeper in their structure, anyway.
-@; And we are already merging all equal? link-requests, so there shouldn't be
+@; And we are already merging all equal? placeholders, so there shouldn't be
 @; any blowup in the number of nodes.
 @; It would probably be better for graph-map etc. to have all the nodes in the
 @; database, though.
@@ -125,14 +129,14 @@ Let's take a second look at the root mapping:
         (City (remove-duplicates (map (∘ (curry street c) car) c))
               (remove-duplicates (map (∘ Person cdr) c)))]]
 
-The first case shows that ce can use @tc[street] as any other function, passing
-it to @tc[curry], and calling remove-duplicates on the results. Note that reach
-placeholder returned by @tc[street] will contain all information passed to it,
-here a street name and @tc[c]. Two placeholders for @tc[street] will therefore
-be @tc[equal?] if and only if all the arguments passed to @tc[street] are
-@tc[equal?]. The placeholders also include a symbol specifying which mapping was
-called, so two placeholders for two mappings called with identical parameters
-will not be @tc[equal?].
+The first case shows that we can use @tc[street] as any other function, passing
+it to @tc[curry], and calling @tc[remove-duplicates] on the results. Note that
+each placeholder returned by @tc[street] will contain all information passed to
+it, here a street name and @tc[c]. Two placeholders for @tc[street] will
+therefore be @tc[equal?] if and only if all the arguments passed to @tc[street]
+are @tc[equal?]. The placeholders also include a symbol specifying which mapping
+was called, so two placeholders for two different mappings will not be
+@tc[equal?], even if identical parameters were supplied.
 
 The second case shows that we can also directly call the constructor for the
 @tc[Person] node type. If that type contains references to other nodes, the
@@ -155,6 +159,21 @@ In particular, it does not handle recursive types described with @tc[Rec] yet.
 In this section, we will describe how the @tc[make-graph-constructor] macro is
 implemented.
 
+@subsection{The different types of a node}
+
+A single node name can refer to several types:
+
+@itemlist[
+ @item{The @emph{ideal} type, expressed by the user, for example
+  @racket[[City (Listof Street) (Listof Person)]]}
+ @item{The @emph{incomplete} type, in which references to other node types are
+  allowed to be either actual instances, or placeholders. For example,
+  @racket[[City (Listof (U Street Street-Placeholder))
+           (Listof (U Person Person-Placeholder))]].}
+ @item{The @emph{with-promises} type, in which references to other node types
+  must be replaced by promises for these. For example,
+  @racket[[City (Listof (Promise Street)) (Listof (Promise Person))]].}]
+
 @subsection{The macro's syntax}
 
 We use a simple syntax for @tc[make-graph-constructor], and make it more
@@ -168,9 +187,35 @@ flexible through wrapper macros.
          body]
         ...)]
 
+The macro relies heavily on two sidekick modules: @tc[rewrite-type], and
+@tc[fold-queue]. The former will allow us to derive from the ideal type of a
+node the incomplete type and the with-promises type. It will also allow us to
+search in instances of incomplete nodes, in order to extract the placehoders,
+and replace these parts with promises. The latter, @tc[fold-queue], will be used
+to process all the pending placeholders, with the possibility to enqueue new
+ones as these placeholders are discovered inside incomplete nodes.
+
 @chunk[<make-graph-constructor>
        (define-syntax/parse <signature>
-         #'(void))]
+         #'(<fold-queue>
+            (set 10 11 12)
+            (void)
+            (λ (e acc) (values (format "{~a}" e) acc))
+            (λ (e acc x get-tag)
+              (let*-values ([(t1 acc1 x1) (get-tag (if (even? e)
+                                                       (floor (/ e 2))
+                                                       (+ (* 3 e) 1))
+                                                   acc
+                                                   x)]
+                            [(t2 acc2 x2) (get-tag 127 acc1 x1)])
+                (values (list 'a e t1) acc2 x2)))))]
+
+@chunk[<fold-queue>
+       (inst fold-queue-sets-immutable-tags
+             Integer
+             Void
+             String
+             (List 'a Integer String))]
 
 @section{Conclusion}
 
@@ -179,6 +224,8 @@ flexible through wrapper macros.
          (require (for-syntax syntax/parse
                               racket/syntax
                               "../lib/low-untyped.rkt")
+                  "queue.lp2.rkt"
+                  "rewrite-type.lp2.rkt"
                   "../lib/low.rkt")
          
          (provide make-graph-constructor)
