@@ -161,27 +161,30 @@ as values.
 
 @chunk[<fold-queue-sets>
        (: fold-queue-sets
-          (∀ (Element Accumulator Result)
+          (∀ (Element Accumulator Result ResultAccumulator)
              (→ (Setof Element)
                 Accumulator
                 (→ Element Accumulator
                    (Values Result Accumulator (Setof Element)))
-                (values (HashTable Element Result) Accumulator))))]
+                ResultAccumulator
+                (→ Element Result ResultAccumulator ResultAccumulator)
+                (values ResultAccumulator Accumulator))))]
 
 @chunk[<inst-fold-queue-sets>
        (inst fold-queue
              (Setof Element)
              Element
-             (List (Setof Element) (HashTable Element Result) Accumulator)
-             (List (HashTable Element Result) Accumulator))]
+             (List (Setof Element) ResultAccumulator Accumulator)
+             (List ResultAccumulator Accumulator))]
 
 @chunk[<fold-queue-sets>
-       (define (fold-queue-sets initial-queue accumulator process)
+       (define (fold-queue-sets initial-queue accumulator process
+                                combine-init combine-results)
          (apply values
                 (<inst-fold-queue-sets>
                  initial-queue
                  (list ((inst set Element))
-                       ((inst hash Element Result))
+                       combine-init;((inst hash Element Result))
                        accumulator)
                  cdr
                  (λ ([s : (Setof Element)]) (values (set-first s) (set-rest s)))
@@ -190,17 +193,18 @@ as values.
 
 @chunk[<fold-queue-sets-process>
        (λ (element accumulator rest-queue process-rest)
-         (% (past-queue result-hash acc) = accumulator
+         (% (past-queue result-acc acc) = accumulator
             result new-acc more-elements = (process element acc)
             
             (process-rest
              (set-union rest-queue (set-subtract more-elements past-queue))
              (list (set-add past-queue element)
-                   (if (hash-has-key? result-hash element)
-                       (error (string-append
-                               "Duplicate key in fold-queue-sets."
-                               "Are you using mutable elements?"))
-                       (hash-set result-hash element result))
+                   (combine-results element result result-acc)
+                   #;(if (hash-has-key? result-hash element)
+                         (error (string-append
+                                 "Duplicate key in fold-queue-sets."
+                                 "Are you using mutable elements?"))
+                         (hash-set result-hash element result))
                    new-acc))))]
 
 @subsection{Adding tags, using a mutable dictionary}
@@ -226,13 +230,16 @@ to the queue).
                    Accumulator
                    (→ Element Accumulator (Values Tag Accumulator))
                    (values Result Accumulator))
-                (Values (HashTable (Pairof Element Tag) Result) Accumulator))))]
+                (Values (HashTable Element Result)
+                        (HashTable Tag Result)
+                        Accumulator))))]
 
 @chunk[<inst-fold-queue-sets-tags>
        (inst fold-queue-sets
              (Pairof Element Tag)
              Accumulator
-             Result)]
+             Result
+             (Pairof (HashTable Element Result) (HashTable Tag Result)))]
 
 @chunk[<fold-queue-sets-tags>
        (define (fold-queue-sets-tags initial-queue accumulator make-tag process)
@@ -244,6 +251,7 @@ to the queue).
                       accumulator
                       (set->list initial-queue))
             
+            (ht-element . ht-tag) last-accumulator =
             (<inst-fold-queue-sets-tags>
              (list->set initial-tagged-queue)
              new-accumulator
@@ -251,7 +259,13 @@ to the queue).
                (let ([new-tagged ((inst set (Pairof Element Tag)))])
                  <mutable-get-tag-for>
                  (% result new-acc = (process (car e) acc get-tag-for)
-                    (values result new-acc new-tagged)))))))]
+                    (values result new-acc new-tagged))))
+             (cons ((inst hash Element Result)) ((inst hash Tag Result)))
+             (λ (e r racc)
+               (cons (hash-set (car racc) (car e) r)
+                     (hash-set (cdr racc) (cdr e) r))))
+            
+            (values ht-element ht-tag last-accumulator)))]
 
 @chunk[<mutable-get-tag-for>
        (define (get-tag-for [x : Element] [acc : Accumulator])
@@ -274,9 +288,9 @@ the @tc[get-tag] function now returns a tag and the new dictionary.
                 Accumulator
                 (→ Element Accumulator (Values Tag Accumulator))
                 <fold-queue-sets-immutable-tags-process-type>
-                (Values (HashTable (Pairof Element Tag) Result)
-                        (Pairof (HashTable Element Tag)
-                                Accumulator)))))]
+                (Values (HashTable Element Result)
+                        (HashTable Tag Result)
+                        Accumulator))))]
 
 The @tc[process] lambda now takes an element, as well as a purely functional tag
 provider, which uses an opaque database type @tc[X] to know for which elements
@@ -290,7 +304,8 @@ was a tag requested.
        (inst fold-queue-sets
              (Pairof Element Tag)
              (Pairof (HashTable Element Tag) Accumulator)
-             Result)]
+             Result
+             (Pairof (HashTable Element Result) (HashTable Tag Result)))]
 
 @chunk[<fold-queue-sets-immutable-tags>
        (define (fold-queue-sets-immutable-tags initial-queue
@@ -305,6 +320,7 @@ was a tag requested.
                       accumulator
                       (set->list initial-queue))
             
+            (ht-element . ht-tag) (_ . result-acc) =
             (<inst-fold-queue-sets-immutable-tags>
              (list->set initial-tagged-queue)
              (cons ((inst hash Element Tag)) new-accumulator)
@@ -316,7 +332,14 @@ was a tag requested.
                                                (cons h empty-s)
                                                get-tag-for)
                   new-h = (hash-set** h (set->list s))
-                  (values r (cons new-h new-acc) s))))))]
+                  (values r (cons new-h new-acc) s)))
+             
+             (cons ((inst hash Element Result)) ((inst hash Tag Result)))
+             (λ (e r racc)
+               (cons (hash-set (car racc) (car e) r)
+                     (hash-set (cdr racc) (cdr e) r))))
+            
+            (values ht-element ht-tag result-acc)))]
 
 @chunk[<immutable-get-tag-for>
        (define% (get-tag-for [x : Element]
@@ -343,6 +366,13 @@ was a tag requested.
                     "../lib/low.rkt"
                     racket/set)
            
+           (provide fold-queue
+                    map-queue
+                    tail-call-reverse-map-queue
+                    fold-queue-sets
+                    fold-queue-sets-tags
+                    fold-queue-sets-immutable-tags)
+           
            <fold-queue>
            <map-queue>
            <tail-call-reverse-map-queue>
@@ -350,6 +380,7 @@ was a tag requested.
            <fold-queue-sets-tags>
            <fold-queue-sets-immutable-tags>)
          
+         (require typed/racket)
          (require 'main)
          (provide (all-from-out 'main))
          
@@ -357,5 +388,21 @@ was a tag requested.
            (require (submod "..")
                     typed/rackunit)
            
+           ((inst fold-queue-sets-immutable-tags
+                  Integer
+                  Void
+                  String
+                  (List 'a Integer String))
+            (set 10 11 12)
+            (void)
+            (λ (e acc) (values (format "{~a}" e) acc))
+            (λ (e acc x get-tag)
+              (let*-values ([(t1 acc1 x1) (get-tag (if (even? e)
+                                                       (floor (/ e 2))
+                                                       (+ (* 3 e) 1))
+                                                   acc
+                                                   x)]
+                            [(t2 acc2 x2) (get-tag 127 acc1 x1)])
+                (values (list 'a e t1) acc2 x2))))
            
            (require (submod ".." doc))))]
