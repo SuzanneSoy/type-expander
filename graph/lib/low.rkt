@@ -107,7 +107,8 @@
   
   (define-syntax-parameter stx
     (lambda (stx)
-      (raise-syntax-error (syntax-e stx) "Can only be used in define-syntax/parse"))))
+      (raise-syntax-error (syntax-e stx)
+                          "Can only be used in define-syntax/parse"))))
 
 (define-simple-macro (define-syntax/parse (name . args) . body)
   (define-syntax (name stx2)
@@ -146,7 +147,8 @@
 (provide fxxor)
 
 ;; For fxxor, used to compute hashes.
-;; The type obtained just by writing (require racket/fixnum) is wrong, so we get a more precise one.
+;; The type obtained just by writing (require racket/fixnum) is wrong, so we get
+;; a more precise one.
 (require/typed racket/fixnum [(fxxor fxxor2) (→ Fixnum Fixnum Fixnum)])
 
 (: fxxor (→ Fixnum * Fixnum))
@@ -166,7 +168,8 @@
          cons→values
          (rename-out [cons→values cons->values])
          nameof
-         first-value second-value third-value fourth-value fifth-value sixth-value seventh-value eighth-value ninth-value tenth-value
+         first-value second-value third-value fourth-value fifth-value
+         sixth-value seventh-value eighth-value ninth-value tenth-value
          (rename-out [compose ∘])
          stx-list
          stx-e
@@ -217,7 +220,9 @@
     (check-equal? (nameof y) 'y)))
 
 ;(define (raise-multi-syntax-error name message exprs)
-;(let ([e (exn:fail:syntax "message" (current-continuation-marks) (list #'aaa #'bbb))])
+;(let ([e (exn:fail:syntax "message"
+;                          (current-continuation-marks)
+;                          (list #'aaa #'bbb))])
 ;  ((error-display-handler) (exn-message e) e))
 
 (define-syntax-rule (λstx (param ...) body ...)
@@ -321,7 +326,9 @@
 #|
 (define-syntax (with-output-file stx)
   (syntax-parse stx
-    [(_ filename:expr (~optional (~seq #:mode mode:expr)) (~optional (~seq #:exists exists:expr)) body ...)
+    [(_ filename:expr (~optional (~seq #:mode mode:expr))
+                      (~optional (~seq #:exists exists:expr))
+                      body ...)
      (template (with-output-to-file filename
                  (λ () body ...)
                  (?? (?@ #:mode mode))
@@ -330,7 +337,10 @@
 
 (define-syntax (with-output-file stx)
   (syntax-parse stx
-    [(_ [var:id filename:expr] (~optional (~seq #:mode mode:expr)) (~optional (~seq #:exists exists:expr)) body ...)
+    [(_ [var:id filename:expr]
+        (~optional (~seq #:mode mode:expr))
+        (~optional (~seq #:exists exists:expr))
+        body ...)
      (template (call-with-output-file filename
                  (λ (var) body ...)
                  (?? (?@ #:mode mode))
@@ -374,8 +384,10 @@
                   ([x : (Listof Number) (in-heads '(1 2 3 4 5))]) x)
                 '((1) (1 2) (1 2 3) (1 2 3 4) (1 2 3 4 5))))
 
-;; Can't write the type of on-split, because typed/racket doesn't allow writing (Sequenceof A B), just (Sequenceof A).
-;; in-parallel's type has access to the multi-valued version of Sequenceof, though, so we let typed/racket propagate the inferred type.
+;; Can't write the type of on-split, because typed/racket doesn't allow writing
+;; (Sequenceof A B), just (Sequenceof A).
+;; in-parallel's type has access to the multi-valued version of Sequenceof,
+;; though, so we let typed/racket propagate the inferred type.
 (define #:∀ (T) (in-split [l : (Listof T)])
   (in-parallel (sequence-append (in-value '()) (in-heads l))
                (sequence-append (in-tails l) (in-value '()))))
@@ -403,7 +415,8 @@
             index
             (rec (cdr lst) (+ index 1))))))
 
-;; See also syntax-e, which does not flatten syntax pairs, and syntax->list, which isn't correctly typed (won't take #'(a . (b c d e))).
+;; See also syntax-e, which does not flatten syntax pairs, and syntax->list,
+;; which isn't correctly typed (won't take #'(a . (b c d e))).
 (define-type (Syntax-Listof T)
   (Rec R (Syntaxof (U Null
                       (Pairof T R)
@@ -421,9 +434,14 @@
             e))))
 
 (define (test-in-syntax)
-  (my-in-syntax #'((a . b) (c . d))) ; (ann `(,#'(a . b) ,#'(c . d)) (Listof (Syntaxof (U (Pairof (Syntaxof 'a) (Syntaxof 'b)) (Pairof (Syntaxof 'c) (Syntaxof 'c))))))
-  (my-in-syntax #'(a . (b c d e)))   ; (ann `(,#'a ,#'b ,#'c ,#'d ,#'e) (Listof (Syntaxof (U 'a 'b 'c 'd))))
-  (my-in-syntax #'()))               ; (ann '() (Listof (Syntaxof Nothing)))
+  ; (ann `(,#'(a . b) ,#'(c . d))
+  ;      (Listof (Syntaxof (U (Pairof (Syntaxof 'a) (Syntaxof 'b))
+  ;                           (Pairof (Syntaxof 'c) (Syntaxof 'c))))))
+  (my-in-syntax #'((a . b) (c . d)))
+  ; (ann `(,#'a ,#'b ,#'c ,#'d ,#'e) (Listof (Syntaxof (U 'a 'b 'c 'd))))
+  (my-in-syntax #'(a . (b c d e)))
+  ; (ann '() (Listof (Syntaxof Nothing)))
+  (my-in-syntax #'()))
 
 
 (: check-duplicate-identifiers (→ (Syntaxof (Listof (Syntaxof Symbol)))
@@ -452,7 +470,8 @@
            #|t/gen-temp|#)
   
   (require/typed racket/syntax
-                 [format-id (→ Syntax String (U String Identifier) * Identifier)])
+                 [format-id (→ Syntax String (U String Identifier) *
+                               Identifier)])
   ;(require racket/sequence) ;; in-syntax
   
   (require "sequences.rkt"
@@ -580,7 +599,9 @@
 (: stx-cdr (∀ (A B) (→ (Syntaxof (Pairof A B)) B)))
 (define (stx-cdr p) (cdr (syntax-e p)))
 
-;(require/typed racket/base [(assoc assoc3) (∀ (a b) (→ Any (Listof (Pairof a b)) (U False (Pairof a b))))])
+; (require/typed racket/base [(assoc assoc3)
+;                             (∀ (a b) (→ Any (Listof (Pairof a b))
+;                                         (U False (Pairof a b))))])
 (require/typed racket/base
                [(assoc assoc3)
                 (∀ (a b c) (case→ [→ Any
@@ -638,8 +659,10 @@
 
 ;; ==== generate-indices ====
 
-(: generate-indices (∀ (T) (case→ (→ Integer (Syntax-Listof T) (Listof Integer))
-                                  (→ (Syntax-Listof T) (Listof Nonnegative-Integer)))))
+(: generate-indices (∀ (T) (case→ (→ Integer (Syntax-Listof T)
+                                     (Listof Integer))
+                                  (→ (Syntax-Listof T)
+                                     (Listof Nonnegative-Integer)))))
 
 (provide generate-indices)
 
@@ -651,7 +674,8 @@
        i)]
     [(stx)
      (for/list ([v (my-in-syntax stx)]
-                [i : Nonnegative-Integer (ann (in-naturals) (Sequenceof Nonnegative-Integer))])
+                [i : Nonnegative-Integer
+                   (ann (in-naturals) (Sequenceof Nonnegative-Integer))])
        i)]))
 
 ;; ==== set.rkt ====
