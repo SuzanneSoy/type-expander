@@ -39,10 +39,9 @@ contain the expander procedure, or directly an expander procedure.
                [else
                 (raise-argument-error
                  'prop:type-expander-guard
-                 (string-append
-                  "an exact non-negative integer designating a field index "
-                  "within the structure that should contain a procedure of "
-                  "arity 1, or a procedure of arity 1.")
+                 (~a "an exact non-negative integer designating a field index "
+                     "within the structure that should contain a procedure of "
+                     "arity 1, or a procedure of arity 1.")
                  val)]))]
 
 If the value is a field index, it should be within bounds. The
@@ -832,9 +831,10 @@ in @tc[racket], not @tc[typed/racket]).
 
 @chunk[<module-expander>
        (module expander racket
-         (require racket)
-         (require syntax/parse)
-         (require syntax/stx)
+         (require racket
+                  syntax/parse
+                  syntax/stx
+                  racket/format)
          
          (require (for-template typed/racket))
          

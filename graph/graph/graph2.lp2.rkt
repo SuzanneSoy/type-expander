@@ -295,7 +295,7 @@ The code above needs some identifiers derived from @tc[mapping] names:
 
 @subsection{Making with-promises nodes}
 
-We derive the @tc[with-promises] type from each @emph{ideal} node type, using
+We derive the @tc[with-promises] type from each @emph{ideal} node type using
 the @tc[tmpl-replace-in-type] template metafunction from the rewrite-type
 library. We replace all occurrences of a @tc[node] name with a @tc[Promise] for
 that node's @tc[with-promises] type.
@@ -311,6 +311,24 @@ that node's @tc[with-promises] type.
        (define-temp-ids "~a/make-with-promises" (node ...))
        (define-temp-ids "~a/with-promises-type" (node ...))]
 
+@subsection{Making incomplete nodes}
+
+We derive the @tc[incomplete] type from each @emph{ideal} node type using
+the @tc[tmpl-replace-in-type] template metafunction from the rewrite-type
+library. We replace all occurrences of a @tc[node] name with a union of the
+node's @tc[incomplete] type, and all compatible @tc[placeholder] types.
+
+@; TODO: use a type-expander here, instead of a template metafunction.
+
+@CHUNK[<define-with-promises>
+       (define-type node/incomplete-type
+         (tmpl-replace-in-type (List 'node field-type ...)
+                               ([node (U node/incomplete-type
+                                         mapping/placeholder-type ...)] ...)))]
+
+@chunk[<define-ids>
+       (define-temp-ids "~a/make-with-promises" (node ...))
+       (define-temp-ids "~a/with-promises-type" (node ...))]
 
 @subsection{Processing the placeholders}
 

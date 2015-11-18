@@ -1,6 +1,7 @@
 #lang debug scribble/lp2
 @(require "../lib/doc.rkt")
 @doc-lib-setup
+@(require racket/format)
 
 @title[#:style manual-doc-style]{Rewriting data structures and their types}
 
@@ -246,8 +247,8 @@ Handling freer forms of unions causes some problems:
 
 These issues and possible solutions are addressed in more
 detail in the 
-@hyperlink[(string-append "https://phc.fogbugz.com/f/cases/54/"
-                          "Rethink-how-to-do-the-multi-step-types-more-inside")]
+@hyperlink[(~a "https://phc.fogbugz.com/f/cases/54/"
+               "Rethink-how-to-do-the-multi-step-types-more-inside")]
 {FogBugz case 54}.
 
 @section[#:tag "sec:fold"]{Folding over an instance}

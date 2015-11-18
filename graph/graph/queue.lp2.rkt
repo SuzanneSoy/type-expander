@@ -201,9 +201,9 @@ as values.
              (list (set-add past-queue element)
                    (combine-results element result result-acc)
                    #;(if (hash-has-key? result-hash element)
-                         (error (string-append
-                                 "Duplicate key in fold-queue-sets."
-                                 "Are you using mutable elements?"))
+                         (error (~a "Duplicate key " element
+                                    " in fold-queue-sets."
+                                    "Are you using mutable elements?"))
                          (hash-set result-hash element result))
                    new-acc))))]
 
@@ -372,7 +372,8 @@ was a tag requested.
                                 racket/syntax
                                 "../lib/low-untyped.rkt")
                     "../lib/low.rkt"
-                    racket/set)
+                    racket/set
+                    racket/format)
            
            (provide fold-queue
                     map-queue
