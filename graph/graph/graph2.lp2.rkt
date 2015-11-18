@@ -318,6 +318,9 @@ the @tc[tmpl-replace-in-type] template metafunction from the rewrite-type
 library. We replace all occurrences of a @tc[node] name with a union of the
 node's @tc[incomplete] type, and all compatible @tc[placeholder] types.
 
+TODO: for now we allow all possible mappings, but we should only allow those
+which return type is the desired node type.
+
 @; TODO: use a type-expander here, instead of a template metafunction.
 
 @CHUNK[<define-with-promises>
@@ -327,8 +330,8 @@ node's @tc[incomplete] type, and all compatible @tc[placeholder] types.
                                          mapping/placeholder-type ...)] ...)))]
 
 @chunk[<define-ids>
-       (define-temp-ids "~a/make-with-promises" (node ...))
-       (define-temp-ids "~a/with-promises-type" (node ...))]
+       (define-temp-ids "~a/make-incomplete" (node ...))
+       (define-temp-ids "~a/incomplete-type" (node ...))]
 
 @subsection{Processing the placeholders}
 
