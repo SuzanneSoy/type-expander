@@ -1,4 +1,4 @@
-#lang scribble/lp2
+#lang debug scribble/lp2
 @(require "../lib/doc.rkt")
 @doc-lib-setup
 
@@ -159,7 +159,7 @@ In particular, it does not handle recursive types described with @tc[Rec] yet.
 In this section, we will describe how the @tc[make-graph-constructor] macro is
 implemented.
 
-@subsection{The different types of a node}
+@subsection{The different types of a node and mapping}
 
 A single node name can refer to several types:
 
@@ -174,6 +174,9 @@ A single node name can refer to several types:
   must be replaced by promises for these. For example,
   @racket[[City (Listof (Promise Street)) (Listof (Promise Person))]].}]
 
+When the user code calls a mapping, a placeholder is instead returned. We
+therefore will have one placeholder type per mapping.
+
 @subsection{The macro's syntax}
 
 We use a simple syntax for @tc[make-graph-constructor], and make it more
@@ -182,7 +185,7 @@ flexible through wrapper macros.
 @chunk[<signature>
        (make-graph-constructor
         [node type ...]
-        root:expr
+        (root-expr:expr ...)
         [(mapping [param (~literal :) param-type] ...) (~literal :) result-type
          body]
         ...)]
@@ -195,27 +198,94 @@ and replace these parts with promises. The latter, @tc[fold-queue], will be used
 to process all the pending placeholders, with the possibility to enqueue new
 ones as these placeholders are discovered inside incomplete nodes.
 
-@chunk[<make-graph-constructor>
-       (define-syntax/parse <signature>
-         #'(<fold-queue>
-            (set 10 11 12)
-            (void)
-            (λ (e acc) (values (format "{~a}" e) acc))
-            (λ (e acc x get-tag)
-              (let*-values ([(t1 acc1 x1) (get-tag (if (even? e)
-                                                       (floor (/ e 2))
-                                                       (+ (* 3 e) 1))
-                                                   acc
-                                                   x)]
-                            [(t2 acc2 x2) (get-tag 127 acc1 x1)])
-                (values (list 'a e t1) acc2 x2)))))]
+When the graph constructor is called with the arguments for the root parameters,
+it is equivalent to make and then resolve an initial placeholder. We will use a
+function from the @tc[fold-queue] library to process the queues of pending
+placeholders, starting with a queue containing only that root placeholder.
+We will have one queue for each placeholder type@note{Otherwise, when extracting
+ an element from the collection of results, we would need a @racket[cast].}. The
+queues' element types will therefore be these placeholder types.
+
+@chunk[<fold-queue-type-element>
+       <placeholder-type>]
+
+The return type for each queue will be the corresponding with-promises type.
+
+@chunk[<fold-queue-type-result>
+       <with-promises-type>]
+
+@; Problem: how do we ensure we return the right type for the root?
+@; How do we avoid casts when doing look-ups?
+@; We need several queues, handled in parallel, with distinct element types.
+@; * Several result aggregators, one for each type, so we don't have to cast
+@; * Several queues, so that we can make sure the root node is of the expected
+@;   type.
+
+@; TODO: clarity.
+@(void #|
+The @tc[fold-queues] function allows us to associate each element with a tag, so
+that, inside the processing function and outside, we can refer to an element
+using this tag, which can be more lightweight than keeping a copy of the
+element.
+
+We will tag our elements with an @tc[Index], which prevents memory leakage: if
+we kept references to the original data added to the queue, a graph's
+representation would hold references to its input, which is not the case when
+using simple integers to refer to other nodes, instead of using the input for
+these nodes. Also, it makes lookups in the database much faster, as we will be
+able to use an array instead of a hash table.|#)
+
+@chunk[<fold-queue-type-tag>
+       Index]
+
+@subsection{The queues of placeholders}
+
+@chunk[<root-placeholder>
+       (make-placeholder root-expr ...)]
 
 @chunk[<fold-queue>
-       (inst fold-queue-sets-immutable-tags
-             Integer
-             Void
-             String
-             (List 'a Integer String))]
+       (fold-queues <root-placeholder>
+                    [(mapping [e : <fold-queue-type-element>] get-tag Δ-queues)
+                     : <fold-queue-type-result>
+                     'todo!]
+                    ...)]
+
+
+@section{Making placeholders}
+
+@; TODO: make a template library that implicitly creates temporaries for
+@; foo/bar, when foo is a syntax parameter.
+
+@chunk[<define-ids>
+       (define-temp-ids mapping "~a/make-placeholder")]
+
+@chunk[<define-ids>
+       (define-temp-ids mapping "~a/placeholder-type")]
+
+@chunk[<define-placeholders>
+       (define-type mapping/placeholder-type (List 'mapping param-type ...))
+       
+       (: mapping/make-placeholder (→ param-type ... mapping/placeholder-type))
+       (define (mapping/make-placeholder [param : param-type] ...)
+         (list 'mapping param ...))]
+
+@section{Temporary fillers}
+
+@chunk[<placeholder-type>
+       Any]
+
+@chunk[<with-promises-type>
+       Any]
+
+
+@section{Bits and pieces}
+
+@chunk[<make-graph-constructor>
+       (define-syntax/parse <signature>
+         <define-ids>
+         #'(begin
+             (begin <define-placeholders>) ...
+             <fold-queue>))]
 
 @section{Conclusion}
 
@@ -224,9 +294,11 @@ ones as these placeholders are discovered inside incomplete nodes.
          (require (for-syntax syntax/parse
                               racket/syntax
                               "../lib/low-untyped.rkt")
-                  "queue.lp2.rkt"
+                  "fold-queues.lp2.rkt"
                   "rewrite-type.lp2.rkt"
                   "../lib/low.rkt")
+         
+         (provide fold-queues)
          
          (provide make-graph-constructor)
          <make-graph-constructor>)]
