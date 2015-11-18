@@ -202,8 +202,9 @@ When the graph constructor is called with the arguments for the root parameters,
 it is equivalent to make and then resolve an initial placeholder. We will use a
 function from the @tc[fold-queue] library to process the queues of pending
 placeholders, starting with a queue containing only that root placeholder.
-We will have one queue for each placeholder type@note{Otherwise, when extracting
- an element from the collection of results, we would need a @racket[cast].}. The
+We will have one queue for each placeholder type.@note{It we had only one queue,
+ we would have only one collection of results, and would need a @racket[cast]
+ when extracting nodes from the collection of results.} The
 queues' element types will therefore be these placeholder types.
 
 @chunk[<fold-queue-type-element>
@@ -222,21 +223,17 @@ The return type for each queue will be the corresponding with-promises type.
 @;   type.
 
 @; TODO: clarity.
-@(void #|
-The @tc[fold-queues] function allows us to associate each element with a tag, so
-that, inside the processing function and outside, we can refer to an element
-using this tag, which can be more lightweight than keeping a copy of the
-element.
-
-We will tag our elements with an @tc[Index], which prevents memory leakage: if
-we kept references to the original data added to the queue, a graph's
-representation would hold references to its input, which is not the case when
-using simple integers to refer to other nodes, instead of using the input for
-these nodes. Also, it makes lookups in the database much faster, as we will be
-able to use an array instead of a hash table.|#)
-
-@chunk[<fold-queue-type-tag>
-       Index]
+@; The @tc[fold-queues] function allows us to associate each element with a tag, so
+@; that, inside the processing function and outside, we can refer to an element
+@; using this tag, which can be more lightweight than keeping a copy of the
+@; element.
+@; 
+@; We will tag our elements with an @tc[Index], which prevents memory leakage: if
+@; we kept references to the original data added to the queue, a graph's
+@; representation would hold references to its input, which is not the case when
+@; using simple integers to refer to other nodes, instead of using the input for
+@; these nodes. Also, it makes lookups in the database much faster, as we will be
+@; able to use an array instead of a hash table.
 
 @subsection{The queues of placeholders}
 

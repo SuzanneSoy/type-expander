@@ -8,21 +8,33 @@
 ; @setup-math is returned in @doc-lib-setup.
 
 
-
+(require scriblib/render-cond)
 
 ;(require "low-untyped.rkt")
 ;(#lang reader "scribble-custom/lp2.rkt" #:lang typed/racket)
 
 ;; http://lists.racket-lang.org/users/archive/2015-January/065752.html
-;; http://bugs.racket-lang.org/query/?cmd=view%20audit-trail&database=default&pr=14068
+;; http://bugs.racket-lang.org/query/?cmd=view%20audit-trail&pr=14068
+;;                                                  &database=default
 (require (for-label (only-meta-in 0 typed/racket)))
 (provide (for-label (all-from-out typed/racket)))
 
-;(require scriblib/footnote)
-;(provide (all-from-out scriblib/footnote))
 
-(require (only-in scribble/base [margin-note note]))
+;; ==== hybrid footnotes/margin-note ====
 (provide note)
+(require (only-in scriblib/footnote [note footnote])
+         (only-in scribble/base margin-note)
+         (only-in scribble/core nested-flow style))
+
+(define (note . args)
+  (cond-element
+   [html (element (style "refpara" '())
+                  (list (element (style "refcolumn" '())
+                                 (list (element (style "refcontent" '())
+                                                (list args))))))]
+   [else (apply footnote args)]))
+
+;; ==== ====
 
 (require (for-syntax mzlib/etc))
 (define-syntax (doc-lib-setup stx)
