@@ -466,12 +466,17 @@
 (define-modules ([no-submodule] [ids-untyped typed/racket/no-check])
   (provide format-ids
            hyphen-ids
-           format-temp-ids;
-           #|t/gen-temp|#)
+           format-temp-ids
+           #|t/gen-temp|#
+           define-temp-ids)
   
   (require/typed racket/syntax
                  [format-id (→ Syntax String (U String Identifier) *
                                Identifier)])
+  (require (only-in racket/syntax define/with-syntax)
+           (for-syntax racket/base
+                       racket/syntax
+                       syntax/parse))
   ;(require racket/sequence) ;; in-syntax
   
   (require "sequences.rkt"
@@ -526,7 +531,17 @@
   
   (define (format-temp-ids format . vs)
     ;; Introduce the binding in a fresh scope.
-    (apply format-ids (λ _ ((make-syntax-introducer) #'())) format vs)))
+    (apply format-ids (λ _ ((make-syntax-introducer) #'())) format vs))
+  
+  (define-syntax (define-temp-ids stx)
+    (syntax-parse stx
+      [(_ base:id format)
+       #:when (string? (syntax-e #'format))
+       (with-syntax ([pat (format-id #'base (syntax-e #'format) #'base)])
+         #'(define/with-syntax (pat (... ...))
+             (format-temp-ids format #'(base (... ...)))))]
+      [(_ name:expr format:expr . vs)
+       #`(define/with-syntax name (format-temp-ids format . vs))])))
 
 (module+ test
   (require ;(submod "..")
