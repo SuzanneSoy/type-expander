@@ -12,7 +12,7 @@
 
 @chunk[<fold-queues-signature>
        (fold-queues root-value
-                    [(name [element (~literal :) element-type] Δ-queues get-tag)
+                    [(name [element (~literal :) element-type] Δ-queues enqueue)
                      (~literal :) result-type
                      . body]
                     ...)]
@@ -31,7 +31,7 @@
          <define-enqueue-type>
          <define-Δ-queues-type>
          #'(list (λ ([element : element-type]
-                     [get-tag : get-tag/type]
+                     [enqueue : get-tag/type]
                      [Δ-queues : queues/type])
                    : result-type
                    . body)

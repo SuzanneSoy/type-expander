@@ -535,7 +535,7 @@
   
   (define-syntax (define-temp-ids stx)
     (syntax-parse stx
-      [(_ base:id format)
+      [(_ format (base:id (~literal ...)))
        #:when (string? (syntax-e #'format))
        (with-syntax ([pat (format-id #'base (syntax-e #'format) #'base)])
          #'(define/with-syntax (pat (... ...))

@@ -1,4 +1,4 @@
-#lang scribble/lp2
+#lang debug scribble/lp2
 @(require "../lib/doc.rkt")
 @doc-lib-setup
 
@@ -514,8 +514,34 @@ implementation.
 
 @section{Conclusion}
 
-TODO: to test the two versions of replace-in-instance, just use the chunk twice,
-with a let.
+@; TODO: to test the two versions of replace-in-instance, just use the chunk
+@; twice, with a let.
+
+For easier use of these functions, we also provide a few template metafunctions,
+one for @tc[replace-in-type]:
+
+@CHUNK[<template-metafunctions>
+       (define-template-metafunction (tmpl-replace-in-type stx)
+         (syntax-parse stx
+           [(_ type:expr ([from to] ...))
+            #`#,(replace-in-type #'type
+                                 #'([from to] ...))]))]
+
+And one each for @tc[fold-instance] and @tc[replace-in-instance2]:
+
+@CHUNK[<template-metafunctions>
+       (define-template-metafunction (tmpl-fold-instance stx)
+         (syntax-parse stx
+           [(_ type:expr acc-type:expr (~and rules ([from to fun] ...)))
+            #`#,(fold-instance #'type #'acc-type #'rules)]))
+       
+       (define-template-metafunction (tmpl-replace-in-instance stx)
+         (syntax-parse stx
+           [(_ type:expr (~and rules ([from to fun] ...)))
+            #`#,(replace-in-instance2 #'type #'rules)]))]
+
+These metafunctions just extract the arguments for @tc[replace-in-type] and
+@tc[replace-in-instance2], and pass them to these functions.
 
 @chunk[<*>
        (begin
@@ -523,6 +549,7 @@ with a let.
            (require (for-syntax syntax/parse
                                 racket/syntax
                                 syntax/stx
+                                syntax/parse/experimental/template
                                 "../lib/low-untyped.rkt")
                     "structure.lp2.rkt"
                     "variant.lp2.rkt"
@@ -534,12 +561,16 @@ with a let.
                                       ;replace-in-instance
                                       fold-instance
                                       (rename-out [replace-in-instance2
-                                                   replace-in-instance])))
+                                                   replace-in-instance])
+                                      tmpl-replace-in-type
+                                      tmpl-fold-instance
+                                      tmpl-replace-in-instance))
            
            <replace-in-type>
            <replace-in-instance>
            <replace-in-instance2>
-           <fold-instance>)
+           <fold-instance>
+           (begin-for-syntax <template-metafunctions>))
          
          (require 'main)
          (provide (all-from-out 'main))

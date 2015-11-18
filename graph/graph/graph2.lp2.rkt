@@ -165,7 +165,8 @@ A single node name can refer to several types:
 
 @itemlist[
  @item{The @emph{ideal} type, expressed by the user, for example
-  @racket[[City (Listof Street) (Listof Person)]]}
+  @racket[[City (Listof Street) (Listof Person)]], it is never used as-is in
+  practice}
  @item{The @emph{incomplete} type, in which references to other node types are
   allowed to be either actual instances, or placeholders. For example,
   @racket[[City (Listof (U Street Street-Placeholder))
@@ -175,7 +176,14 @@ A single node name can refer to several types:
   @racket[[City (Listof (Promise Street)) (Listof (Promise Person))]].}]
 
 When the user code calls a mapping, a placeholder is instead returned. We
-therefore will have one placeholder type per mapping.
+therefore will have one placeholder type per mapping. Mappings come in various
+flavours too:
+
+@itemlist[
+ @item{The \emph{placeholder} type and constructor, which just store the
+  arguments for the mapping along with its name}
+ @item{The mapping function's \emph{body}, which takes some parameters and
+  returns a node (this is the code directly provided by the user)}]
 
 @subsection{The macro's syntax}
 
@@ -184,7 +192,7 @@ flexible through wrapper macros.
 
 @chunk[<signature>
        (make-graph-constructor
-        [node type ...]
+        ([node field-type ...] ...)
         (root-expr:expr ...)
         [(mapping [param (~literal :) param-type] ...) (~literal :) result-type
          body]
@@ -208,9 +216,10 @@ We will have one queue for each placeholder type.@note{It we had only one queue,
 queues' element types will therefore be these placeholder types.
 
 @chunk[<fold-queue-type-element>
-       <placeholder-type>]
+       mapping/placeholder-type]
 
-The return type for each queue will be the corresponding with-promises type.
+The return type for each queue will be the corresponding with-promises type. The
+fold-queues function will therefore return a vector of with-promises nodes.
 
 @chunk[<fold-queue-type-result>
        <with-promises-type>]
@@ -223,66 +232,108 @@ The return type for each queue will be the corresponding with-promises type.
 @;   type.
 
 @; TODO: clarity.
-@; The @tc[fold-queues] function allows us to associate each element with a tag, so
-@; that, inside the processing function and outside, we can refer to an element
-@; using this tag, which can be more lightweight than keeping a copy of the
-@; element.
+@; The @tc[fold-queues] function allows us to associate each element with a tag,
+@; so that, inside the processing function and outside, we can refer to an
+@; element using this tag, which can be more lightweight than keeping a copy of
+@; the element.
 @; 
-@; We will tag our elements with an @tc[Index], which prevents memory leakage: if
-@; we kept references to the original data added to the queue, a graph's
+@; We will tag our elements with an @tc[Index], which prevents memory leakage:
+@; if we kept references to the original data added to the queue, a graph's
 @; representation would hold references to its input, which is not the case when
 @; using simple integers to refer to other nodes, instead of using the input for
-@; these nodes. Also, it makes lookups in the database much faster, as we will be
-@; able to use an array instead of a hash table.
+@; these nodes. Also, it makes lookups in the database much faster, as we will
+@; be able to use an array instead of a hash table.
 
 @subsection{The queues of placeholders}
 
-@chunk[<root-placeholder>
-       (make-placeholder root-expr ...)]
+The fold-queus macro takes a root element, in our case the root placeholder,
+which it will insert into the first queue. The next clauses are the queue
+handlers, which look like function definitions of the form
+@tc[(queue-name [element : element-type] Δ-queues enqueue)]. The @tc[enqueue]
+argument is a function used to enqueue elements and get a tag in return, which
+can later be used to retrieve the processed element.
+
+Since the @tc[enqueue] function is pure, it takes a parameter of the same type
+as @tc[Δ-queues] representing the already-enqueued elements, and returns a
+modified copy, in addition to the tag. The queue's processing body should return
+the latest @tc[Δ-queues] in order to have these elements added to the queue.
 
 @chunk[<fold-queue>
        (fold-queues <root-placeholder>
                     [(mapping [e : <fold-queue-type-element>] get-tag Δ-queues)
                      : <fold-queue-type-result>
-                     'todo!]
+                     <fold-queue-body>]
                     ...)]
 
+@subsection{Making placeholders for mappings}
 
-@section{Making placeholders}
+We start creating the root placeholder which we provide to @tc[fold-queues].
 
-@; TODO: make a template library that implicitly creates temporaries for
-@; foo/bar, when foo is a syntax parameter.
+@chunk[<root-placeholder>
+       (root/make-placeholder root-expr ...)]
 
-@chunk[<define-ids>
-       (define-temp-ids mapping "~a/make-placeholder")]
+To make the placeholder, we will need a @tc[make-placeholder] function for each
+@tc[mapping]. We define the type of each placeholder (a list of arguments,
+tagged with the @tc[mapping]'s name), and a constructor:
 
-@chunk[<define-ids>
-       (define-temp-ids mapping "~a/placeholder-type")]
+@; TODO: just use (variant [mapping param-type ...] ...)
 
-@chunk[<define-placeholders>
+@chunk[<define-placeholder>
        (define-type mapping/placeholder-type (List 'mapping param-type ...))
        
        (: mapping/make-placeholder (→ param-type ... mapping/placeholder-type))
        (define (mapping/make-placeholder [param : param-type] ...)
          (list 'mapping param ...))]
 
-@section{Temporary fillers}
+The code above needs some identifiers derived from @tc[mapping] names:
 
-@chunk[<placeholder-type>
-       Any]
+@chunk[<define-ids>
+       (define-temp-ids "~a/make-placeholder" (mapping ...))
+       (define-temp-ids "~a/placeholder-type" (mapping ...))
+       (define/with-syntax (root/make-placeholder . _)
+         #'(mapping/make-placeholder ...))]
+
+@subsection{Making with-promises nodes}
+
+We derive the @tc[with-promises] type from each @emph{ideal} node type, using
+the @tc[tmpl-replace-in-type] template metafunction from the rewrite-type
+library. We replace all occurrences of a @tc[node] name with a @tc[Promise] for
+that node's @tc[with-promises] type.
+
+@; TODO: use a type-expander here, instead of a template metafunction.
+
+@CHUNK[<define-with-promises>
+       (define-type node/with-promises-type
+         (tmpl-replace-in-type (List 'node field-type ...)
+                               ([node (Promise node/with-promises-type)] ...)))]
+
+@chunk[<define-ids>
+       (define-temp-ids "~a/make-with-promises" (node ...))
+       (define-temp-ids "~a/with-promises-type" (node ...))]
+
+
+@subsection{Processing the placeholders}
+
+@chunk[<fold-queue-body>
+       'todo!]
+
+
+@section{Temporary fillers}
 
 @chunk[<with-promises-type>
        Any]
 
 
-@section{Bits and pieces}
+@section{Putting it all together}
 
 @chunk[<make-graph-constructor>
        (define-syntax/parse <signature>
          <define-ids>
-         #'(begin
-             (begin <define-placeholders>) ...
-             <fold-queue>))]
+         (template
+          (let ()
+            (begin <define-placeholder>) ...
+            (begin <define-with-promises>) ...
+            <fold-queue>)))]
 
 @section{Conclusion}
 
@@ -290,6 +341,8 @@ The return type for each queue will be the corresponding with-promises type.
        (module main typed/racket
          (require (for-syntax syntax/parse
                               racket/syntax
+                              syntax/parse/experimental/template
+                              "rewrite-type.lp2.rkt"
                               "../lib/low-untyped.rkt")
                   "fold-queues.lp2.rkt"
                   "rewrite-type.lp2.rkt"
@@ -305,7 +358,9 @@ The return type for each queue will be the corresponding with-promises type.
          (require (submod "..")
                   typed/rackunit)
          
-         <make-constructor-example>
+         <use-example>
+         
+         g
          
          (require (submod ".." doc)))]
 
