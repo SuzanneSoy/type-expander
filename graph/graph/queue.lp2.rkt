@@ -64,7 +64,12 @@ some of those need to be deleted before being processed).
                            Result)))]
 
 @chunk[<fold-queue>
-       (define (fold-queue initial-queue accumulator last-result dequeue empty? process)
+       (define (fold-queue initial-queue
+                           accumulator
+                           last-result
+                           dequeue
+                           empty?
+                           process)
          (let process-rest ([queue initial-queue] [accumulator accumulator])
            (if (empty? queue)
                (last-result accumulator)

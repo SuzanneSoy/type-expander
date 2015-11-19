@@ -54,7 +54,8 @@
 (define-type to (List (Pairof String Boolean) (Listof String)))
 
 (: convert (case→ (→ from to)
-                  (→ (Pairof (Listof Number) Null) (Pairof (Listof String) Null))
+                  (→ (Pairof (Listof Number) Null)
+                     (Pairof (Listof String) Null))
                   (→ (Pairof Number Boolean) (Pairof String Boolean))
                   (→ (Listof Number) (Listof String))
                   (→ Number String)

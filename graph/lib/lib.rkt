@@ -35,10 +35,13 @@
                              Symbol
                              Char
                              Void
-                             ;Input-Port   ;; Not quite mutable, but not really immutable either.
-                             ;Output-Port  ;; Not quite mutable, but not really immutable either.
-                             ;Port         ;; Not quite mutable, but not really immutable either.
-                             #| I haven't checked the mutability of the ones in the #||# comments below
+                             ;Input-Port   ;; Not quite mutable, nor immutable.
+                             ;Output-Port  ;; Not quite mutable, nor immutable.
+                             ;Port         ;; Not quite mutable, nor immutable.
+                             
+                             ;; I haven't checked the mutability of the ones
+                             ;; inside in the #||# comments below
+                             #|
                              Path
                              Path-For-Some-System
                              Regexp 
@@ -55,7 +58,11 @@
                              EOF
                              Continuation-Mark-Set
                              |#
-                             ; Undefined ;; We definitely don't want that one, it's not mutable but it's an error if present anywhere 99.9% of the time.
+                             ;; We definitely don't Undefined, it's not mutable
+                             ;; but it's an error if present anywhere 99.9% of
+                             ;; the time. Typed/racket is moving towards making
+                             ;; occurrences of this type an error, anyway.
+                             ; Undefined
                              #|
                              Module-Path
                              Module-Path-Index
@@ -92,7 +99,9 @@
                              (Pairof AnyImmutable AnyImmutable)
                              (Listof AnyImmutable)
                              ; Plus many others, not added yet.
-                             ; -> ; Not closures, because they can contain mutable variables, and we can't eq? them
+                             ;; Don't include closures, because they can contain
+                             ;; mutable variables, and we can't eq? them.
+                             ; -> 
                              ; maybe Prefab? Or are they mutable?
                              ))
 

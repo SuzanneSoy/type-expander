@@ -1,7 +1,8 @@
 #lang typed/racket/no-check
 
-;; When creating the html document with scribble/lp2, it does not see the macros defined in low.rkt when including it with sugar/include.
-;; Using a raw include/reader works.
+;; When creating the html document with scribble/lp2, it does not see the macros
+;; defined in low.rkt when including it with sugar/include.
+;; But using a raw include/reader works.
 
 ;(require sugar/include)
 ;(include-without-lang-line "low.rkt")

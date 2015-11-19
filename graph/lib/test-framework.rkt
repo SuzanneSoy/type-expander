@@ -2,9 +2,12 @@
 
 ;; Using check-equal? on our variants result in the following error message:
 ;; Attempted to use a higher-order value passed as `Any` in untyped code
-;; check-equal? and check-not-equal? are replaced by versions that work with “higher-order values” below.
+;; check-equal? and check-not-equal? are replaced by versions that work with
+;; “higher-order values” below.
 
-(require (except-in (only-meta-in 0 typed/rackunit) ;; typed/racket risks complaining that it can't do for-meta in all-from-out otherwise.
+(require (except-in (only-meta-in 0 typed/rackunit)
+                    ;; Above: typed/racket risks complaining that it can't do
+                    ;; for-meta in all-from-out if we don't use `only-meta-in`.
                     check-equal?
                     check-not-equal?))
 
@@ -26,15 +29,23 @@
   (check-true (not (equal? x y)) . message))
 
 (define-simple-macro (check-eval-equal? to-eval y . message)
-  (check-true (equal? (eval-get-values to-eval (variable-reference->namespace (#%variable-reference))) y) . message))
+  (check-true (equal? (eval-get-values to-eval
+                                       (variable-reference->namespace
+                                        (#%variable-reference)))
+                      y)
+              . message))
 
 (define-simple-macro (check-eval-string-equal? to-eval y . message)
-  (check-true (equal? (eval-get-values (read (open-input-string to-eval)) (variable-reference->namespace (#%variable-reference)))
+  (check-true (equal? (eval-get-values (read (open-input-string to-eval))
+                                       (variable-reference->namespace
+                                        (#%variable-reference)))
                       y)
               . message))
 
 (define-simple-macro (check-eval-string-equal?/ns ns-anchor to-eval y . message)
-  (check-true (equal? (eval-get-values (read (open-input-string to-eval)) (namespace-anchor->namespace ns-anchor))
+  (check-true (equal? (eval-get-values (read (open-input-string to-eval))
+                                       (namespace-anchor->namespace
+                                        ns-anchor))
                       y)
               . message))
 

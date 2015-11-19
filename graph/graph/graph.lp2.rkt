@@ -188,14 +188,14 @@ Here is an overview of the architecture of the graph constructor:
          <stx-transform/result-node/extract-link-requests>
          <stx-transform/link-request→incomplete>
          #`(let ()
-              <param-type/old>
-              (let ()
-                <define-incomplete-types>
-                <define-make-link-requests>
-                <transform/link-request→incomplete>
-                <define-transforms>
-                <make-graph-database>
-                make-graph-database)))]
+             <param-type/old>
+             (let ()
+               <define-incomplete-types>
+               <define-make-link-requests>
+               <transform/link-request→incomplete>
+               <define-transforms>
+               <make-graph-database>
+               make-graph-database)))]
 
 @chunk[<test-make-graph-constructor>
        (define make-g (make-graph-constructor
@@ -412,7 +412,8 @@ those to the queue.
           (let* ([transformed
                   : transform/result-node/incomplete
                   (apply transform/link-request→incomplete
-                         (cdr (transform/link-request-pre-declared-key request)))]
+                         (cdr (transform/link-request-pre-declared-key
+                               request)))]
                  [transform/transformed
                   (cons transformed transform/transformed)]
                  [extracted

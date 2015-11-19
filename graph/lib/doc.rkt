@@ -38,7 +38,8 @@
 
 (require (for-syntax mzlib/etc))
 (define-syntax (doc-lib-setup stx)
-  ;(display (build-path (this-expression-source-directory) (this-expression-file-name)))
+  ;(display (build-path (this-expression-source-directory)
+  ;                     (this-expression-file-name)))
   #'setup-math) ;; NOTE: setup-math must be returned, not just called!
 
 (provide doc-lib-setup)
@@ -56,10 +57,12 @@
 
 
 
-;; Copied from /usr/local/racket-6.2.900.6/share/pkgs/scribble-lib/scribble/private/lp.rkt
+;; Copied from the file:
+;; /usr/local/racket-6.2.900.6/share/pkgs/scribble-lib/scribble/private/lp.rkt
 
 (require (for-syntax racket/base syntax/boundmap)
-         scribble/scheme scribble/decode scribble/manual (except-in scribble/struct table))
+         scribble/scheme scribble/decode scribble/manual
+         (except-in scribble/struct table))
 
 (begin-for-syntax
   ;; maps chunk identifiers to a counter, so we can distinguish multiple uses
@@ -68,7 +71,10 @@
   (define (get-chunk-number id)
     (free-identifier-mapping-get chunk-numbers id (lambda () #f)))
   (define (inc-chunk-number id)
-    (free-identifier-mapping-put! chunk-numbers id (+ 1 (free-identifier-mapping-get chunk-numbers id))))
+    (free-identifier-mapping-put! chunk-numbers id
+                                  (+ 1
+                                     (free-identifier-mapping-get chunk-numbers
+                                                                  id))))
   (define (init-chunk-number id)
     (free-identifier-mapping-put! chunk-numbers id 2)))
 
@@ -85,7 +91,9 @@
          (when n
            (inc-chunk-number (syntax-local-introduce #'name)))
          
-         (syntax-local-lift-expression #'(quote-syntax (a-chunk name expr (... ...))))
+         (syntax-local-lift-expression #'(quote-syntax (a-chunk name
+                                                                expr
+                                                                (... ...))))
          
          (with-syntax ([tag tag]
                        [str str]
@@ -93,13 +101,15 @@
                         (map (lambda (expr)
                                (syntax-case expr (require)
                                  [(require mod (... ...))
-                                  (let loop ([mods (syntax->list #'(mod (... ...)))])
+                                  (let loop
+                                    ([mods (syntax->list #'(mod (... ...)))])
                                     (cond
                                       [(null? mods) null]
                                       [else 
                                        (syntax-case (car mods) (for-syntax)
                                          [(for-syntax x (... ...))
-                                          (append (loop (syntax->list #'(x (... ...))))
+                                          (append (loop (syntax->list
+                                                         #'(x (... ...))))
                                                   (loop (cdr mods)))]
                                          [x
                                           (cons #'x (loop (cdr mods)))])]))]

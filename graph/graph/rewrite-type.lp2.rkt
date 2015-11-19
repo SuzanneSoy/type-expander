@@ -556,8 +556,7 @@ These metafunctions just extract the arguments for @tc[replace-in-type] and
                     "variant.lp2.rkt"
                     "../type-expander/multi-id.lp2.rkt"
                     "../type-expander/type-expander.lp2.rkt"
-                    "../lib/low.rkt"
-                    "cond-abort.rkt")
+                    "../lib/low.rkt")
            (begin-for-syntax (provide replace-in-type
                                       ;replace-in-instance
                                       fold-instance
@@ -582,8 +581,7 @@ These metafunctions just extract the arguments for @tc[replace-in-type] and
                     "structure.lp2.rkt"
                     "variant.lp2.rkt"
                     "../type-expander/multi-id.lp2.rkt"
-                    "../type-expander/type-expander.lp2.rkt"
-                    "cond-abort.rkt")
+                    "../type-expander/type-expander.lp2.rkt")
            
            <test-make-replace>
            <test-example>
