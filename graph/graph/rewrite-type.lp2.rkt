@@ -385,6 +385,7 @@ functions is undefined.
          (recursive-replace t))]
 
 @CHUNK[<recursive-replace-fold-instance>
+       (define (new-type-for stx) (replace-in-type stx #'([from to] ...)))
        (define (recursive-replace type)
          (define/with-syntax (v-cache) (generate-temporaries #'(val-cache)))
          (syntax-parse type
@@ -400,9 +401,10 @@ functions is undefined.
             (define/with-syntax (tmp2 ...) (generate-temporaries #'(a ...)))
             (define/with-syntax (new-acc ...) (generate-temporaries #'(a ...)))
             (define/with-syntax (new-acc1 ... new-acc-last) #'(acc new-acc ...))
-            (define/with-syntax (rec ...)
-              (stx-map recursive-replace #'(a ...)))
-            #`(λ ([val : (List a ...)] [acc : acc-type])
+            (define/with-syntax (rec …) (stx-map recursive-replace #'(a …)))
+            (define/with-syntax (new-a-type …) (stx-map new-type-for #'(a …)))
+            #`(λ ([val : (List a …)] [acc : acc-type])
+                : (values (List new-a-type …) acc-type)
                 (let*-values ([(tmp1 ...) (apply values val)]
                               [(tmp2 new-acc) (rec tmp1 new-acc1)]
                               ...)
@@ -412,7 +414,10 @@ functions is undefined.
             ;(define/with-syntax (acc-a acc-b) (generate-temporaries #'(a b)))
             (define/with-syntax rec-a (recursive-replace #'a))
             (define/with-syntax rec-b (recursive-replace #'b))
+            (define/with-syntax new-a-type (new-type-for #'a))
+            (define/with-syntax new-b-type (new-type-for #'b))
             #`(λ ([val : (Pairof a b)] [acc : acc-type])
+                : (values (Pairof new-a-type new-b-type) acc-type)
                 (let*-values ([(tmp-a acc-a) (rec-a (car val) acc)]
                               [(tmp-b acc-b) (rec-b (cdr val) acc-a)])
                   (values (cons tmp-a tmp-b) acc-b)))]
@@ -420,10 +425,14 @@ functions is undefined.
             ;(define/with-syntax (x) (generate-temporaries #'(x)))
             ;(define/with-syntax (acc1) (generate-temporaries #'(acc)))
             (define/with-syntax rec (recursive-replace #'a))
-            (define/with-syntax new-a-type
-              (replace-in-type #'a #'([from to] ...)))
+            (define/with-syntax new-a-type (new-type-for #'a))
             #`(λ ([val : (Listof a)] [acc : acc-type])
-                (let ([f (foldl
+                : (values (Listof new-a-type) acc-type)
+                (let ([f ((inst foldl
+                                a
+                                (Pairof (Listof new-a-type) acc-type)
+                                Nothing
+                                Nothing)
                           (λ ([x : a]
                               [acc1 : (Pairof (Listof new-a-type) acc-type)])
                             (let-values ([(res res-acc) (rec x (cdr acc1))])
@@ -437,9 +446,10 @@ functions is undefined.
             (define/with-syntax (tmp2 ...) (generate-temporaries #'(a ...)))
             (define/with-syntax (new-acc ...) (generate-temporaries #'(a ...)))
             (define/with-syntax (new-acc1 ... new-acc-last) #'(acc new-acc ...))
-            (define/with-syntax (rec ...)
-              (stx-map recursive-replace #'(a ...)))
+            (define/with-syntax (rec …) (stx-map recursive-replace #'(a …)))
+            (define/with-syntax (new-a-type …) (stx-map new-type-for #'(a …)))
             #`(λ ([val : (Vector a ...)] [acc : acc-type])
+                : (values (Vector new-a-type …) acc-type)
                 (let*-values ([(tmp1) (vector-ref val idx)]
                               ...
                               [(tmp2 new-acc) (rec tmp1 new-acc1)]
@@ -450,11 +460,14 @@ functions is undefined.
             ;(define/with-syntax (x) (generate-temporaries #'(x)))
             ;(define/with-syntax (acc1) (generate-temporaries #'(acc)))
             (define/with-syntax rec (recursive-replace #'a))
-            (define/with-syntax new-a-type
-              (replace-in-type #'a #'([from to] ...)))
+            (define/with-syntax new-a-type (new-type-for #'a))
             #`(λ ([val : (Vectorof a)] [acc : acc-type])
                 : (values (Vectorof new-a-type) acc-type)
-                (let ([f (foldl
+                (let ([f ((inst foldl
+                                a
+                                (Pairof (Listof new-a-type) acc-type)
+                                Nothing
+                                Nothing)
                           (λ ([x : a]
                               [acc1 : (Pairof (Listof new-a-type) acc-type)])
                             (let-values ([(res res-acc) (rec x (cdr acc1))])
@@ -466,7 +479,9 @@ functions is undefined.
                             (reverse (car f))))
                           (cdr f))))]
            [((~literal U) a ...)
+            (define/with-syntax (new-a-type …) (stx-map new-type-for #'(a …)))
             #`(λ ([val : (U a ...)] [acc : acc-type])
+                : (values (U new-a-type …) acc-type)
                 (cond
                   #,@(stx-map (λ (ta) <replace-fold-union>)
                               #'(a ...))
@@ -524,22 +539,25 @@ one for @tc[replace-in-type]:
 @CHUNK[<template-metafunctions>
        (define-template-metafunction (tmpl-replace-in-type stx)
          (syntax-parse stx
-           [(_ type:expr ([from to] ...))
+           [(_ type:expr [from to] …)
             #`#,(replace-in-type #'type
-                                 #'([from to] ...))]))]
+                                 #'([from to] …))]))]
 
 And one each for @tc[fold-instance] and @tc[replace-in-instance2]:
 
 @CHUNK[<template-metafunctions>
        (define-template-metafunction (tmpl-fold-instance stx)
          (syntax-parse stx
-           [(_ type:expr acc-type:expr (~and rules ([from to fun] ...)))
-            #`#,(fold-instance #'type #'acc-type #'rules)]))
+           [(_ type:expr acc-type:expr [from to fun] …)
+            #`(begin
+                "fold-instance expanded code below. Initially called with:"
+                '(fold-instance type acc-type [from to fun] …)
+                #,(fold-instance #'type #'acc-type #'([from to fun] …)))]))
        
        (define-template-metafunction (tmpl-replace-in-instance stx)
          (syntax-parse stx
-           [(_ type:expr (~and rules ([from to fun] ...)))
-            #`#,(replace-in-instance2 #'type #'rules)]))]
+           [(_ type:expr [from to fun] …)
+            #`#,(replace-in-instance2 #'type #'([from to fun] …))]))]
 
 These metafunctions just extract the arguments for @tc[replace-in-type] and
 @tc[replace-in-instance2], and pass them to these functions.
