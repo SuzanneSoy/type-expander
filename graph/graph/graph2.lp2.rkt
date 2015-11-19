@@ -18,10 +18,10 @@ name. For example, a graph representing a city and its inhabitants could use
 these variants:
 
 @chunk[<example-variants>
-       [City (Listof Street) (Listof Person)]
-       [Street (Listof House)]
-       [House Person Street]
-       [Person String]]
+       [City [streets : (Listof Street)] [inhabitants : (Listof Person)]]
+       [Street [houses : (Listof House)]]
+       [House [owner : Person] [location : Street]]
+       [Person [name : String]]]
 
 Notice the cycle in the type: a street contains houses, which are located on the
 same street.
@@ -192,10 +192,11 @@ flexible through wrapper macros.
 
 @chunk[<signature>
        (make-graph-constructor
-        ([node field-type ...] ...)
+        ([node [field-name:id (~literal :) field-type:expr] ...] ...)
         (root-expr:expr ...)
-        [(mapping [param (~literal :) param-type] ...) (~literal :) result-type
-         body]
+        [(mapping:id [param:id (~literal :) param-type:expr] ...)
+         (~literal :) result-type:expr
+         . body]
         ...)]
 
 The macro relies heavily on two sidekick modules: @tc[rewrite-type], and
@@ -323,15 +324,25 @@ which return type is the desired node type.
 
 @; TODO: use a type-expander here, instead of a template metafunction.
 
-@CHUNK[<define-with-promises>
-       (define-type node/incomplete-type
-         (tmpl-replace-in-type (List 'node field-type ...)
+@CHUNK[<define-incomplete>
+       (define-type field/incomplete-type
+         (tmpl-replace-in-type field-type
                                ([node (U node/incomplete-type
-                                         mapping/placeholder-type ...)] ...)))]
+                                         mapping/placeholder-type ...)] ...)))
+       ...
+       
+       (define-type node/incomplete-type (List 'node field/incomplete-type …))
+       
+       (: node/make-incomplete (→ field/incomplete-type … node/incomplete-type))
+       (define (node/make-incomplete field-name …)
+         (list 'node field-name …))]
 
 @chunk[<define-ids>
-       (define-temp-ids "~a/make-incomplete" (node ...))
-       (define-temp-ids "~a/incomplete-type" (node ...))]
+       (define-temp-ids "~a/make-incomplete" (node …))
+       (define-temp-ids "~a/incomplete-type" (node …))
+       ;; TODO: format-ids doesn't accept arbitrary values. Should we change it?
+       (define/with-syntax ((field/incomplete-type …) …)
+         (stx-map generate-temporaries #'((field-type …) …)))]
 
 @subsection{Processing the placeholders}
 
@@ -354,6 +365,7 @@ which return type is the desired node type.
           (let ()
             (begin <define-placeholder>) ...
             (begin <define-with-promises>) ...
+            (begin <define-incomplete>) ...
             <fold-queue>)))]
 
 @section{Conclusion}
@@ -362,6 +374,7 @@ which return type is the desired node type.
        (module main typed/racket
          (require (for-syntax syntax/parse
                               racket/syntax
+                              syntax/stx
                               syntax/parse/experimental/template
                               "rewrite-type.lp2.rkt"
                               "../lib/low-untyped.rkt")

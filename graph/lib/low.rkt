@@ -170,7 +170,8 @@
          nameof
          first-value second-value third-value fourth-value fifth-value
          sixth-value seventh-value eighth-value ninth-value tenth-value
-         (rename-out [compose ∘])
+         ∘
+         …
          stx-list
          stx-e
          stx-pair
@@ -188,6 +189,10 @@
          Syntax-Listof
          check-duplicate-identifiers
          generate-temporary)
+
+(require (only-in racket
+                  [compose ∘]
+                  [... …]))
 
 (require (for-syntax syntax/parse syntax/parse/experimental/template))
 
@@ -474,6 +479,7 @@
                  [format-id (→ Syntax String (U String Identifier) *
                                Identifier)])
   (require (only-in racket/syntax define/with-syntax)
+           (only-in syntax/stx stx-map)
            (for-syntax racket/base
                        racket/syntax
                        syntax/parse))
@@ -535,6 +541,13 @@
   
   (define-syntax (define-temp-ids stx)
     (syntax-parse stx
+      ;; TODO : factor this with the next case.
+      [(_ format ((base:id (~literal ...)) (~literal ...)))
+       #:when (string? (syntax-e #'format))
+       (with-syntax ([pat (format-id #'base (syntax-e #'format) #'base)])
+         #'(define/with-syntax ((pat (... ...)) (... ...))
+             (stx-map (curry format-temp-ids format)
+                      #'((base (... ...)) (... ...)))))]
       [(_ format (base:id (~literal ...)))
        #:when (string? (syntax-e #'format))
        (with-syntax ([pat (format-id #'base (syntax-e #'format) #'base)])
