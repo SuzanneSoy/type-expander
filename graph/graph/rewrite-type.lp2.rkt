@@ -15,7 +15,7 @@ For example, one could replace all strings in a data structure by their length:
 @CHUNK[<test-example>
        (make-replace test-example
                      (Vectorof (U (List 'tag1 String) (List 'tag2 Number)))
-                     [String Number string-length])]
+                     [String Number string? string-length])]
 
 The result's type would be derived from the original one, but all occurrences of
 @tc[String] have been replaced by @tc[Number]. The result itself would have the
@@ -35,13 +35,13 @@ relies on the lower-level utilities provided by this module, namely
 @CHUNK[<test-make-replace>
        (define-syntax (make-replace stx)
          (syntax-case stx ()
-           [(_ name type [from to fun] ...)
+           [(_ name type [from to pred? fun] ...)
             #`(begin
                 (: name (→ type #,(replace-in-type #'type #'([from to] ...))))
                 (define (name v)
                   #,(replace-in-instance #'v
                                          #'type
-                                         #'([from to fun] ...))))]))]
+                                         #'([from to pred? fun] ...))))]))]
 
 @subsection{A bigger example}
 
@@ -58,7 +58,7 @@ example:
                                                         Number
                                                         (Listof String))))
                                    String))
-                     [String Number string-length])]
+                     [String Number string? string-length])]
 
 The replacement function @tc[test-big] defined above will, as expected, have a
 return type containing no more strings, and the correct return value.
@@ -268,9 +268,9 @@ functions is undefined.
        (make-fold test-fold-1
                   (List String Number (List String String Symbol String))
                   Number
-                  [String Number (λ ([x : String] [acc : Number])
-                                   (values (string-length x)
-                                           (+ acc (string-length x))))])
+                  [String Number string? (λ ([x : String] [acc : Number])
+                                           (values (string-length x)
+                                                   (+ acc (string-length x))))])
        
        (check-equal? (test-fold-1 '("a" 7 ("bb" "cccc" x "dddddddd")) 0)
                      '((1 7 (2 4 x 8)) . 15))]
@@ -279,9 +279,9 @@ functions is undefined.
        (make-fold test-fold-list
                   (List String Number (Pairof String String) Symbol)
                   Number
-                  [String Number (λ ([x : String] [acc : Number])
-                                   (values (string-length x)
-                                           (+ acc (string-length x))))])
+                  [String Number string? (λ ([x : String] [acc : Number])
+                                           (values (string-length x)
+                                                   (+ acc (string-length x))))])
        
        (check-equal? (test-fold-list '("a" 9 ("bb" . "cccc") x) 0)
                      '((1 9 (2 . 4) x) . 7))]
@@ -290,9 +290,9 @@ functions is undefined.
        (make-fold test-fold-pairof
                   (Pairof String (Pairof Number String))
                   Number
-                  [String Number (λ ([x : String] [acc : Number])
-                                   (values (string-length x)
-                                           (+ acc (string-length x))))])
+                  [String Number string? (λ ([x : String] [acc : Number])
+                                           (values (string-length x)
+                                                   (+ acc (string-length x))))])
        
        (check-equal? (test-fold-pairof '("a" 7 . "bb") 0)
                      '((1 7 . 2) . 3))]
@@ -301,9 +301,9 @@ functions is undefined.
        (make-fold test-fold-listof
                   (List String Number (Listof String) Symbol String)
                   Number
-                  [String Number (λ ([x : String] [acc : Number])
-                                   (values (string-length x)
-                                           (+ acc (string-length x))))])
+                  [String Number string? (λ ([x : String] [acc : Number])
+                                           (values (string-length x)
+                                                   (+ acc (string-length x))))])
        
        (check-equal? (test-fold-listof
                       '("a" 7 ("bb" "cccc" "dddddddd") x "eeeeeeeeeeeeeeee")
@@ -314,9 +314,9 @@ functions is undefined.
        (make-fold test-fold-vector
                   (Vector String Number (Vectorof String) Symbol String)
                   Number
-                  [String Number (λ ([x : String] [acc : Number])
-                                   (values (string-length x)
-                                           (+ acc (string-length x))))])
+                  [String Number string? (λ ([x : String] [acc : Number])
+                                           (values (string-length x)
+                                                   (+ acc (string-length x))))])
        
        (check-equal? (test-fold-vector
                       '#("a" 7 #("bb" "cccc" "dddddddd") x "eeeeeeeeeeeeeeee")
@@ -327,9 +327,9 @@ functions is undefined.
        (make-fold test-fold-vectorof
                   (Vectorof (U (List 'tag1 String String) (List 'tag2 Number)))
                   Number
-                  [String Number (λ ([x : String] [acc : Number])
-                                   (values (string-length x)
-                                           (+ acc (string-length x))))])
+                  [String Number string? (λ ([x : String] [acc : Number])
+                                           (values (string-length x)
+                                                   (+ acc (string-length x))))])
        
        (check-equal? (test-fold-vectorof
                       '#((tag1 "a" "bb") (tag2 7) (tag1 "cccc" "dddddddd"))
@@ -347,9 +347,9 @@ functions is undefined.
                                                      (Listof String))))
                                 String))
                   Number
-                  [String Number (λ ([x : String] [acc : Number])
-                                   (values (string-length x)
-                                           (+ acc (string-length x))))])
+                  [String Number string? (λ ([x : String] [acc : Number])
+                                           (values (string-length x)
+                                                   (+ acc (string-length x))))])
        
        (check-equal?
         (test-fold-big '(((tag2 (#(sym) 7 ("a" "bb" "cccc"))) . "dddddddd")) 0)
@@ -358,7 +358,7 @@ functions is undefined.
 @CHUNK[<test-make-fold>
        (define-syntax (make-fold stx)
          (syntax-case stx ()
-           [(_ name type acc-type [from to fun] ...)
+           [(_ name type acc-type [from to pred? fun] ...)
             #`(begin
                 (: name (→ type
                            acc-type
@@ -370,7 +370,7 @@ functions is undefined.
                                  [res-acc : acc-type])
                                 (#,(fold-instance #'type
                                                   #'acc-type
-                                                  #'([from to fun] ...))
+                                                  #'([from to pred? fun] ...))
                                  val
                                  acc)])
                     (cons res res-acc))))]))]
@@ -380,7 +380,7 @@ functions is undefined.
 @CHUNK[<fold-instance>
        (define-for-syntax (fold-instance t stx-acc-type r)
          (define/with-syntax acc-type stx-acc-type)
-         (define/with-syntax ([from to fun] ...) r)
+         (define/with-syntax ([from to pred? fun] ...) r)
          <recursive-replace-fold-instance>
          (recursive-replace t))]
 
@@ -491,19 +491,35 @@ functions is undefined.
            [x:id
             #'(inst values x acc-type)]))]
 
+@subsection{Union types}
+
 @CHUNK[<replace-fold-union>
        (syntax-parse ta
          [(List ((~literal quote) tag:id) b ...)
-          <replace-fold-tagged-union-instance>]
+          <replace-fold-union-tagged-list>]
+         [(Pairof ((~literal quote) tag:id) b)
+          <replace-fold-union-tagged-list>]
+         [x:id
+          #:attr assoc-result (stx-assoc #'x #'((from to pred? fun) ...))
+          #:when (attribute assoc-result)
+          #:with (x-from x-to x-pred? x-fun) #'assoc-result
+          <replace-fold-union-predicate>]
          [_ (error "Type-replace on untagged Unions isn't supported yet!")])]
 
 For cases of the union which are a tagged list, we use a simple guard, and call
 @tc[recursive-replace] on the whole @tc[(List 'tag b ...)] type.
 
-@CHUNK[<replace-fold-tagged-union-instance>
-       #`[(and (list? val)
-               (not (null? val))
+@CHUNK[<replace-fold-union-tagged-list>
+       #`[(and (pair? val)
                (eq? 'tag (car val)))
+          (#,(recursive-replace ta) val acc)]]
+
+For cases of the union which match one of the types to be replaced, we use the
+provided predicate as a guard, and call @tc[recursive-replace] on the whole
+type.
+
+@CHUNK[<replace-fold-union-predicate>
+       #`[(x-pred? val)
           (#,(recursive-replace ta) val acc)]]
 
 @section{Replacing parts of an instance using fold}
@@ -518,12 +534,12 @@ implementation.
 
 @CHUNK[<replace-in-instance2>
        (define-for-syntax (replace-in-instance2 val t r)
-         (define/with-syntax ([from to fun] ...) r)
+         (define/with-syntax ([from to pred? fun] ...) r)
          #`(first-value
             (#,(fold-instance t
                               #'Void
-                              #'([from to (λ ([x : from] [acc : Void])
-                                            (values (fun x) acc))]
+                              #'([from to pred? (λ ([x : from] [acc : Void])
+                                                  (values (fun x) acc))]
                                  ...))
              #,val
              (void))))]
@@ -548,11 +564,13 @@ And one each for @tc[fold-instance] and @tc[replace-in-instance2]:
 @CHUNK[<template-metafunctions>
        (define-template-metafunction (tmpl-fold-instance stx)
          (syntax-parse stx
-           [(_ type:expr acc-type:expr [from to fun] …)
+           [(_ type:expr acc-type:expr [from to pred? fun] …)
             #`(begin
                 "fold-instance expanded code below. Initially called with:"
-                '(fold-instance type acc-type [from to fun] …)
-                #,(fold-instance #'type #'acc-type #'([from to fun] …)))]))
+                '(fold-instance type acc-type [from to pred? fun] …)
+                #,(fold-instance #'type
+                                 #'acc-type
+                                 #'([from to pred? fun] …)))]))
        
        (define-template-metafunction (tmpl-replace-in-instance stx)
          (syntax-parse stx

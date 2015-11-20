@@ -714,6 +714,8 @@
 
 ;; ==== type-inference-helpers.rkt ====
 
+(provide cars cdrs)
+
 #|
 ;; This does not work, in the end.
 (provide imap)
@@ -728,6 +730,12 @@
                      (inlined-map (cdr l)))))
          (inlined-map lst))]))
 |#
+
+(: cars (∀ (A) (→ (Listof (Pairof A Any)) (Listof A))))
+(define (cars l) ((inst map A (Pairof A Any)) car l))
+
+(: cdrs (∀ (B) (→ (Listof (Pairof Any B)) (Listof B))))
+(define (cdrs l) ((inst map B (Pairof Any B)) cdr l))
 
 ;; ==== percent.rkt ====
 

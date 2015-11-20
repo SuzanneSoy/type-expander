@@ -12,26 +12,26 @@
 
 @chunk[<fold-queues-signature>
        (fold-queues root-value
-                    [(name [element (~literal :) element-type] Δ-queues enqueue)
+                    [(name [element (~literal :) Element-Type] Δ-queues enqueue)
                      (~literal :) result-type
                      . body]
                     ...)]
 
 @chunk[<define-enqueue-type>
-       (define/with-syntax get-tag/type
-         #'(∀ (X) (case→ (→ 'name element-type X (values Index X))
+       (define/with-syntax enqueue/type
+         #'(∀ (X) (case→ (→ 'name Element-Type X (values Index X))
                          ...)))]
 
 @chunk[<define-Δ-queues-type>
        (define/with-syntax queues/type
-         #'(List (Δ-Hash element-type Index) ...))]
+         #'(List (Δ-Hash Element-Type Index) ...))]
 
 @chunk[<fold-queue-multi-sets-immutable-tags>
        (define-syntax/parse <fold-queues-signature>
          <define-enqueue-type>
          <define-Δ-queues-type>
-         #'(list (λ ([element : element-type]
-                     [enqueue : get-tag/type]
+         #'(list (λ ([element : Element-Type]
+                     [enqueue : enqueue/type]
                      [Δ-queues : queues/type])
                    : result-type
                    . body)

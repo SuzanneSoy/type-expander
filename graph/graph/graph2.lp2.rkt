@@ -6,6 +6,10 @@
 
 @(table-of-contents)
 
+@; TODO: allow a mapping to return a new placeholder, in order to act as a
+@; redirect. All references to the old placeholder will act as if they were to
+@; the new placeholder.
+
 @section{Introduction}
 
 This module provides a @tc[graph] macro which helps constructing immutable
@@ -18,9 +22,10 @@ name. For example, a graph representing a city and its inhabitants could use
 these variants:
 
 @chunk[<example-variants>
-       [City [streets : (Listof Street)] [inhabitants : (Listof Person)]]
-       [Street [houses : (Listof House)]]
-       [House [owner : Person] [location : Street]]
+       [City #|[streets : (Listof Street)]|# [inhabitants : (Listof Person)]]
+       #|DEBUG|#
+       #|[Street [houses : (Listof House)]]
+       [House [owner : Person] [location : Street]]|#
        [Person [name : String]]]
 
 Notice the cycle in the type: a street contains houses, which are located on the
@@ -53,10 +58,12 @@ Here is the root mapping for our example. It maps over the list of names and
 street names @tc[c], and calls for each element the @tc[street] and @tc[person]
 mappings.
 
+@; Would be nicer with (map (∘ (curry street c) my-car) c)), but that doesn't
+@; typecheck (yet).
 @chunk[<example-mappings>
        [(city [c : (Listof (Pairof String String))]) : City
-        (City (remove-duplicates (map (∘ (curry street c) car) c))
-              (remove-duplicates (map (∘ Person cdr) c)))]]
+        (City #|DEBUG|##|(remove-duplicates (map (curry street c) (cars c)))|#
+         (remove-duplicates (map Person (cdrs c))))]]
 
 @subsubsection{More mappings}
 
@@ -64,11 +71,12 @@ Next, we write the @tc[street] mapping, which takes a street name and the whole
 city @tc[c] in list form, and creates a @tc[Street] node.
 
 @chunk[<example-mappings>
-       [(street [c : (Listof (Pairof String String))] [s : String]) : Street
-        (Street (map (∘ (curry house s c) car)
-                     (filter (λ ([x : (Pairof String String)])
-                               (equal? (cdr x) s))
-                             c)))]]
+       #|DEBUG|#
+       #|[(street [c : (Listof (Pairof String String))] [s : String]) : Street
+       (Street (map (curry (curry house s) c)
+       (cars (filter (λ ([x : (Pairof String String)])
+       (equal? (cdr x) s))
+       c))))]|#]
 
 The @tc[house] mapping calls back the @tc[street] mapping, to store for each
 house a reference to the containing street. Normally, this would cause infinite
@@ -86,9 +94,11 @@ no risk of forcing one before it is available.
 Finally, we write the @tc[house] mapping.
 
 @chunk[<example-mappings>
+       #|
        [(house [s : String] [c : (Listof (Pairof String String))] [p : String])
-        : House
-        (House (Person p) (street c s))]]
+       : House
+       (House (Person p) (street c s))]|#
+       #|DEBUG|#]
 
 Notice how we are calling directly the @tc[Person] constructor above. We also
 called it directly in the @tc[city] mapping. Since @tc[Person] does not contain
@@ -168,12 +178,14 @@ A single node name can refer to several types:
   @racket[[City (Listof Street) (Listof Person)]], it is never used as-is in
   practice}
  @item{The @emph{incomplete} type, in which references to other node types are
-  allowed to be either actual instances, or placeholders. For example,
-  @racket[[City (Listof (U Street Street-Placeholder))
-           (Listof (U Person Person-Placeholder))]].}
+  allowed to be either actual (@racket[incomplete]) instances, or placeholders.
+  For example, @racket[[City (Listof (U Street Street/placeholder-type))
+                        (Listof (U Person Person/placeholder-type))]].}
  @item{The @emph{with-promises} type, in which references to other node types
-  must be replaced by promises for these. For example,
-  @racket[[City (Listof (Promise Street)) (Listof (Promise Person))]].}]
+  must be replaced by a @racket[Promise] for the target node's
+  @racket[with-promises] type. For example,
+  @racket[[City (Listof (Promise Street/with-promises-type))
+           (Listof (Promise Person/with-promises-type))]].}]
 
 When the user code calls a mapping, a placeholder is instead returned. We
 therefore will have one placeholder type per mapping. Mappings come in various
@@ -196,7 +208,7 @@ flexible through wrapper macros.
         (root-expr:expr ...)
         [(mapping:id [param:id (~literal :) param-type:expr] ...)
          (~literal :) result-type:expr
-         . body]
+         . mapping-body]
         ...)]
 
 The macro relies heavily on two sidekick modules: @tc[rewrite-type], and
@@ -279,12 +291,14 @@ tagged with the @tc[mapping]'s name), and a constructor:
 
 @; TODO: just use (variant [mapping param-type ...] ...)
 
-@chunk[<define-placeholder>
-       (define-type mapping/placeholder-type (List 'mapping param-type ...))
+@chunk[<define-mapping-placeholder>
+       (define-type mapping/placeholder-type (List 'placeholder
+                                                   'mapping
+                                                   param-type ...))
        
        (: mapping/make-placeholder (→ param-type ... mapping/placeholder-type))
        (define (mapping/make-placeholder [param : param-type] ...)
-         (list 'mapping param ...))]
+         (list 'placeholder 'mapping param ...))]
 
 The code above needs some identifiers derived from @tc[mapping] names:
 
@@ -303,14 +317,30 @@ that node's @tc[with-promises] type.
 
 @; TODO: use a type-expander here, instead of a template metafunction.
 
-@CHUNK[<define-with-promises>
-       (define-type node/with-promises-type
-         (tmpl-replace-in-type (List 'node field-type ...)
-                               ([node (Promise node/with-promises-type)] ...)))]
+@CHUNK[<define-with-promises-nodes>
+       (define-type field/with-promises-type
+         (tmpl-replace-in-type field-type
+                               [node (Promise node/with-promises-type)]
+                               …))
+       …
+       
+       (define-type node/with-promises-type (List 'with-promises
+                                                  'node
+                                                  field/with-promises-type …))
+       
+       (: node/make-with-promises (→ field/with-promises-type …
+                                     node/with-promises-type))
+       (define (node/make-with-promises field-name …)
+         (list 'with-promises 'node field-name …))]
+
+The code above needs some identifiers derived from @tc[node] and
+@tc[field-name]s:
 
 @chunk[<define-ids>
        (define-temp-ids "~a/make-with-promises" (node ...))
-       (define-temp-ids "~a/with-promises-type" (node ...))]
+       (define-temp-ids "~a/with-promises-type" (node ...))
+       (define/with-syntax ((field/with-promises-type …) …)
+         (stx-map generate-temporaries #'((field-name …) …)))]
 
 @subsection{Making incomplete nodes}
 
@@ -324,31 +354,142 @@ which return type is the desired node type.
 
 @; TODO: use a type-expander here, instead of a template metafunction.
 
-@CHUNK[<define-incomplete>
-       (define-type field/incomplete-type
-         (tmpl-replace-in-type field-type
-                               ([node (U node/incomplete-type
-                                         mapping/placeholder-type ...)] ...)))
-       ...
+@CHUNK[<define-incomplete-nodes>
+       (define-type field/incomplete-type <field/incomplete-type>)
+       …
        
-       (define-type node/incomplete-type (List 'node field/incomplete-type …))
+       (define-type node/incomplete-type
+         (Pairof 'incomplete (Pairof 'node (List field/incomplete-type …))))
        
        (: node/make-incomplete (→ field/incomplete-type … node/incomplete-type))
        (define (node/make-incomplete field-name …)
-         (list 'node field-name …))]
+         (list 'incomplete 'node field-name …))]
 
+Since the incomplete type for fields will appear in two different places, above
+and in the incomplete-to-with-promises conversion routine below, we write it in
+a separate chunk:
+
+@chunk[<field/incomplete-type>
+       (tmpl-replace-in-type field-type
+                             [node (U node/incomplete-type
+                                      node/compatible-placeholder-types …)]
+                             …)]
+
+We must however compute for each node the set of compatible placeholder types.
+We do that
+
+@chunk[<define-compatible-placeholder-types>
+       (define/with-syntax ((node/compatible-placeholder-types ...) ...)
+         (for/list ([x (in-syntax #'(node ...))])
+           (multiassoc-syntax
+            x
+            #'([result-type . (List 'placeholder 'mapping param-type ...)]
+               …))))]
+
+The multiassoc-syntax function used above filters the associative syntax list
+and returns the @tc[stx-cdr] of the matching elements, therefore returning a
+list of @tc[mapping/placeholder-type]s for which the @tc[result-type] is the
+given @tc[node] name.
+
+@chunk[<multiassoc-syntax>
+       (define (multiassoc-syntax query alist)
+         (map stx-cdr
+              (filter (λ (xy) (free-identifier=? query (stx-car xy)))
+                      (syntax->list alist))))
+       
+       (define (cdr-assoc-syntax query alist)
+         (stx-cdr (findf (λ (xy) (free-identifier=? query (stx-car xy)))
+                         (syntax->list alist))))
+       
+       (define-template-metafunction (tmpl-cdr-assoc-syntax stx)
+         (syntax-parse stx
+           [(_ query [k . v] …)
+            (cdr-assoc-syntax #'query #'([k . v] …))]))]
+
+The code above also needs some identifiers derived from @tc[node] and
+@tc[field-name]s:
+
+@; TODO: format-ids doesn't accept arbitrary values. Should we change it?
 @chunk[<define-ids>
        (define-temp-ids "~a/make-incomplete" (node …))
        (define-temp-ids "~a/incomplete-type" (node …))
-       ;; TODO: format-ids doesn't accept arbitrary values. Should we change it?
+       (define-temp-ids "~a/incomplete-fields" (node …))
        (define/with-syntax ((field/incomplete-type …) …)
-         (stx-map generate-temporaries #'((field-type …) …)))]
+         (stx-map generate-temporaries #'((field-name …) …)))]
+
+@subsection{Converting incomplete nodes to with-promises ones}
+
+@chunk[<convert-incomplete-to-with-promises>
+       [node/incomplete-type
+        node/with-promises-type
+        (λ (x) (and (pair? x)
+                    (eq? (car x) 'incomplete)
+                    (pair? (cdr x))
+                    (eq? (cadr x) 'node)))
+        (λ ([x : node/incomplete-type] [acc : Void])
+          (if (eq? (car x) 'incomplete)
+              <convert-incomplete-successor>
+              <convert-placeholder-successor>))]]
+
+@chunk[<convert-incomplete-successor>
+       (error (~a "Not implemented yet " x))]
+
+@chunk[<convert-placeholder-successor>
+       (% tag new-Δ-queues = (get-tag (cadr x) x Δ-queues)
+          (error (~a "Not implemented yet " x)))]
+
 
 @subsection{Processing the placeholders}
 
-@chunk[<fold-queue-body>
+@; TODO: also allow returning a placeholder (which means we should then
+@; process that placeholder in turn). The placeholder should return the
+@; same node type, but can use a different mapping?
+@; Or maybe we can do this from the ouside, using a wrapper macro?
+
+@CHUNK[<fold-queue-body>
+       (let ([mapping-result (apply mapping/function (cddr e))])
+         (tmpl-fold-instance (tmpl-cdr-assoc-syntax
+                              result-type
+                              [node . (List 'incomplete
+                                            'node
+                                            <field/incomplete-type> …)]
+                              …)
+                             ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                             ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                             ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                             ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                             Void
+                             ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                             ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                             ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                             ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                             <convert-incomplete-to-with-promises> …))
        'todo!]
 
+@section{The mapping functions}
+
+We define the mapping functions as they are described by the user, with an
+important change: Instead of returning an @emph{ideal} node type, we expect them
+to return an incomplete node type.
+
+@chunk[<define-mapping-function>
+       (define-type mapping/incomplete-result-type
+         (tmpl-replace-in-type result-type
+                               [node node/incomplete-type]
+                               …))
+       
+       (: mapping/function (→ param-type … mapping/incomplete-result-type))
+       (define mapping/function
+         (let ([mapping mapping/make-placeholder]
+               …
+               [node node/make-incomplete]
+               …)
+           (λ (param …)
+             . mapping-body)))]
+
+@chunk[<define-ids>
+       (define-temp-ids "~a/function" (mapping ...))
+       (define-temp-ids "~a/incomplete-result-type" (mapping ...))]
 
 @section{Temporary fillers}
 
@@ -361,12 +502,15 @@ which return type is the desired node type.
 @chunk[<make-graph-constructor>
        (define-syntax/parse <signature>
          <define-ids>
-         (template
-          (let ()
-            (begin <define-placeholder>) ...
-            (begin <define-with-promises>) ...
-            (begin <define-incomplete>) ...
-            <fold-queue>)))]
+         <define-compatible-placeholder-types>
+         ((λ (x) (pretty-write (syntax->datum x)) x)
+          (template
+           (let ()
+             (begin <define-mapping-placeholder>) …
+             (begin <define-with-promises-nodes>) …
+             (begin <define-incomplete-nodes>) …
+             (begin <define-mapping-function>) …
+             <fold-queue>))))]
 
 @section{Conclusion}
 
@@ -376,13 +520,18 @@ which return type is the desired node type.
                               racket/syntax
                               syntax/stx
                               syntax/parse/experimental/template
+                              racket/sequence
+                              racket/pretty; DEBUG
+                              alexis/util/threading; DEBUG
                               "rewrite-type.lp2.rkt"
                               "../lib/low-untyped.rkt")
+                  alexis/util/threading; DEBUG
                   "fold-queues.lp2.rkt"
                   "rewrite-type.lp2.rkt"
                   "../lib/low.rkt")
          
-         (provide fold-queues)
+         (begin-for-syntax
+           <multiassoc-syntax>)
          
          (provide make-graph-constructor)
          <make-graph-constructor>)]
@@ -390,12 +539,43 @@ which return type is the desired node type.
 @chunk[<module-test>
        (module* test typed/racket
          (require (submod "..")
+                  "fold-queues.lp2.rkt"; DEBUG
+                  "rewrite-type.lp2.rkt"; DEBUG
+                  "../lib/low.rkt"; DEBUG
                   typed/rackunit)
          
          <use-example>
          
          g
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
          
+
          (require (submod ".." doc)))]
 
 @chunk[<*>
