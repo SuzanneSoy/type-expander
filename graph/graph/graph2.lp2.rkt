@@ -22,10 +22,9 @@ name. For example, a graph representing a city and its inhabitants could use
 these variants:
 
 @chunk[<example-variants>
-       [City #|[streets : (Listof Street)]|# [inhabitants : (Listof Person)]]
-       #|DEBUG|#
-       #|[Street [houses : (Listof House)]]
-       [House [owner : Person] [location : Street]]|#
+       [City [streets : (Listof Street)] [inhabitants : (Listof Person)]]
+       [Street [houses : (Listof House)]]
+       [House [owner : Person] [location : Street]]
        [Person [name : String]]]
 
 Notice the cycle in the type: a street contains houses, which are located on the
@@ -55,33 +54,32 @@ create other nodes.
 @subsubsection{Mapping the root parameters to the root node}
 
 Here is the root mapping for our example. It maps over the list of names and
-street names @tc[c], and calls for each element the @tc[street] and @tc[person]
-mappings.
+street names @tc[c], and calls for each element the @tc[m-street] mapping and
+the @tc[Person] node constructor.
 
 @; Would be nicer with (map (∘ (curry street c) my-car) c)), but that doesn't
 @; typecheck (yet).
 @chunk[<example-mappings>
-       [(city [c : (Listof (Pairof String String))]) : City
-        (City #|DEBUG|##|(remove-duplicates (map (curry street c) (cars c)))|#
-         (remove-duplicates (map Person (cdrs c))))]]
+       [(m-city [c : (Listof (Pairof String String))]) : City
+        (City (remove-duplicates (map (curry m-street c) (cars c)))
+              (remove-duplicates (map Person (cdrs c))))]]
 
 @subsubsection{More mappings}
 
-Next, we write the @tc[street] mapping, which takes a street name and the whole
-city @tc[c] in list form, and creates a @tc[Street] node.
+Next, we write the @tc[m-street] mapping, which takes a street name and the
+whole city @tc[c] in list form, and creates a @tc[Street] node.
 
 @chunk[<example-mappings>
-       #|DEBUG|#
-       #|[(street [c : (Listof (Pairof String String))] [s : String]) : Street
-       (Street (map (curry (curry house s) c)
-       (cars (filter (λ ([x : (Pairof String String)])
-       (equal? (cdr x) s))
-       c))))]|#]
+       [(m-street [c : (Listof (Pairof String String))] [s : String]) : Street
+        (Street (map (curry (curry m-house s) c)
+                     (cars (filter (λ ([x : (Pairof String String)])
+                                     (equal? (cdr x) s))
+                                   c))))]]
 
-The @tc[house] mapping calls back the @tc[street] mapping, to store for each
+The @tc[m-house] mapping calls back the @tc[m-street] mapping, to store for each
 house a reference to the containing street. Normally, this would cause infinite
 recursion in an eager language, like @tc[typed/racket]. However, the mappings
-aren't called directly, and instead the @tc[street] function here returns a
+aren't called directly, and instead the @tc[m-street] function here returns a
 placeholder. This allows us to not worry about mutually recursive mappings: a
 mapping can be called any number of times with the same data, it will actually
 only be run once.
@@ -91,19 +89,19 @@ mapping, and replace the placeholders with promises for the the result of the
 mapping. The promises are not available during graph construction, so there is
 no risk of forcing one before it is available.
 
-Finally, we write the @tc[house] mapping.
+Finally, we write the @tc[m-house] mapping.
 
 @chunk[<example-mappings>
-       #|
-       [(house [s : String] [c : (Listof (Pairof String String))] [p : String])
-       : House
-       (House (Person p) (street c s))]|#
-       #|DEBUG|#]
+       [(m-house [s : String]
+                 [c : (Listof (Pairof String String))]
+                 [p : String])
+        : House
+        (House (Person p) (m-street c s))]]
 
 Notice how we are calling directly the @tc[Person] constructor above. We also
-called it directly in the @tc[city] mapping. Since @tc[Person] does not contain
-references to @tc[House], @tc[Street] or @tc[City], we do not need to delay
-creation of these nodes by calling yet another mapping.
+called it directly in the @tc[m-city] mapping. Since @tc[Person] does not
+contain references to @tc[House], @tc[Street] or @tc[City], we do not need to
+delay creation of these nodes by calling yet another mapping.
 
 @; TODO: above: Should we merge two identical instances of Person? They won't
 @; necessarily be eq? if they contain cycles deeper in their structure, anyway.
@@ -113,10 +111,12 @@ creation of these nodes by calling yet another mapping.
 @; database, though.
 
 The number and names of mappings do not necessarily reflect the graph's type.
-Here, we have no mapping named @tc[person], because that node is always created
-directly. Conversely, we could have two mappings, @tc[big-street] and
-@tc[small-street], with different behaviours, instead of passing an extra
-boolean argument to @tc[street].
+Here, we have no mapping named @tc[m-person], because that node is always
+created directly. Conversely, we could have two mappings, @tc[m-big-street] and
+@tc[m-small-street], with different behaviours, instead of passing an extra
+boolean argument to @tc[m-street].
+
+@; TODO: make the two street mappings
 
 @subsubsection{Making a constructor for the graph}
 
@@ -135,18 +135,18 @@ boolean argument to @tc[street].
 Let's take a second look at the root mapping:
 
 @chunk[<example-mappings-2>
-       [(city [c : (Listof (Pairof String String))])
-        (City (remove-duplicates (map (∘ (curry street c) car) c))
-              (remove-duplicates (map (∘ Person cdr) c)))]]
+       [(m-city [c : (Listof (Pairof String String))]) : City
+        (City (remove-duplicates (map (curry m-street c) (cars c)))
+              (remove-duplicates (map Person (cdrs c))))]]
 
-The first case shows that we can use @tc[street] as any other function, passing
-it to @tc[curry], and calling @tc[remove-duplicates] on the results. Note that
-each placeholder returned by @tc[street] will contain all information passed to
-it, here a street name and @tc[c]. Two placeholders for @tc[street] will
-therefore be @tc[equal?] if and only if all the arguments passed to @tc[street]
-are @tc[equal?]. The placeholders also include a symbol specifying which mapping
-was called, so two placeholders for two different mappings will not be
-@tc[equal?], even if identical parameters were supplied.
+The first case shows that we can use @tc[m-street] as any other function,
+passing it to @tc[curry], and calling @tc[remove-duplicates] on the results.
+Note that each placeholder returned by @tc[m-street] will contain all
+information passed to it, here a street name and @tc[c]. Two placeholders for
+@tc[m-street] will therefore be @tc[equal?] if and only if all the arguments
+passed to @tc[m-street] are @tc[equal?]. The placeholders also include a symbol
+specifying which mapping was called, so two placeholders for two different
+mappings will not be @tc[equal?], even if identical parameters were supplied.
 
 The second case shows that we can also directly call the constructor for the
 @tc[Person] node type. If that type contains references to other nodes, the
@@ -273,7 +273,9 @@ the latest @tc[Δ-queues] in order to have these elements added to the queue.
 
 @chunk[<fold-queue>
        (fold-queues <root-placeholder>
-                    [(mapping [e : <fold-queue-type-element>] get-tag Δ-queues)
+                    [(mapping/placeholder-tag [e : <fold-queue-type-element>]
+                                              Δ-queues
+                                              enqueue)
                      : <fold-queue-type-result>
                      <fold-queue-body>]
                     ...)]
@@ -292,19 +294,19 @@ tagged with the @tc[mapping]'s name), and a constructor:
 @; TODO: just use (variant [mapping param-type ...] ...)
 
 @chunk[<define-mapping-placeholder>
-       (define-type mapping/placeholder-type (List 'placeholder
-                                                   'mapping
+       (define-type mapping/placeholder-type (List 'mapping/placeholder-tag
                                                    param-type ...))
        
        (: mapping/make-placeholder (→ param-type ... mapping/placeholder-type))
        (define (mapping/make-placeholder [param : param-type] ...)
-         (list 'placeholder 'mapping param ...))]
+         (list 'mapping/placeholder-tag param ...))]
 
 The code above needs some identifiers derived from @tc[mapping] names:
 
 @chunk[<define-ids>
        (define-temp-ids "~a/make-placeholder" (mapping ...))
        (define-temp-ids "~a/placeholder-type" (mapping ...))
+       (define-temp-ids "~a/placeholder-tag" (mapping ...))
        (define/with-syntax (root/make-placeholder . _)
          #'(mapping/make-placeholder ...))]
 
@@ -359,11 +361,11 @@ which return type is the desired node type.
        …
        
        (define-type node/incomplete-type
-         (Pairof 'incomplete (Pairof 'node (List field/incomplete-type …))))
+         (Pairof 'node/incomplete-tag (List field/incomplete-type …)))
        
        (: node/make-incomplete (→ field/incomplete-type … node/incomplete-type))
        (define (node/make-incomplete field-name …)
-         (list 'incomplete 'node field-name …))]
+         (list 'node/incomplete-tag field-name …))]
 
 Since the incomplete type for fields will appear in two different places, above
 and in the incomplete-to-with-promises conversion routine below, we write it in
@@ -383,7 +385,7 @@ We do that
          (for/list ([x (in-syntax #'(node ...))])
            (multiassoc-syntax
             x
-            #'([result-type . (List 'placeholder 'mapping param-type ...)]
+            #'([result-type . mapping/placeholder-type];;;;;;;;;;;;;;;;;;;;;;;;;;;; . (List 'mapping/placeholder-tag param-type ...)
                …))))]
 
 The multiassoc-syntax function used above filters the associative syntax list
@@ -413,6 +415,7 @@ The code above also needs some identifiers derived from @tc[node] and
 @chunk[<define-ids>
        (define-temp-ids "~a/make-incomplete" (node …))
        (define-temp-ids "~a/incomplete-type" (node …))
+       (define-temp-ids "~a/incomplete-tag" (node …))
        (define-temp-ids "~a/incomplete-fields" (node …))
        (define/with-syntax ((field/incomplete-type …) …)
          (stx-map generate-temporaries #'((field-name …) …)))]
@@ -422,20 +425,36 @@ The code above also needs some identifiers derived from @tc[node] and
 @chunk[<convert-incomplete-to-with-promises>
        [node/incomplete-type
         node/with-promises-type
-        (λ (x) (and (pair? x)
-                    (eq? (car x) 'incomplete)
-                    (pair? (cdr x))
-                    (eq? (cadr x) 'node)))
+        (λ (x) (and (pair? x) (eq? (car x) 'node/incomplete-tag)))
         (λ ([x : node/incomplete-type] [acc : Void])
-          (if (eq? (car x) 'incomplete)
-              <convert-incomplete-successor>
-              <convert-placeholder-successor>))]]
+          <convert-incomplete-successor>)]]
+
+@chunk[<convert-placeholder-to-with-promises>
+       [mapping/placeholder-type
+        (tmpl-replace-in-type result-type [node node/with-promises-type] …)
+        (λ (x) (and (pair? x)
+                    (eq? (car x) 'mapping/placeholder-tag)))
+        (λ ([x : mapping/placeholder-type] [acc : Void])
+          <convert-placeholder-successor>)]]
+
+
+@; TODO: this would be much simpler if we forced having only one mapping per
+@; node, and extended that with a macro.
+
+@chunk[<define-compatible-mappings>
+       (define/with-syntax ((node/compatible-mappings ...) ...)
+         (for/list ([x (in-syntax #'(node ...))])
+           (multiassoc-syntax
+            x
+            #'([result-type . mapping]
+               …))))]
 
 @chunk[<convert-incomplete-successor>
        (error (~a "Not implemented yet " x))]
 
 @chunk[<convert-placeholder-successor>
-       (% tag new-Δ-queues = (get-tag (cadr x) x Δ-queues)
+       (% index new-Δ-queues = (enqueue 'mapping/placeholder-tag x Δ-queues)
+          (list 'mapping/placeholder-tag index)
           (error (~a "Not implemented yet " x)))]
 
 
@@ -447,24 +466,17 @@ The code above also needs some identifiers derived from @tc[node] and
 @; Or maybe we can do this from the ouside, using a wrapper macro?
 
 @CHUNK[<fold-queue-body>
-       (let ([mapping-result (apply mapping/function (cddr e))])
-         (tmpl-fold-instance (tmpl-cdr-assoc-syntax
-                              result-type
-                              [node . (List 'incomplete
-                                            'node
-                                            <field/incomplete-type> …)]
-                              …)
-                             ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-                             ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-                             ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-                             ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+       (let ([mapping-result (apply mapping/function (cdr e))])
+         (tmpl-fold-instance <the-incomplete-type>
                              Void
-                             ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-                             ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-                             ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-                             ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-                             <convert-incomplete-to-with-promises> …))
+                             <convert-incomplete-to-with-promises> …
+                             <convert-placeholder-to-with-promises> …))
        'todo!]
+
+@chunk[<the-incomplete-type>
+       (tmpl-cdr-assoc-syntax result-type
+                              [node . (List <field/incomplete-type> …)]
+                              …)]
 
 @section{The mapping functions}
 
@@ -475,7 +487,8 @@ to return an incomplete node type.
 @chunk[<define-mapping-function>
        (define-type mapping/incomplete-result-type
          (tmpl-replace-in-type result-type
-                               [node node/incomplete-type]
+                               [node (List 'node/incomplete-tag
+                                           <field/incomplete-type> …)]
                                …))
        
        (: mapping/function (→ param-type … mapping/incomplete-result-type))
@@ -547,35 +560,7 @@ to return an incomplete node type.
          <use-example>
          
          g
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
          
-
          (require (submod ".." doc)))]
 
 @chunk[<*>

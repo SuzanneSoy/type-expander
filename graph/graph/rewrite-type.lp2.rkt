@@ -378,11 +378,11 @@ functions is undefined.
 @subsection{The code}
 
 @CHUNK[<fold-instance>
-       (define-for-syntax (fold-instance t stx-acc-type r)
+       (define-for-syntax (fold-instance whole-type stx-acc-type r)
          (define/with-syntax acc-type stx-acc-type)
          (define/with-syntax ([from to pred? fun] ...) r)
          <recursive-replace-fold-instance>
-         (recursive-replace t))]
+         (recursive-replace whole-type))]
 
 @CHUNK[<recursive-replace-fold-instance>
        (define (new-type-for stx) (replace-in-type stx #'([from to] ...)))
@@ -485,7 +485,14 @@ functions is undefined.
                 (cond
                   #,@(stx-map (λ (ta) <replace-fold-union>)
                               #'(a ...))
-                  [(typecheck-fail #'#,type)]))]
+                  [else
+                   (begin
+                     val
+                     (typecheck-fail #,type
+                                     #,(~a "Unhandled union case in "
+                                           (syntax->datum #'(U a …))
+                                           ", whole type was:"
+                                           (syntax->datum whole-type))))]))]
            [((~literal quote) a)
             #'(inst values 'a acc-type)]
            [x:id
@@ -567,7 +574,7 @@ And one each for @tc[fold-instance] and @tc[replace-in-instance2]:
            [(_ type:expr acc-type:expr [from to pred? fun] …)
             #`(begin
                 "fold-instance expanded code below. Initially called with:"
-                '(fold-instance type acc-type [from to pred? fun] …)
+                '(fold-instance type acc-type [from to pred? λ…] …)
                 #,(fold-instance #'type
                                  #'acc-type
                                  #'([from to pred? fun] …)))]))
@@ -586,6 +593,7 @@ These metafunctions just extract the arguments for @tc[replace-in-type] and
            (require (for-syntax syntax/parse
                                 racket/syntax
                                 syntax/stx
+                                racket/format
                                 syntax/parse/experimental/template
                                 "../lib/low-untyped.rkt")
                     "structure.lp2.rkt"
