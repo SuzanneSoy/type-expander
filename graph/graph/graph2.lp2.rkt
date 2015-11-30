@@ -15,6 +15,20 @@
 This module provides a @tc[graph] macro which helps constructing immutable
 graphs (using lambdas to defer potentially cyclic references).
 
+
+
+
+
+
+
+
+
+
+@subsection{Example usage}
+
+We will start with a running example, which will help us both show the macro's
+syntax, and show some of the key advantages offered by this graph library.
+
 @subsection{The graph's type}
 
 Each node type in the graph is a variant's constructor, tagged with the node
@@ -22,18 +36,13 @@ name. For example, a graph representing a city and its inhabitants could use
 these variants:
 
 @chunk[<example-variants>
-       [City [streets : (Listof Street)] [inhabitants : (Listof Person)]]
-       [Street [houses : (Listof House)]]
-       [House [owner : Person] [location : Street]]
-       [Person [name : String]]]
+       [City [streets : (Listof Street)] [people : (Listof Person)] <m-city>]
+       [Street [houses : (Listof House)] <m-street>]
+       [House [owner : Person] [location : Street] <m-house>]
+       [Person [name : String]] <m-person>]
 
 Notice the cycle in the type: a street contains houses, which are located on the
 same street.
-
-@subsection{Example usage}
-
-We will start with a running example, which will help us both show the macro's
-syntax, and show some of the key advantages offered by this graph library.
 
 @subsubsection{A seed from which to unravel the graph: the root parameters}
 
@@ -59,17 +68,17 @@ the @tc[Person] node constructor.
 
 @; Would be nicer with (map (∘ (curry street c) my-car) c)), but that doesn't
 @; typecheck (yet).
-@chunk[<example-mappings>
+@chunk[<m-city>
        [(m-city [c : (Listof (Pairof String String))]) : City
         (City (remove-duplicates (map (curry m-street c) (cars c)))
-              (remove-duplicates (map Person (cdrs c))))]]
+              (remove-duplicates (map m-person (cdrs c))))]]
 
 @subsubsection{More mappings}
 
 Next, we write the @tc[m-street] mapping, which takes a street name and the
 whole city @tc[c] in list form, and creates a @tc[Street] node.
 
-@chunk[<example-mappings>
+@chunk[<m-street>
        [(m-street [c : (Listof (Pairof String String))] [s : String]) : Street
         (Street (map (curry (curry m-house s) c)
                      (cars (filter (λ ([x : (Pairof String String)])
@@ -91,12 +100,16 @@ no risk of forcing one before it is available.
 
 Finally, we write the @tc[m-house] mapping.
 
-@chunk[<example-mappings>
+@chunk[<m-house>
        [(m-house [s : String]
                  [c : (Listof (Pairof String String))]
                  [p : String])
         : House
-        (House (Person p) (m-street c s))]]
+        (House (m-person p) (m-street c s))]]
+
+@chunk[<m-person>
+       [(m-person [p : String]) : Person
+        (Person p)]]
 
 Notice how we are calling directly the @tc[Person] constructor above. We also
 called it directly in the @tc[m-city] mapping. Since @tc[Person] does not
@@ -122,8 +135,7 @@ boolean argument to @tc[m-street].
 
 @chunk[<make-constructor-example>
        (make-graph-constructor (<example-variants>)
-                               <example-root>
-                               <example-mappings>)]
+                               <example-root>)]
 
 @subsubsection{Creating a graph instance}
 
@@ -134,7 +146,7 @@ boolean argument to @tc[m-street].
 
 Let's take a second look at the root mapping:
 
-@chunk[<example-mappings-2>
+@chunk[<m-city-2>
        [(m-city [c : (Listof (Pairof String String))]) : City
         (City (remove-duplicates (map (curry m-street c) (cars c)))
               (remove-duplicates (map Person (cdrs c))))]]
@@ -169,6 +181,27 @@ In particular, it does not handle recursive types described with @tc[Rec] yet.
 In this section, we will describe how the @tc[make-graph-constructor] macro is
 implemented.
 
+@subsection{The macro's syntax}
+
+We use a simple syntax for @tc[make-graph-constructor], and make it more
+flexible through wrapper macros.
+
+@chunk[<signature>
+       (make-graph-constructor
+        (root-expr:expr ...)
+        ([node <field-signature> … <mapping-declaration>] …))]
+
+Where @tc[<field-signature>] is:
+
+@chunk[<field-signature>
+       [field-name:id (~literal :) field-type:expr]]
+
+And @tc[<mapping-declaration>] is:
+
+@chunk[<mapping-declaration>
+       ((mapping:id [param:id (~literal :) param-type:expr] …)
+        . mapping-body)]
+
 @subsection{The different types of a node and mapping}
 
 A single node name can refer to several types:
@@ -177,39 +210,44 @@ A single node name can refer to several types:
  @item{The @emph{ideal} type, expressed by the user, for example
   @racket[[City (Listof Street) (Listof Person)]], it is never used as-is in
   practice}
+ @item{The @emph{placeholder} type, type and constructor, which just store the
+  arguments for the mapping along with a tag indicating the node name}
  @item{The @emph{incomplete} type, in which references to other node types are
   allowed to be either actual (@racket[incomplete]) instances, or placeholders.
   For example, @racket[[City (Listof (U Street Street/placeholder-type))
                         (Listof (U Person Person/placeholder-type))]].}
+ @item{The @emph{with-indices} type, in which references to other node types
+  must be replaced by an index into the results list for the target node's
+  @racket[with-promises] type. For example,
+  @racket[[City (Listof (Pairof 'Street/with-indices-tag Index))
+           (Listof (Pairof 'Person/with-indices-tag Index))]].}
  @item{The @emph{with-promises} type, in which references to other node types
   must be replaced by a @racket[Promise] for the target node's
   @racket[with-promises] type. For example,
   @racket[[City (Listof (Promise Street/with-promises-type))
-           (Listof (Promise Person/with-promises-type))]].}]
-
-When the user code calls a mapping, a placeholder is instead returned. We
-therefore will have one placeholder type per mapping. Mappings come in various
-flavours too:
-
-@itemlist[
- @item{The \emph{placeholder} type and constructor, which just store the
-  arguments for the mapping along with its name}
- @item{The mapping function's \emph{body}, which takes some parameters and
+           (Listof (Promise Person/with-promises-type))]].}
+ @item{The @emph{mapping function}, which takes some parameters and
   returns a node (this is the code directly provided by the user)}]
 
-@subsection{The macro's syntax}
+We derive identifiers for these based on the @tc[node] or @tc[mapping] name:
 
-We use a simple syntax for @tc[make-graph-constructor], and make it more
-flexible through wrapper macros.
+@;;;;
+@chunk[<define-ids2>
+       (define-temp-ids "~a/make-placeholder" (mapping …) #:first-base root)
+       (define-temp-ids "~a/placeholder-type" (mapping …))
+       (define-temp-ids "~a/make-incomplete" (node …))
+       (define-temp-ids "~a/incomplete-type" (node …))
+       (define-temp-ids "~a/make-with-indices" (node …))
+       (define-temp-ids "~a/with-indices-type" (node …))
+       (define-temp-ids "~a/make-with-promises" (node …))
+       (define-temp-ids "~a/with-promises-type" (node …))
+       (define-temp-ids "~a/function" (mapping …))]
 
-@chunk[<signature>
-       (make-graph-constructor
-        ([node [field-name:id (~literal :) field-type:expr] ...] ...)
-        (root-expr:expr ...)
-        [(mapping:id [param:id (~literal :) param-type:expr] ...)
-         (~literal :) result-type:expr
-         . mapping-body]
-        ...)]
+@chunk[<define-ids2>
+       (define/with-syntax (root/make-placeholder . _)
+         #'(mapping/make-placeholder …))]
+
+@subsection{Overview}
 
 The macro relies heavily on two sidekick modules: @tc[rewrite-type], and
 @tc[fold-queue]. The former will allow us to derive from the ideal type of a
@@ -411,14 +449,13 @@ given @tc[node] name.
 The code above also needs some identifiers derived from @tc[node] and
 @tc[field-name]s:
 
-@; TODO: format-ids doesn't accept arbitrary values. Should we change it?
 @chunk[<define-ids>
        (define-temp-ids "~a/make-incomplete" (node …))
        (define-temp-ids "~a/incomplete-type" (node …))
        (define-temp-ids "~a/incomplete-tag" (node …))
        (define-temp-ids "~a/incomplete-fields" (node …))
        (define/with-syntax ((field/incomplete-type …) …)
-         (stx-map generate-temporaries #'((field-name …) …)))]
+         (stx-map-nested #'((field-name …) …)))]
 
 @subsection{Converting incomplete nodes to with-promises ones}
 
@@ -515,15 +552,17 @@ to return an incomplete node type.
 @chunk[<make-graph-constructor>
        (define-syntax/parse <signature>
          <define-ids>
-         <define-compatible-placeholder-types>
-         ((λ (x) (pretty-write (syntax->datum x)) x)
-          (template
-           (let ()
-             (begin <define-mapping-placeholder>) …
-             (begin <define-with-promises-nodes>) …
-             (begin <define-incomplete-nodes>) …
-             (begin <define-mapping-function>) …
-             <fold-queue>))))]
+         (let ()
+           <define-ids2>
+           <define-compatible-placeholder-types>
+           ((λ (x) (pretty-write (syntax->datum x)) x)
+            (template
+             (let ()
+               (begin <define-mapping-placeholder>) …
+               (begin <define-with-promises-nodes>) …
+               (begin <define-incomplete-nodes>) …
+               (begin <define-mapping-function>) …
+               <fold-queue>)))))]
 
 @section{Conclusion}
 

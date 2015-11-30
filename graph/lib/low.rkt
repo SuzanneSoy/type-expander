@@ -482,7 +482,8 @@
            (only-in syntax/stx stx-map)
            (for-syntax racket/base
                        racket/syntax
-                       syntax/parse))
+                       syntax/parse
+                       syntax/parse/experimental/template))
   ;(require racket/sequence) ;; in-syntax
   
   (require "sequences.rkt"
@@ -495,6 +496,8 @@
        (Listof Identifier)
        (Syntaxof (Listof Identifier))))
   
+  ; TODO: format-ids doesn't accept arbitrary values. Should we change it?
+  ; 
   (: format-ids (→ (U Syntax (→ (U String Identifier) * Syntax))
                    String
                    S-Id-List *
@@ -539,6 +542,33 @@
     ;; Introduce the binding in a fresh scope.
     (apply format-ids (λ _ ((make-syntax-introducer) #'())) format vs))
   
+  ;; Also in ==== syntax.rkt ====, once we split into multiple files, require it
+  (begin-for-syntax
+    (define (syntax-cons-property stx key v)
+      (let ([orig (syntax-property stx key)])
+        (syntax-property stx key (cons v (or orig '()))))))
+  
+  ;; Also in ==== syntax.rkt ====, once we split into multiple files, require it
+  (begin-for-syntax
+    (define (identifier-length id) (string-length (symbol->string
+                                                   (syntax-e id)))))
+  
+  (begin-for-syntax
+    (define-syntax-class simple-format
+      (pattern format
+               #:when (string? (syntax-e #'format))
+               #:when (regexp-match #rx"^[^~]*~a[^~]*$" (syntax-e #'format))
+               #:attr pos (regexp-match-positions #rx"^([^~]*)~a([^~]*)$"
+                                                  (syntax-e #'format))
+               #:attr left-start 1
+               #:attr left-end (+ 1 (cdr (cadr (attribute pos))))
+               #:attr left-len (cdr (cadr (attribute pos)))
+               
+               #:attr right-start (+ 1 (car (caddr (attribute pos))))
+               #:attr right-end (+ 1 (cdr (caddr (attribute pos))))
+               #:attr right-len (- (attribute right-end)
+                                   (attribute right-start)))))
+  
   (define-syntax (define-temp-ids stx)
     (syntax-parse stx
       ;; TODO : factor this with the next case.
@@ -548,6 +578,81 @@
          #'(define/with-syntax ((pat (... ...)) (... ...))
              (stx-map (curry format-temp-ids format)
                       #'((base (... ...)) (... ...)))))]
+      
+      ;; New features (arrows and #:first) special-cased for now
+      ;; todo: make these features more general.
+      [(_ format:simple-format (base:id (~literal ...)) #:first-base first-base)
+       #:with first (format-id #'first-base (syntax-e #'format) #'first-base)
+       (let ([first-base-len (identifier-length #'first-base)])
+         (syntax-cons-property #'(define-temp-ids format (base (... ...))
+                                   #:first first)
+                               'sub-range-binders
+                               (list
+                                (if (> (attribute format.left-len) 0)
+                                    (vector (syntax-local-introduce #'first)
+                                            0
+                                            (attribute format.left-len)
+                                            
+                                            (syntax-local-introduce #'format)
+                                            (attribute format.left-start)
+                                            (attribute format.left-len))
+                                    '())
+                                (vector (syntax-local-introduce #'first)
+                                        (attribute format.left-len)
+                                        first-base-len
+                                        
+                                        (syntax-local-introduce #'first-base)
+                                        0
+                                        first-base-len)
+                                (if (> (attribute format.right-len) 0)
+                                    (vector (syntax-local-introduce #'first)
+                                            (+ (attribute format.left-len)
+                                               first-base-len)
+                                            (attribute format.right-len)
+                                            
+                                            (syntax-local-introduce #'format)
+                                            (attribute format.right-start)
+                                            (attribute format.right-len))
+                                    '()))))]
+      
+      [(_ format:simple-format (base:id (~literal ...))
+          (~optional (~seq #:first-base first-base))
+          (~optional (~seq #:first first)))
+       (let* ([base-len (string-length (symbol->string (syntax-e #'base)))])
+         (define/with-syntax pat (format-id #'base (syntax-e #'format) #'base))
+         (syntax-cons-property
+          (template (begin (define/with-syntax (pat (... ...))
+                             (format-temp-ids format #'(base (... ...))))
+                           (?? (?@ (define/with-syntax (first . _)
+                                     #'(pat (... ...)))))
+                           (?? (?@ (define/with-syntax (fst . _)
+                                     #'(pat (... ...)))))))
+          'sub-range-binders
+          (list (if (> (attribute format.left-len) 0)
+                    (vector (syntax-local-introduce #'pat)
+                            0
+                            (attribute format.left-len)
+                            
+                            (syntax-local-introduce #'format)
+                            (attribute format.left-start)
+                            (attribute format.left-len))
+                    '())
+                (vector (syntax-local-introduce #'pat)
+                        (attribute format.left-len)
+                        base-len
+                        
+                        (syntax-local-get-shadower #'base)
+                        0
+                        base-len)
+                (if (> (attribute format.right-len) 0)
+                    (vector (syntax-local-introduce #'pat)
+                            (+ (attribute format.left-len) base-len)
+                            (attribute format.right-len)
+                            
+                            (syntax-local-introduce #'format)
+                            (attribute format.right-start)
+                            (attribute format.right-len))
+                    '()))))]
       [(_ format (base:id (~literal ...)))
        #:when (string? (syntax-e #'format))
        (with-syntax ([pat (format-id #'base (syntax-e #'format) #'base)])
@@ -615,7 +720,27 @@
 
 ;; ==== syntax.rkt ====
 
-(provide stx-assoc cdr-stx-assoc)
+(provide syntax-cons-property
+         stx-assoc
+         cdr-stx-assoc
+         stx-map-nested)
+
+(: syntax-cons-property (∀ (A) (→ (Syntaxof A) Symbol Any (Syntaxof A))))
+(define (syntax-cons-property stx key v)
+  (let ([orig (syntax-property stx key)])
+    (syntax-property stx key (cons v (or orig '())))))
+
+
+(: identifier-length (→ Identifier Index))
+(define (identifier-length id) (string-length (symbol->string (syntax-e id))))
+
+(: stx-map-nested (∀ (A B) (→ (→ A B)
+                              (Syntaxof (Listof (Syntaxof (Listof A))))
+                              (Listof (Listof B)))))
+(define (stx-map-nested f stx)
+  (map (λ ([x : (Syntaxof (Listof A))])
+         (map f (syntax-e x)))
+       (syntax-e stx)))
 #|
 (require/typed syntax/stx
                [stx-car (∀ (A B) (→ (Syntaxof (Pairof A B)) A))]
