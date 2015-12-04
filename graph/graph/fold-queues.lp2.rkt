@@ -23,7 +23,7 @@
                          ...)))]
 
 @chunk[<define-Δ-queues-type>
-       (define/with-syntax queues/type
+       (define/with-syntax Δ-queues/type
          #'(List (Δ-Hash Element-Type Index) ...))]
 
 @chunk[<fold-queue-multi-sets-immutable-tags>
@@ -32,8 +32,8 @@
          <define-Δ-queues-type>
          #'(list (λ ([element : Element-Type]
                      [enqueue : enqueue/type]
-                     [Δ-queues : queues/type])
-                   : result-type
+                     [Δ-queues : Δ-queues/type])
+                   : (values result-type Δ-queues/type)
                    . body)
                  ...)
          #;#'(error "Not implemented yet"))]

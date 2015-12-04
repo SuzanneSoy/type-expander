@@ -554,6 +554,19 @@
                                                    (syntax-e id)))))
   
   (begin-for-syntax
+    (define-syntax-class dotted
+      (pattern id:id
+               #:attr make-dotted
+               (λ (x) x)
+               #:attr wrap
+               (λ (x f) (f x #t)))
+      (pattern (nested:dotted (~literal ...));(~and dots (~literal ...)) ...+)
+               #:with id #'nested.id
+               #:attr make-dotted
+               (λ (x) #`(#,((attribute nested.make-dotted) x) (... ...)));dots …
+               #:attr wrap
+               (λ (x f) (f ((attribute nested.wrap) x f) #f))))
+    
     (define-syntax-class simple-format
       (pattern format
                #:when (string? (syntax-e #'format))
@@ -571,6 +584,7 @@
   
   (define-syntax (define-temp-ids stx)
     (syntax-parse stx
+      #|
       ;; TODO : factor this with the next case.
       [(_ format ((base:id (~literal ...)) (~literal ...)))
        #:when (string? (syntax-e #'format))
@@ -578,14 +592,14 @@
          #'(define/with-syntax ((pat (... ...)) (... ...))
              (stx-map (curry format-temp-ids format)
                       #'((base (... ...)) (... ...)))))]
+|#
       
       ;; New features (arrows and #:first) special-cased for now
       ;; todo: make these features more general.
-      [(_ format:simple-format (base:id (~literal ...)) #:first-base first-base)
+      [(_ format:simple-format base:dotted #:first-base first-base)
        #:with first (format-id #'first-base (syntax-e #'format) #'first-base)
        (let ([first-base-len (identifier-length #'first-base)])
-         (syntax-cons-property #'(define-temp-ids format (base (... ...))
-                                   #:first first)
+         (syntax-cons-property #'(define-temp-ids format base #:first first)
                                'sub-range-binders
                                (list
                                 (if (> (attribute format.left-len) 0)
@@ -615,18 +629,27 @@
                                             (attribute format.right-len))
                                     '()))))]
       
-      [(_ format:simple-format (base:id (~literal ...))
+      [(_ format:simple-format
+          base:dotted
           (~optional (~seq #:first-base first-base))
           (~optional (~seq #:first first)))
-       (let* ([base-len (string-length (symbol->string (syntax-e #'base)))])
-         (define/with-syntax pat (format-id #'base (syntax-e #'format) #'base))
+       (let* ([base-len (string-length (symbol->string (syntax-e #'base.id)))])
+         (define/with-syntax pat
+           (format-id #'base.id (syntax-e #'format) #'base.id))
+         (define/with-syntax pat-dotted ((attribute base.make-dotted) #'pat))
+
+         (define/with-syntax format-temp-ids*
+           ((attribute base.wrap) #'(compose car (curry format-temp-ids format))
+                                  (λ (x deepest?)
+                                    (if deepest?
+                                        x
+                                        #`(curry stx-map #,x)))))
+
          (syntax-cons-property
-          (template (begin (define/with-syntax (pat (... ...))
-                             (format-temp-ids format #'(base (... ...))))
+          (template (begin (define/with-syntax pat-dotted
+                             (format-temp-ids* #'base))
                            (?? (?@ (define/with-syntax (first . _)
-                                     #'(pat (... ...)))))
-                           (?? (?@ (define/with-syntax (fst . _)
-                                     #'(pat (... ...)))))))
+                                     #'pat-dotted)))))
           'sub-range-binders
           (list (if (> (attribute format.left-len) 0)
                     (vector (syntax-local-introduce #'pat)
@@ -641,7 +664,7 @@
                         (attribute format.left-len)
                         base-len
                         
-                        (syntax-local-get-shadower #'base)
+                        (syntax-local-get-shadower #'base.id)
                         0
                         base-len)
                 (if (> (attribute format.right-len) 0)
@@ -652,7 +675,8 @@
                             (syntax-local-introduce #'format)
                             (attribute format.right-start)
                             (attribute format.right-len))
-                    '()))))]
+                    '())))
+         )]
       [(_ format (base:id (~literal ...)))
        #:when (string? (syntax-e #'format))
        (with-syntax ([pat (format-id #'base (syntax-e #'format) #'base)])
