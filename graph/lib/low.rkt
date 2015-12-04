@@ -595,7 +595,7 @@
 |#
       
       ;; New features (arrows and #:first) special-cased for now
-      ;; todo: make these features more general.
+      ;; TODO: make these features more general.
       [(_ format:simple-format base:dotted #:first-base first-base)
        #:with first (format-id #'first-base (syntax-e #'format) #'first-base)
        (let ([first-base-len (identifier-length #'first-base)])

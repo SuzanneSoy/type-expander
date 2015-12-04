@@ -38,7 +38,7 @@
 (run! (list (find-executable-path-or-fail "sh")
             "-c"
             @string-append{
- fond_long_lines=0
+ found_long_lines=0
  for i in `find \
  \( -path ./lib/doc/bracket -prune -and -false \) \
  -or \( -name compiled -prune -and -false \) \
@@ -48,12 +48,20 @@
  | awk '{if (length > 80) print NR "\t" length "\t" $0}' \
  | sed -e 's/^\([0-9]*\t[0-9]*\t.\{80\}\)\(.*\)$/\1\x1b[0;30;41m\2\x1b[m/'`
  if test -n "$x"; then
- fond_long_lines=1
+ found_long_lines=1
  printf '\033[1;31m%s:\033[m\n' "$i" && printf "%s\n" "$x"
  fi
  done
- exit $fond_long_lines
+ exit $found_long_lines
  }))
+
+(run! (list(find-executable-path-or-fail "sh")
+           "-c"
+           @string-append{
+ printf "\033[m"; grep -i TODO --with-filename --color=yes -- `find \
+ \( -path ./lib/doc/bracket -prune -and -false \) \
+ -or \( -name compiled -prune -and -false \) \
+ -or -name '*.rkt'`}))
 
 ;; TODO: should directly exclude them in find-files-by-extension.
 (define excluded-dirs (list "docs/"
