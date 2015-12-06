@@ -155,7 +155,7 @@ wrapper macros.
 @chunk[<signature>
        (make-graph ([node <field-signature> … <mapping-declaration>]
                     …)
-                   (root-expr:expr …))]
+                   root-expr:expr …)]
 
 Where @tc[<field-signature>] is:
 
@@ -292,7 +292,7 @@ modified copy, in addition to the tag. The queue's processing body should return
 two values: the result of processing the element, and the latest version of
 @tc[Δ-queues], which stores the new elements to be added to the queue.
 
-@chunk[<fold-queue>
+@chunk[<fold-queues>
        (fold-queues <root-placeholder>
                     [(node/placeholder-queue [e : <fold-queue-type-element>]
                                              [Δ-queues : Δ-Queues]
@@ -588,7 +588,7 @@ are replaced by tagged indices:
              (begin <define-with-promises>) …
              (begin <define-incomplete>) …
              (begin <define-mapping-function>) …
-             (let*-values ([(rs) <fold-queue>]
+             (let*-values ([(rs) <fold-queues>]
                            [(node/database rs)
                             (values (ann (car rs)
                                          (Vectorof node/with-indices-type))
@@ -651,6 +651,7 @@ are replaced by tagged indices:
          
          
          
+
          
          
          
