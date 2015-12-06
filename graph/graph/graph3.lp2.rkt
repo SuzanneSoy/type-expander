@@ -214,13 +214,18 @@ We derive identifiers for these based on the @tc[node] name:
        (define-temp-ids "~a/with-indices-tag" (node …))
        (define-temp-ids "~a/with-indices-tag2" (node …))
        (define-temp-ids "~a/with-indices-type" ((field …) …))
+       (define-temp-ids "~a/index-type" (node …))
+       (define-temp-ids "~a/with-indices→with-promises" (node …)
+         #:first-base root)
        
-       (define-temp-ids "~a/with-promises-type" (node …))
+       (define-temp-ids "~a/with-promises-type" (node …) #:first-base root)
        (define-temp-ids "~a/make-with-promises" (node …))
        (define-temp-ids "~a/with-promises-tag" (node …))
        (define-temp-ids "~a/with-promises-type" ((field …) …))
        
-       (define-temp-ids "~a/mapping-function" (node …))]
+       (define-temp-ids "~a/mapping-function" (node …))
+       
+       (define-temp-ids "~a/database" (node …) #:first-base root)]
 
 @subsection{Overview}
 
@@ -290,7 +295,7 @@ two values: the result of processing the element, and the latest version of
 @chunk[<fold-queue>
        (fold-queues <root-placeholder>
                     [(node/placeholder-queue [e : <fold-queue-type-element>]
-                                             Δ-queues
+                                             [Δ-queues : Δ-Queues]
                                              enqueue)
                      : <fold-queue-type-result>
                      <fold-queue-body>]
@@ -334,10 +339,10 @@ found.
 @; TODO: use a type-expander here, instead of a template metafunction.
 
 @CHUNK[<define-with-indices>
+       (define-type node/index-type (List 'node/with-indices-tag2 Index))
+       
        (define-type field/with-indices-type
-         (tmpl-replace-in-type field-type
-                               [node (List 'node/with-indices-tag2 Index)]
-                               …))
+         (tmpl-replace-in-type field-type [node node/index-type] …))
        …
        
        (define-type node/with-indices-type
@@ -396,17 +401,19 @@ library. We replace all occurrences of a @tc[node] name with its
 
 @subsection{Converting incomplete nodes to with-indices ones}
 
+@; TODO: we don't need that many annotations
 @chunk[<placeholder→with-indices-function>
-       (λ ([p : node/placeholder-type] [acc : Void])
-         : (values (List 'node/with-indices-tag2 Index) Void)
-         (% index new-Δ-queues = (enqueue 'node/placeholder-queue p Δ-queues)
+       (λ ([p : node/placeholder-type] [Δ-acc : Δ-Queues])
+         : (values (List 'node/with-indices-tag2 Index) Δ-Queues)
+         (% index new-Δ-acc = (enqueue 'node/placeholder-queue p Δ-acc)
             (values (list 'node/with-indices-tag2 index)
-                    acc)))]
+                    new-Δ-acc)))]
 
 @chunk[<placeholder→with-indices-clause>
        [node/placeholder-type
         (List 'node/with-indices-tag2 Index)
-        (λ (x) (and (pair? x) (eq? (car x) 'node/placeholder-tag)))
+        (λ (x) (and (pair? x)
+                    (eq? (car x) 'node/placeholder-tag)))
         <placeholder→with-indices-function>]]
 
 @subsubsection{Processing the placeholders}
@@ -416,23 +423,24 @@ library. We replace all occurrences of a @tc[node] name with its
 @; same node type, but can use a different mapping?
 @; Or maybe we can do this from the ouside, using a wrapper macro?
 
+@; TODO: we don't need that many let etc., use % instead once everything works.
 @CHUNK[<fold-queue-body>
        (let ([mapping-result (apply node/mapping-function (cdr e))])
          (let ([f (tmpl-fold-instance (List <field-incomplete-type> …)
-                                      Void
+                                      Δ-Queues
                                       <placeholder→with-indices-clause> …)])
-           (let-values ([(r new-acc) (f (cdr mapping-result) (void))])
+           (let-values ([(r new-Δ-queues) (f (cdr mapping-result) Δ-queues)])
              (values (cons 'node/with-indices-tag r)
-                     Δ-queues))))]
+                     new-Δ-queues))))]
 
-Where @tc[<field-incomplete-type>] is the field-type in which node types are
-replaced by placeholder types.
+Where @tc[<field-incomplete-type>] is the @tc[field-type] in which node types
+are replaced by placeholder types:
 
-@chunk[ <field-incomplete-type>
+@chunk[<field-incomplete-type>
        (tmpl-replace-in-type field-type
                              [node node/placeholder-type] …)]
 
-@section{The mapping functions}
+@subsection{The mapping functions}
 
 We define the mapping functions as they are described by the user, with an
 important change: Instead of returning an @emph{ideal} node type, we expect them
@@ -447,6 +455,85 @@ to return an @emph{incomplete} node type.
                …)
            (λ ([param : param-type] …) : node/incomplete-type
              . mapping-body)))]
+
+@subsection{Returning a with-promises nodes}
+
+We will return a with-promises version of the root node, which contains promises
+for its successors. The user can then force one of these to obtain the
+with-promises version of the desired successor.
+
+@; TODO: put a diagram here, or an example at least
+
+This use of promises is safe, since their resolution depends only on the vectors
+returned by fold-queues, which are already fully computed when we create the
+root with-promises node. We therefore have no risk of forcing a promise that
+can't be resolved, or that would depend on itself, causing an infinite loop.
+
+@subsubsection{Why use promises?}
+
+We use promises because we would like to only use immutable data structures.
+Resolving the links in the graph would require mutating the nodes, so instead,
+when extracting the @emph{placeholders} from an @emph{incomplete} node, we
+produce a @emph{with-indices} node, which, instead of direct references to the
+successors, just stores a tag and index. Later, the successors are processed,
+and stored at the corresponding index in the queue for that tag.
+
+We then wrap each tagged index with a lambda, which also holds a reference to
+the vectors returned by fold-queue, which containin all the with-indices nodes.
+When calling the lambda, it extracts the with-indices node for that tag and
+index, further replaces the tagged indices within, and returns a brand new
+with-promises node.
+
+We could leave it as that, having the with-promises nodes contain lambdas
+instead of actual references to their successors. However, when an immutable
+function (like one of these lambdas) is called twice with the same arguments (in
+this case none), @tc[typed/racket]'s occurrence typing currently does not infer
+that the result will always be the same. This means that pattern-matching using
+the @tc[match] macro won't work properly, for example. We therefore wrap these
+functions into promises. The occcurrence typing mechanism in @tc[typed/racket]
+knows that a promise will always return the same value when forced multiple
+times. By default, promises use mutable data structures under the hood, to cache
+their result, but we do not rely on that. We could use @tc[delay/name], which
+doesn't cache the return value, but it was removed from @tc[typed/racket]
+because @hyperlink["https://github.com/racket/typed-racket/issues/159"]{it
+ caused type safety problems}.
+
+@subsubsection{Creating with-promises nodes from with-indices ones}
+
+@chunk[<index→promise-clause>
+       [node/index-type
+        (Promise node/with-promises-type)
+        (λ (x) (and (pair? x)
+                    (eq? (car x) 'node/with-indices-tag2)))
+        (λ ([tagged-index : node/index-type] [acc : Void])
+          : (values (Promise node/with-promises-type) Void)
+          (values <index→promise> acc))]]
+
+TODO: check what we are closing over in that promise.
+I think we are closing over the successor-with-index (but not its whole
+database), as well as everything that the with-indices→with-promises function
+closes over.
+
+@chunk[<index→promise>
+       (let ([successor-with-index (vector-ref node/database
+                                               (cadr tagged-index))])
+         (delay (node/with-indices→with-promises successor-with-index)))]
+
+@chunk[<define-with-indices→with-promises>
+       (: node/with-indices→with-promises (→ node/with-indices-type
+                                             node/with-promises-type))
+       (define (node/with-indices→with-promises n)
+         (define f (tmpl-fold-instance (List <field-with-indices-type> …)
+                                       Void
+                                       <index→promise-clause> …))
+         (cons 'node/with-promises-tag
+               (first-value (f (cdr n) (void)))))]
+
+Where @tc[<field-with-indices-type>] is the @tc[field-type] in which node types
+are replaced by tagged indices:
+
+@chunk[<field-with-indices-type>
+       (tmpl-replace-in-type field-type [node node/index-type] …)]
 
 @;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -501,7 +588,18 @@ to return an @emph{incomplete} node type.
              (begin <define-with-promises>) …
              (begin <define-incomplete>) …
              (begin <define-mapping-function>) …
-             <fold-queue>))))]
+             (let*-values ([(rs) <fold-queue>]
+                           [(node/database rs)
+                            (values (ann (car rs)
+                                         (Vectorof node/with-indices-type))
+                                    (cdr rs))]
+                           …
+                           [(_) (ann rs Null)])
+               (begin <define-with-indices→with-promises>) …
+               (list node/with-indices→with-promises …)
+               (ann (root/with-indices→with-promises
+                     (vector-ref root/database 0))
+                    root/with-promises-type))))))]
 
 @section{Conclusion}
 
@@ -538,30 +636,30 @@ to return an @emph{incomplete} node type.
          <use-example>
          
          g
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
          
-
-
-
-
-
-
-
+         
+         
+         
+         
+         
+         
+         
+         
+         
+         
+         
+         
+         
+         
+         
+         
+         
+         
+         
+         
+         
+         
+         
          
          
          (require (submod ".." doc)))]

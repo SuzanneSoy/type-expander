@@ -12,31 +12,45 @@
 
 @chunk[<fold-queues-signature>
        (fold-queues root-value
-                    [(name [element (~literal :) Element-Type] Δ-queues enqueue)
+                    [(name [element (~literal :) Element-Type]
+                           [Δ-queues (~literal :) Δ-Queues-Type-Name]
+                           enqueue)
                      (~literal :) result-type
                      . body]
                     ...)]
 
 @chunk[<define-enqueue-type>
        (define/with-syntax enqueue/type
-         #'(∀ (X) (case→ (→ 'name Element-Type X (values Index X))
-                         ...)))]
+         #'(case→ (→ 'name
+                     Element-Type
+                     Δ-Queues-Type-Name
+                     (values Index
+                             Δ-Queues-Type-Name))
+                  …))]
 
 @chunk[<define-Δ-queues-type>
        (define/with-syntax Δ-queues/type
          #'(List (Δ-Hash Element-Type Index) ...))]
 
+@chunk[<λ-type>
+       (∀ (Δ-Queues-Type-Name)
+          (→ Element-Type
+             Δ-Queues-Type-Name
+             enqueue/type
+             (values result-type
+                     Δ-Queues-Type-Name)))]
+
 @chunk[<fold-queue-multi-sets-immutable-tags>
        (define-syntax/parse <fold-queues-signature>
          <define-enqueue-type>
          <define-Δ-queues-type>
-         #'(list (λ ([element : Element-Type]
-                     [enqueue : enqueue/type]
-                     [Δ-queues : Δ-queues/type])
-                   : (values result-type Δ-queues/type)
-                   . body)
-                 ...)
-         #;#'(error "Not implemented yet"))]
+         #'(begin
+             (list (ann (λ (element Δ-queues enqueue)
+                          . body)
+                        <λ-type>)
+                   ...)
+             ((ann (λ _ (error "Not implemented yet"))
+                   (→ (List (Vectorof result-type) …))))))]
 
 
 @tc[Δ-Hash] is a type encapsulating both a hash, and a set of key-value pairs
