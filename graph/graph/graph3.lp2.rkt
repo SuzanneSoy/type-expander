@@ -63,8 +63,8 @@ street names @tc[c], and calls for each element the @tc[m-street] and
 @; typecheck (yet).
 @chunk[<m-city>
        [(m-city [c : (Listof (Pairof String String))])
-        (City (remove-duplicates (map (curry m-street c) (cars c)))
-              (remove-duplicates (map m-person (cdrs c))))]]
+        (City (remove-duplicates (map (curry m-street c) (cdrs c)))
+              (remove-duplicates (map m-person (cars c))))]]
 
 @subsubsection{More mappings}
 
@@ -526,8 +526,7 @@ closes over.
          (define f (tmpl-fold-instance (List <field-with-indices-type> …)
                                        Void
                                        <index→promise-clause> …))
-         (cons 'node/with-promises-tag
-               (first-value (f (cdr n) (void)))))]
+         (apply node/make-with-promises (first-value (f (cdr n) (void)))))]
 
 Where @tc[<field-with-indices-type>] is the @tc[field-type] in which node types
 are replaced by tagged indices:
@@ -579,27 +578,27 @@ are replaced by tagged indices:
 @chunk[<make-graph-constructor>
        (define-syntax/parse <signature>
          <define-ids>
-         ((λ (x) (pretty-write (syntax->datum x)) x)
-          (template
-           (let ()
-             (begin <define-placeholder-type>) …
-             (begin <define-make-placeholder>) …
-             (begin <define-with-indices>) …
-             (begin <define-with-promises>) …
-             (begin <define-incomplete>) …
-             (begin <define-mapping-function>) …
-             (let*-values ([(rs) <fold-queues>]
-                           [(node/database rs)
-                            (values (ann (car rs)
-                                         (Vectorof node/with-indices-type))
-                                    (cdr rs))]
-                           …
-                           [(_) (ann rs Null)])
-               (begin <define-with-indices→with-promises>) …
-               (list node/with-indices→with-promises …)
-               (ann (root/with-indices→with-promises
-                     (vector-ref root/database 0))
-                    root/with-promises-type))))))]
+         #|((λ (x) (pretty-write (syntax->datum x)) x)|#
+         (template
+          (let ()
+            (begin <define-placeholder-type>) …
+            (begin <define-make-placeholder>) …
+            (begin <define-with-indices>) …
+            (begin <define-with-promises>) …
+            (begin <define-incomplete>) …
+            (begin <define-mapping-function>) …
+            (let*-values ([(rs) <fold-queues>]
+                          [(node/database rs)
+                           (values (ann (car rs)
+                                        (Vectorof node/with-indices-type))
+                                   (cdr rs))]
+                          …
+                          [(_) (ann rs Null)])
+              (begin <define-with-indices→with-promises>) …
+              (list node/with-indices→with-promises …)
+              (ann (root/with-indices→with-promises
+                    (vector-ref root/database 0))
+                   root/with-promises-type))))#|)|#)]
 
 @section{Conclusion}
 
@@ -635,33 +634,8 @@ are replaced by tagged indices:
          
          <use-example>
          
+         (provide g)
          g
-         
-         
-         
-         
-         
-         
-         
-         
-         
-         
-         
-         
-         
-         
-         
-
-         
-         
-         
-         
-         
-         
-         
-         
-         
-         
          
          (require (submod ".." doc)))]
 

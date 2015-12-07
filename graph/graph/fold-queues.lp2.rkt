@@ -48,18 +48,15 @@
        (define-syntax/parse <fold-queues-signature>
          ;<define-queues-type>
          <define-ids>
-         ((λ (x) (pretty-write (syntax->datum x)) x)
-          #'(let ()
-              (begin
-                (: name/process-element <process-element-type>)
-                (define (name/process-element element Δ-queues enqueue) . body))
-              …
-              <Δ-hash2-definitions>
-              <Δ-results-definitions>
-              <process-queues>
-              ;((ann (λ _ (error "fold-queues: Not implemented yet"))
-              ;      (→ (List (Vectorof Result-Type) …))))
-              )))]
+         #|((λ (x) (pretty-write (syntax->datum x)) x)|#
+         #'(let ()
+             (begin
+               (: name/process-element <process-element-type>)
+               (define (name/process-element element Δ-queues enqueue) . body))
+             …
+             <Δ-hash2-definitions>
+             <Δ-results-definitions>
+             <process-queues>)#|)|#)]
 
 @subsection{Representation of the queues}
 
@@ -82,7 +79,8 @@ which tracks the length of the list (i.e. the first unallocated result index):
 
 @chunk[<Δ-hash2-queue-type>
        (List (HashTable Element-Type Index)
-             (Listof Element-Type)
+             (Listof Element-Type) ; Reversed stack
+             (Listof Element-Type) ; Stack
              Index)]
 
 @chunk[<Δ-hash2-type>
@@ -112,14 +110,14 @@ database type opaque, and use an accessor with signature
                   (if (hash-has-key? (car name/queue) elt)
                       (values (hash-ref (car name/queue) elt)
                               qs)
-                      (match-let ([(list h l i) name/queue])
+                      (match-let ([(list h rs s i) name/queue])
                         (let* ([new-h (hash-set h elt i)]
-                               [new-l (cons elt l)]  ;; whoops, should append, not cons!
+                               [new-s (cons elt s)]
                                [new-i (+ i 1)]
                                [new-i-index (if (index? new-i)
                                                 new-i
                                                 (error "Too many elements"))]
-                               [name/queue (list new-h new-l new-i-index)])
+                               [name/queue (list new-h rs new-s new-i-index)])
                           (values i
                                   (list name/queue …)))))]
                  …)))]
@@ -128,22 +126,25 @@ database type opaque, and use an accessor with signature
 
 @chunk[<Δ-hash2-dequeue>
        (: Δ-hash2-dequeue (case→ (→ (List (HashTable Element-Type Index)
-                                          (Pairof Element-Type
-                                                  (Listof Element-Type))
+                                          (Listof Element-Type) ;; TODO: (P (L))
+                                          (Listof Element-Type) ;; TODO: (P (L))
                                           Index)
                                     (values Element-Type
                                             <Δ-hash2-queue-type>))
                                  …))
        (define (Δ-hash2-dequeue q)
-         (match-let* ([(list h (cons e rest-l) i) q])
-           (values e
-                   (list h rest-l (assert (- i 1) index?)))))]
+         (match q
+           [(list h (cons e rest-rs) s i)
+            (values e
+                    (list h rest-rs s (assert (- i 1) index?)))]
+           [(list h '() s i)
+            (Δ-hash2-dequeue (list h (reverse s) '() i))]))]
 
 @subsubsection{Constructor for the queues}
 
 @chunk[<Δ-hash2-empty>
        (define Δ-hash2-empty
-         (list (list ((inst hash Element-Type Index)) '() 0)
+         (list (list ((inst hash Element-Type Index)) '() '() 0)
                …))]
 
 @subsection{Result lists}
@@ -188,7 +189,8 @@ position in the vector equal to the index associated to it in the hash table:
        (: Δ-results-to-vectors (→ Δ-results-type
                                   (List (Vectorof Result-Type) …)))
        (define (Δ-results-to-vectors Δ-results)
-         (match-let ([(list name/queue …) (ann Δ-results (List (Listof Result-Type) …))])
+         (match-let ([(list name/queue …)
+                      (ann Δ-results (List (Listof Result-Type) …))])
            (list (vector->immutable-vector
                   (ann (list->vector name/queue)
                        (Vectorof Result-Type)))
@@ -204,7 +206,8 @@ position in the vector equal to the index associated to it in the hash table:
                                [results : Δ-results-type])
          : (List (Vectorof Result-Type) …)
          (match-let ([(list name/queue …) queues])
-           (cond [(not (empty? (cadr name/queue)))
+           (cond [(or (not (empty? (cadr name/queue)))
+                      (not (empty? (caddr name/queue))))
                   <process-queue>]
                  …
                  [else (Δ-results-to-vectors results)])))
