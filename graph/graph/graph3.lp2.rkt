@@ -330,11 +330,10 @@ Then we define the @tc[node/make-placeholder] function:
 
 @subsection{Making with-indices nodes}
 
-We derive the @tc[with-indices] type from each @emph{ideal} node type using
-the @tc[tmpl-replace-in-type] template metafunction from the rewrite-type
-library. We replace all occurrences of a @tc[node] name with an @tc[Index],
-which indicates at which index in the queue's results the successor can be
-found.
+We derive the @tc[with-indices] type from each @emph{ideal} node type using the
+@tc[tmpl-replace-in-type] template metafunction from the rewrite-type library.
+We replace all occurrences of a @tc[node] name with an @tc[Index], which
+indicates at which index in the queue's results the successor can be found.
 
 @; TODO: use a type-expander here, instead of a template metafunction.
 

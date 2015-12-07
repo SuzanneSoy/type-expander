@@ -1,9 +1,15 @@
-#lang typed/racket
+#lang debug typed/racket
 
 (require (submod "graph3.lp2.rkt" test))
 (require racket/list)
 
-(force (car (second g)))
-;(map force (second g))
+;#R(force (second g))
 
-;(map force (third g))
+(ann g 1)
+
+#|
+#R(force (caadr (force (car (second g)))))
+#R(map force (second g))
+
+#R(map force (third g))
+|#
