@@ -148,6 +148,7 @@
 
 (run! `(,(find-executable-path-or-fail "raco")
         "make"
+        "-j" "8"
         ,@rkt-files))
 
 (make/proc
@@ -180,8 +181,10 @@
 
 (run! `(,(find-executable-path-or-fail "raco")
         "cover"
+        "-v"
         ,@(exclude-dirs rkt-files (list "make/"))))
 
 (run! `(,(find-executable-path-or-fail "raco")
         "test"
+        "-j" "8"
         ,@(exclude-dirs rkt-files (list "make/"))))
