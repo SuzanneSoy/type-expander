@@ -1,46 +1,47 @@
 #lang typed/racket
 
-#|
 (module m typed/racket
   (define foo
     (let ()
-      (define-type Foo (Pairof (Promise Foo) Number))
+      (define-type Foo (List 'foo (U Bar One)))
+      (define-type Bar (List 'bar (U Foo Zero)))
       
-      (define (f [n : Number]) : Foo
-        (cons (delay (f (add1 n)))
-              n))
-      (f 1)))
+      (ann (list 'foo (list 'bar 0)) Foo)))
   
   (provide foo))
 
 (require 'm)
-(force (car foo))
-|#
 
-(define-type (P A) (Pairof (U A Null) (U A Null)))
+;(: f (∀ (A) (→ (List Symbol A) A)))
+;(define (f x) (cadr x))
 
-(define bar
-  (let ()
-    (define-type Bar (Pairof (P Bar) Number))
+;(unpack (s-f foo))
 
-    (define (f [n : Number]) : Bar
-      (cons (ann (cons '() '()) (P Bar))
-            n))
-    
-    (f 1)))
-
-(provide P bar)
+(cadr foo)
 
 #|
-(define foo
-  (let ()
-    ;(define-type Foo (Rec F (Pairof (Promise F) Number)))
-    (define-type Foo (Pairof (Promise Foo) Number))
-    
-    (define (f [n : Number]) : Foo
-      (cons (delay (f (add1 n)))
-            n))
-    (f 1)))
+(module m typed/racket
+  (struct (A) s ([f : A]))
+  (define foo
+    (let ()
+      (define-type Foo (List 'foo (U (s Foo) (s Bar) One)))
+      (define-type Bar (List 'bar (U (s Foo) (s Bar) Zero)))
+      
+      (ann (s (list 'foo 1)) (s Foo))))
 
-(provide foo)
+  ;(: unpack (∀ (A) (→ (List Symbol A) A)))
+  ;(define (unpack x) (cadr x))
+  
+  (provide (struct-out s)
+           ;unpack
+           foo))
+
+(require 'm)
+
+;(: f (∀ (A) (→ (List Symbol A) A)))
+;(define (f x) (cadr x))
+
+;(unpack (s-f foo))
+
+(s-f foo)
 |#

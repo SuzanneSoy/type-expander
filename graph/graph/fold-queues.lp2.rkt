@@ -125,10 +125,7 @@ database type opaque, and use an accessor with signature
 @subsubsection{Popping elements from the queues}
 
 @chunk[<Δ-hash2-dequeue>
-       (: Δ-hash2-dequeue (case→ (→ (List (HashTable Element-Type Index)
-                                          (Listof Element-Type) ;; TODO: (P (L))
-                                          (Listof Element-Type) ;; TODO: (P (L))
-                                          Index)
+       (: Δ-hash2-dequeue (case→ (→ <Δ-hash2-queue-type>
                                     (values Element-Type
                                             <Δ-hash2-queue-type>))
                                  …))
@@ -192,7 +189,7 @@ position in the vector equal to the index associated to it in the hash table:
          (match-let ([(list name/queue …)
                       (ann Δ-results (List (Listof Result-Type) …))])
            (list (vector->immutable-vector
-                  (ann (list->vector name/queue)
+                  (ann (list->vector (reverse name/queue))
                        (Vectorof Result-Type)))
                  …)))]
 
@@ -212,7 +209,6 @@ position in the vector equal to the index associated to it in the hash table:
                  …
                  [else (Δ-results-to-vectors results)])))
        
-       #;(process-queues (list ((inst empty-Δ-hash Element-Type Index)) …))
        (% index Δ-hash = (Δ-hash2-enqueue 'root-name root-value Δ-hash2-empty)
           (process-queues Δ-hash Δ-results-empty))]
 

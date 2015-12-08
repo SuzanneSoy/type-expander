@@ -30,7 +30,7 @@ these constructors:
 
 @chunk[<example-variants>
        [City [streets : (Listof Street)] [people : (Listof Person)] <m-city>]
-       [Street [houses : (Listof House)] <m-street>]
+       [Street [name : String] [houses : (Listof House)] <m-street>]
        [House [owner : Person] [location : Street] <m-house>]
        [Person [name : String] <m-person>]]
 
@@ -41,13 +41,13 @@ same street.
 
 In order to build a graph with that type, we start from the root parameters.
 Here, we will take a representation of the city as a list of
-@tc[(street . person-name)] pairs, and will convert it to a more convenient
+@tc[(street-name . person-name)] pairs, and will convert it to a more convenient
 graph representation. Our single root parameter will thus be the whole list:
 
 @chunk[<example-root>
-       '(["Amy" . "Ada street"]
-         ["Jack" . "J street"]
-         ["Anabella" . "Ada street"])]
+       '(["Amy" . "Ada Street"]
+         ["Jack" . "J Street"]
+         ["Anabella" . "Ada Street"])]
 
 We will then provide a mapping from the root parameter to the root node, in our
 case @tc[City]. When processing the root parameter, one can call other mappings
@@ -73,10 +73,10 @@ whole city @tc[c] in list form, and creates a @tc[Street] node.
 
 @chunk[<m-street>
        [(m-street [c : (Listof (Pairof String String))] [s : String])
-        (Street (map (curry (curry m-house s) c)
-                     (cars (filter (λ ([x : (Pairof String String)])
-                                     (equal? (cdr x) s))
-                                   c))))]]
+        (Street s (map (curry (curry m-house s) c)
+                       (cars (filter (λ ([x : (Pairof String String)])
+                                       (equal? (cdr x) s))
+                                     c))))]]
 
 The @tc[m-house] mapping defined below calls back the @tc[m-street] mapping, to
 store for each house a reference to the containing street. Normally, this would
@@ -86,10 +86,10 @@ the mappings aren't called directly, and instead, in the body of @tc[m-house],
 us to not worry about mutually recursive mappings: a mapping can be called any
 number of times with the same data, it will actually only be run once.
 
-The @tc[make-graph-constructor] macro will post-process the result of each
-mapping, and replace the placeholders with promises for the the result of the
-mapping. The promises are not available during graph construction, so there is
-no risk of forcing one before it is available.
+The @tc[define-graph] macro will post-process the result of each mapping, and
+replace the placeholders with promises for the the result of the mapping. The
+promises are not available during graph construction, so there is no risk of
+forcing one before it is available.
 
 We can now write the @tc[m-house] and @tc[m-person] mappings.
 
@@ -105,14 +105,13 @@ We can now write the @tc[m-house] and @tc[m-person] mappings.
 
 @subsubsection{Creating an instance of the graph}
 
-For now, we will supply directly the root arguments to the @tc[make-graph]
+For now, we will supply directly the root arguments to the @tc[define-graph]
 macro, as well as the node types and mappings. We can later curry the macro, so
 that it first takes the node types and mappings, and produces a lambda taking
 the root arguments as parameters.
 
 @chunk[<use-example>
-       (define g
-         (make-graph (<example-variants>) <example-root>))]
+       (define-graph g (<example-variants>) <example-root>)]
 
 @subsection{More details on the semantics}
 
@@ -145,17 +144,18 @@ with @tc[Rec] yet.
 
 @section{Implementation}
 
-In this section, we will describe how the @tc[make-graph] macro is implemented.
+In this section, we will describe how the @tc[define-graph] macro is
+implemented.
 
 @subsection{The macro's syntax}
 
-We use a simple syntax for @tc[make-graph], and make it more flexible through
+We use a simple syntax for @tc[define-graph], and make it more flexible through
 wrapper macros.
 
 @chunk[<signature>
-       (make-graph ([node <field-signature> … <mapping-declaration>]
-                    …)
-                   root-expr:expr …)]
+       (define-graph name ([node <field-signature> … <mapping-declaration>]
+                           …)
+         root-expr:expr …)]
 
 Where @tc[<field-signature>] is:
 
@@ -574,30 +574,32 @@ are replaced by tagged indices:
 
 @section{Putting it all together}
 
-@chunk[<make-graph-constructor>
+@chunk[<define-graph>
        (define-syntax/parse <signature>
          <define-ids>
          #|((λ (x) (pretty-write (syntax->datum x)) x)|#
          (template
-          (let ()
+          ;(let ()
+          (begin
             (begin <define-placeholder-type>) …
             (begin <define-make-placeholder>) …
             (begin <define-with-indices>) …
             (begin <define-with-promises>) …
             (begin <define-incomplete>) …
             (begin <define-mapping-function>) …
-            (let*-values ([(rs) <fold-queues>]
-                          [(node/database rs)
-                           (values (ann (car rs)
-                                        (Vectorof node/with-indices-type))
-                                   (cdr rs))]
-                          …
-                          [(_) (ann rs Null)])
-              (begin <define-with-indices→with-promises>) …
-              (list node/with-indices→with-promises …)
-              (ann (root/with-indices→with-promises
-                    (vector-ref root/database 0))
-                   root/with-promises-type))))#|)|#)]
+            (define name : root/with-promises-type
+              (match-let ([(list node/database …) <fold-queues>])
+                #|(let*-values ([(rs) <fold-queues>]
+                            [(node/database rs)
+                             (values (ann (car rs)
+                                          (Vectorof node/with-indices-type))
+                                     (cdr rs))]
+                            …
+                            [(_) (ann rs Null)])|#
+                (begin <define-with-indices→with-promises>) …
+                ;(list node/with-indices→with-promises …)
+                (root/with-indices→with-promises
+                 (vector-ref root/database 0))))))#|)|#)]
 
 @section{Conclusion}
 
@@ -620,8 +622,8 @@ are replaced by tagged indices:
          ;(begin-for-syntax
          ;<multiassoc-syntax>)
          
-         (provide make-graph)
-         <make-graph-constructor>)]
+         (provide define-graph)
+         <define-graph>)]
 
 @chunk[<module-test>
        (module* test typed/racket
@@ -631,10 +633,8 @@ are replaced by tagged indices:
                   "../lib/low.rkt"; DEBUG
                   typed/rackunit)
          
-         <use-example>
-         
          (provide g)
-         g
+         <use-example>
          
          (require (submod ".." doc)))]
 
