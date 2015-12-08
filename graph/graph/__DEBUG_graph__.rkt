@@ -22,9 +22,9 @@
 
 #R(force (car (second g)))
 #R(force (cadr (force (car (caddr (force (car (second g))))))))
-;|#
 
 (newline)
+;|#
 
 (define (forceall [fuel : Integer] [x : Any]) : Any
   (if (> fuel 0)

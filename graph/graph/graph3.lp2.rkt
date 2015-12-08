@@ -111,7 +111,8 @@ that it first takes the node types and mappings, and produces a lambda taking
 the root arguments as parameters.
 
 @chunk[<use-example>
-       (define-graph g (<example-variants>) <example-root>)]
+       (define-graph make-g <example-variants>)
+       (define g (make-g <example-root>))]
 
 @subsection{More details on the semantics}
 
@@ -153,9 +154,9 @@ We use a simple syntax for @tc[define-graph], and make it more flexible through
 wrapper macros.
 
 @chunk[<signature>
-       (define-graph name ([node <field-signature> … <mapping-declaration>]
-                           …)
-         root-expr:expr …)]
+       (define-graph name
+         [node <field-signature> … <mapping-declaration>]
+         …)]
 
 Where @tc[<field-signature>] is:
 
@@ -199,6 +200,9 @@ We derive identifiers for these based on the @tc[node] name:
 
 @;;;;
 @chunk[<define-ids>
+       (define/with-syntax ((root-param …) . _) #'((param …) …))
+       (define/with-syntax ((root-param-type …) . _) #'((param-type …) …))
+       
        (define-temp-ids "~a/make-placeholder" (node …) #:first-base root)
        (define-temp-ids "~a/placeholder-type" (node …))
        (define-temp-ids "~a/placeholder-tag" (node …))
@@ -306,7 +310,7 @@ two values: the result of processing the element, and the latest version of
 We start creating the root placeholder which we provide to @tc[fold-queues].
 
 @chunk[<root-placeholder>
-       (root/make-placeholder root-expr …)]
+       (root/make-placeholder root-param …)]
 
 To make the placeholder, we will need a @tc[node/make-placeholder] function for
 each @tc[node]. We first define the type of each placeholder (a list of
@@ -587,15 +591,10 @@ are replaced by tagged indices:
             (begin <define-with-promises>) …
             (begin <define-incomplete>) …
             (begin <define-mapping-function>) …
-            (define name : root/with-promises-type
+            
+            (: name (→ root-param-type … root/with-promises-type))
+            (define (name root-param …)
               (match-let ([(list node/database …) <fold-queues>])
-                #|(let*-values ([(rs) <fold-queues>]
-                            [(node/database rs)
-                             (values (ann (car rs)
-                                          (Vectorof node/with-indices-type))
-                                     (cdr rs))]
-                            …
-                            [(_) (ann rs Null)])|#
                 (begin <define-with-indices→with-promises>) …
                 ;(list node/with-indices→with-promises …)
                 (root/with-indices→with-promises
