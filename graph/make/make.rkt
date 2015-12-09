@@ -159,11 +159,13 @@
                     [html html-files])
           (html)
           (scrbl-or-lp2)
+          ;; TODO: compile twice, so that the cross-references are correct
           (scribble scrbl-or-lp2 doc-sources "--html"))
         (for/rules ([scrbl-or-lp2 doc-sources]
                     [pdf pdf-files])
           (pdf)
           (scrbl-or-lp2)
+          ;; TODO: compile twice, so that the cross-references are correct
           (scribble scrbl-or-lp2 doc-sources "--pdf"))
         (for/rules ([mathjax-link mathjax-links])
           (mathjax-link)

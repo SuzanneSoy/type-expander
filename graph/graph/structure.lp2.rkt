@@ -9,7 +9,7 @@
 @section{@racket[define-structure]}
 
 Structures are represented using regular racket @tc[struct]s, see
-@seclink["structures" #:doc "type-system.scrbl"]{the overview document}.
+@seclink["type-system|structures"]{the overview document}.
 @;secref["structures" #:doc "type-system.scrbl"].
 
 @chunk[<structure>
@@ -90,11 +90,11 @@ We wish to pre-declare all @tc[struct] types for various reasons:
 
 In order to pre-declare the @tc[struct]s, we need to remember them across
 compilations, for that we use @tc[remember-all] and @tc[get-remembered] defined
-below in section @secref{remember}. We then need to make these identifiers
-available in the correct syntax scope. The easiest way to do that, is to have a
-private macro @tc[(declare-all-structs (name field ...) ...)] which does all the
-required definitions, namely defining the struct, as well as @tc[make-struct],
-@tc[get-field], and the match-expander eventually.
+below in section @secref{structure|remember}. We then need to make these
+identifiers available in the correct syntax scope. The easiest way to do that,
+is to have a private macro @tc[(declare-all-structs (name field ...) ...)] which
+does all the required definitions, namely defining the struct, as well as
+@tc[make-struct], @tc[get-field], and the match-expander eventually.
 
 We do not wish to remember the type of each field, as they may be a non-exported
 identifier from some module. It should not cause any problem when declaring the
@@ -343,7 +343,8 @@ instead of needing an extra recompilation.
                           b)
                      "b")]
 
-@section[#:tag "remember"]{Closed-world assumption and global compilation}
+@section[#:tag "structure|remember"]{Closed-world assumption and global
+ compilation}
 
 In order to be able to access elements in the list as deep as they can be, we
 need to know the length of the longest structure used in the whole program. 

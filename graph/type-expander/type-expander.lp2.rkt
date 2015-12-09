@@ -260,7 +260,7 @@ Shadowing and @tc[∀] variables:
 Througout this section, we provide alternative definitions of the
 @tc[typed/racket] forms @tc[:], @tc[lambda], @tc[define], @tc[struct], @tc[ann],
 @tc[inst]… . We write these definitions with @tc[syntax-parse], using the syntax
-classes defined in section @secref{syntax-classes}.
+classes defined in section @secref{type-expander|syntax-classes}.
 
 Most of the time, we will use the experimental @tc[template] macro from
 @tc[syntax/parse/experimental/template] which allows more concise code than the
@@ -286,7 +286,7 @@ after expanding the type argument.
        (: c0 `(2 "abc" #,,(Pairof (U 'x 'y) (U 'y 'z)) #(1 "b" x) d))
        (define c0 '(2 "abc" #,(x . z) #(1 "b" x) d))]
 
-@subsection[#:tag "syntax-classes"]{syntax classes}
+@subsection[#:tag "type-expander|syntax-classes"]{syntax classes}
 
 The syntax classes from @tc[typed-racket/base-env/annotate-classes] match
 against the @tc[:] literal. Since we provide a new definition for it, the syntax
@@ -674,7 +674,8 @@ them.
          (check-equal? ((make-predicate (Repeat Number 3)) '(1 2 3)) #t)
          (check-equal? ((make-predicate (Repeat Number 3)) '(1 "b" 3)) #f))]
 
-@subsection[#:tag "other-forms"]{Other @racket[typed/racket] forms}
+@subsection[#:tag "type-expander|other-forms"]{Other @racket[typed/racket]
+ forms}
 
 The other @tc[typed/racket] forms below do not have an alternative definition
 yet.
@@ -784,7 +785,7 @@ yet.
 @section{Future work}
 
 We have not implemented alternative type-expanding definitions for all the
-@tc[typed/racket] forms, as noted in @secref{other-forms}.
+@tc[typed/racket] forms, as noted in @secref{type-expander|other-forms}.
 
 Integrating the type-expander directly into typed/racket would avoid the need to
 provide such definitions, and allow using type-expanders in vanilla

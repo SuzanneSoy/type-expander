@@ -13,15 +13,15 @@ the list being processed. In other words, we want to apply a @tc[lambda] to all
 elements inside a queue, with the possibility to return new elements that should
 be added to the queue.
 
-We will first define a general version in section @secref{sec:general}, where
+We will first define a general version in section @secref{queue|general}, where
 most implementation details are parametrizable. We then use this as a building
 block to define more specialized version, for example the section
-@secref{sec:sets-add} defines a version where the queue is a set, and elements
+@secref{queue|sets-add} defines a version where the queue is a set, and elements
 can only be added to the queue, not removed (therefore the @tc[lambda] is
 expected to return only the elements to be added, and not the ones already
 present in the queue).
 
-@section[#:tag "sec:general"]{General version}
+@section[#:tag "queue|general"]{General version}
 
 Since both lists, sets and other structures could be used to represent the
 queue, we don't specify them here, and instead take the @tc[dequeue] and
@@ -35,10 +35,10 @@ result for this element with the remaining ones, either by constructing the
 overall result in the @tc[accumulator], or by using the value returned by
 @tc[rec].
 
-The former case is shown in section @secref{sec:tail-call-reverse-map}, where
+The former case is shown in section @secref{queue|tail-call-reverse-map}, where
 each element's result is combined with the accumulator using @tc[cons], whereas
-the latter case is shown in @secref{sec:map}, where the result for an element is
-combined with @tc[cons] to what @tc[process-rest] will return.
+the latter case is shown in @secref{queue|map}, where the result for an element
+is combined with @tc[cons] to what @tc[process-rest] will return.
 
 The lambda @tc[process] takes four parameters: the @tc[element] to process, the
 current accumulator, current queue, and a function to call recursively with the
@@ -76,7 +76,7 @@ some of those need to be deleted before being processed).
                (% element rest-queue = (dequeue queue)
                   (process element accumulator rest-queue process-rest)))))]
 
-@section[#:tag "sec:map"]{@racket[map]}
+@section[#:tag "queue|map"]{@racket[map]}
 
 Here is a version that behaves like @tc[map] on the queue, returning a list of
 the result of @tc[process] on the queue's elements, in the order in which they
@@ -116,8 +116,8 @@ be discarded once all elements have been processed), and the @tc[new-queue].
             (→ Element Accumulator Queue (→ Queue Accumulator (Listof Result))
                (Listof Result)))]
 
-@section[#:tag "sec:tail-call-reverse-map"]{Tail-call @racket[map], with results
- in reverse order}
+@section[#:tag "queue|tail-call-reverse-map"]{Tail-call @racket[map], with
+ results in reverse order}
 
 @chunk[<tail-call-reverse-map-queue>
        (: tail-call-reverse-map-queue
@@ -153,7 +153,7 @@ be discarded once all elements have been processed), and the @tc[new-queue].
             (→ Element RAccumulator Queue (→ Queue RAccumulator (Listof Result))
                (Listof Result)))]
 
-@section[#:tag "sec:sets-add"]{Variant using sets}
+@section[#:tag "queue|sets-add"]{Variant using sets}
 
 We define in this section a fold over queues represented using sets. This
 version also disallows removing elements from the queue by making the union of

@@ -5,7 +5,7 @@
 
 @title[#:style manual-doc-style]{Rewriting data structures and their types}
 
-@section[#:tag "sec:intro-example"]{Introductory example}
+@section[#:tag "rewrite-type|intro-example"]{Introductory example}
 This module allows purely functional substitution inside a data structure of
 arbitrarily deep elements of a given type, while also computing the type of the
 result.
@@ -75,7 +75,7 @@ return type containing no more strings, and the correct return value.
                            Number)))
         '(((tag2 (#(sym) 7 (2 3 4))) . 1)))]
 
-@section[#:tag "sec:replace-in-type"]{Replacing parts of a type}
+@section[#:tag "rewrite-type|replace-in-type"]{Replacing parts of a type}
 
 The @tc[replace-in-type] @tc[for-syntax] function is pretty straightforward: it
 checks whether the given type matches one of the substitution rules given in
@@ -125,13 +125,14 @@ The other cases use @tc[~literal] and a syntax pattern to find uses of
 TODO: If the type is a quoted primitive, we should replace it too, for example
 @tc['("abc" symbol)] should be transformed into @tc['(3 symbol)] if we apply the
 @tc[[String Number string-length]] substitution from the example in section
-@secref{sec:intro-example}.
+@secref{rewrite-type|intro-example}.
 
 @CHUNK[<replace-in-type-case-quote>
        [((~literal quote) a)
         #`(quote a)]]
 
-@section[#:tag "sec:replace-in-instance"]{Replacing parts of an instance}
+@section[#:tag "rewrite-type|replace-in-instance"]{Replacing parts of an
+ instance}
 
 The @tc[replace-in-instance] for-syntax function is defined in a similar way,
 with an internal definition for @tc[recursive-replace]. The case of unions is
@@ -251,7 +252,7 @@ detail in the
                "Rethink-how-to-do-the-multi-step-types-more-inside")]
 {FogBugz case 54}.
 
-@section[#:tag "sec:fold"]{Folding over an instance}
+@section[#:tag "rewrite-type|fold"]{Folding over an instance}
 
 Replacing parts of an instance may require first extracting them. We define here
 a general fold over some data structures, that allows the replacement function
@@ -532,12 +533,12 @@ type.
 @section{Replacing parts of an instance using fold}
 
 We can use the @tc[fold-instance] for-syntax function defined in section
-@secref{sec:fold} as a building block to write a new, simpler definition of the
-@tc[replace-in-instance] for-syntax function defined in section
-@secref{sec:replace-in-instance}. This method should give better consistency
-between the behaviour of @tc[replace-in-instance] and @tc[fold-instance] as well
-as better maintainability, but is slightly less efficient than the separate
-implementation.
+@secref{rewrite-type|fold} as a building block to write a new, simpler
+definition of the @tc[replace-in-instance] for-syntax function defined in
+section @secref{rewrite-type|replace-in-instance}. This method should give
+better consistency between the behaviour of @tc[replace-in-instance] and
+@tc[fold-instance] as well as better maintainability, but is slightly less
+efficient than the separate implementation.
 
 @CHUNK[<replace-in-instance2>
        (define-for-syntax (replace-in-instance2 val t r)

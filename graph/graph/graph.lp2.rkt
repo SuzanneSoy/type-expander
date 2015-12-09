@@ -125,7 +125,7 @@ desired result node, we can use the node's name as the transform name. We should
 think about naming conflicts: when calling @tc[n], should it insert a link
 request for the transform, or should it create an incomplete node?
 
-@subsection[#:tag "complex-transforms-return-type-conclusion"]{Conclusion}
+@subsection[#:tag "graph|complex-transforms-return-type-conclusion"]{Conclusion}
 
 With this approach, we can write the graph creation macro with the guaranty
 that the result of a transform always is exactly one node type. More complex

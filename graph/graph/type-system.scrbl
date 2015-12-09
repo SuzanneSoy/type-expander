@@ -6,7 +6,7 @@
 
 @;(table-of-contents)
 
-@section[#:tag "structures"]{Structures}
+@section[#:tag "type-system|structures"]{Structures}
 
 @;(+ 1 2 3) gives @(format "~a" (+ 1 2 3)).
 
