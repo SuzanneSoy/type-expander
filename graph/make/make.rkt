@@ -112,15 +112,27 @@
          "--dest" ,(build-path "docs/" (dirname file))
          "+m"
          "--redirect-main" "http://docs.racket-lang.org/"
-         "--info-out" ,(build-path "docs/" (path-append file ".sxref"))
+         "--info-out" ,(build-path "docs/" (path-append
+                                            (path-append file renderer)
+                                            ".sxref"))
          ,@(append-map (λ ([f : Path-String]) : (Listof Path-String)
                          (let ([sxref (build-path "docs/"
-                                                  (path-append f ".sxref"))])
+                                                  (path-append
+                                                   (path-append f renderer)
+                                                   ".sxref"))])
                            (if (file-exists? sxref)
                                (list "++info-in" sxref)
                                (list))))
                        (remove file all-files))
          ,file)))
+
+(: scribble-all (→ (Listof Path) ScribbleRenderers Any))
+(define (scribble-all files renderer)
+  ;; TODO: compile everything twice, so that the cross-references are correct.
+  (for ([f (in-list files)])
+    (scribble f files renderer))
+  (for ([f (in-list files)])
+    (scribble f files renderer)))
 
 ;(make-collection "phc" rkt-files (argv))
 ;(make-collection "phc" '("graph/all-fields.rkt") #("zo"))
@@ -159,14 +171,14 @@
                     [html html-files])
           (html)
           (scrbl-or-lp2)
-          ;; TODO: compile twice, so that the cross-references are correct
-          (scribble scrbl-or-lp2 doc-sources "--html"))
+          #;(scribble (list scrbl-or-lp2) doc-sources "--html")
+          (scribble-all doc-sources "--html"))
         (for/rules ([scrbl-or-lp2 doc-sources]
                     [pdf pdf-files])
           (pdf)
           (scrbl-or-lp2)
-          ;; TODO: compile twice, so that the cross-references are correct
-          (scribble scrbl-or-lp2 doc-sources "--pdf"))
+          #;(scribble (list scrbl-or-lp2) doc-sources "--pdf")
+          (scribble-all doc-sources "--pdf"))
         (for/rules ([mathjax-link mathjax-links])
           (mathjax-link)
           ()

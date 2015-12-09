@@ -425,7 +425,7 @@ those to the queue.
             recursive-call)]
          ...)]
 
-@subsection{TODO}
+@subsection[#:tag "graph|TODO3"]{TODO}
 
 We need to traverse the @tc[transformed] node (which is an incomplete node),
 and find the link requests within. These link requests will be added to the
@@ -576,7 +576,7 @@ from the incomplete type. We should work on the expanded type.
                 : (Listof (U transform/link-request ...))
                 #,(fold-type #'val val-type)))]
 
-@subsubsection{TODO}
+@subsubsection[#:tag "graph|TODO1"]{TODO}
 
 Later, we will replace link requests with thunks returning the desired node,
 wrapped in a promise in order to please occurrence typing. Below is the body of
@@ -755,7 +755,7 @@ checker, unless it is absorbed by a larger type, like in
             (stx-map fold-check-no-link-requests #'(t ...))]
            [whole whole]))]
 
-@section{TODO}
+@section[#:tag "graph|TODO2"]{TODO}
 
 @chunk[<multiassoc-syntax>
        (define (multiassoc-syntax query alist)

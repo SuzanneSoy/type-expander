@@ -19,7 +19,8 @@ type-expander itself.
 @section{@racket[prop:type-expander]}
 
 Match expanders are identified by the @tc[prop:type-expander]
-@tech{structure type property}, which allows the same identifier to act as a
+@tech[#:doc '(lib "scribblings/reference/reference.scrbl")]{structure type
+ property}, which allows the same identifier to act as a
 @tc[prop:rename-transformer], @tc[prop:match-expander] and
 @tc[prop:type-expander] for example.
 
