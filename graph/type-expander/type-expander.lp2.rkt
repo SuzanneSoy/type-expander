@@ -40,9 +40,9 @@ contain the expander procedure, or directly an expander procedure.
                [else
                 (raise-argument-error
                  'prop:type-expander-guard
-                 (~a "an exact non-negative integer designating a field index "
-                     "within the structure that should contain a procedure of "
-                     "arity 1, or a procedure of arity 1.")
+                 (~a "a procedure of arity 1, or an exact non-negative integer "
+                     "designating a field index within the structure that "
+                     "should contain a procedure of arity 1.")
                  val)]))]
 
 If the value is a field index, it should be within bounds. The
@@ -269,7 +269,7 @@ ususal @code{#'()} and @code{#`()}. In order to expand types and bind type
 variables in the result, we define two template metafunctions:
 
 @chunk[<template-metafunctions>
-       (define-template-metafunction (template-expand-type stx)
+       (define-template-metafunction (tmpl-expand-type stx)
          (syntax-parse stx
            [(_ () t) (expand-type #'t)]
            [(_ tvars t) (expand-type (bind-type-vars #'tvars #'t))]))]
@@ -329,7 +329,7 @@ them.
                                     (~optional default:expr)])
                   #:with tvars tvars
                   #:with (expanded ...)
-                  (template (kw [id (?@ : (template-expand-type tvars type))
+                  (template (kw [id (?@ : (tmpl-expand-type tvars type))
                                  (?? default)]))))
        
        (define-splicing-syntax-class (new-mand-formal tvars)
@@ -339,7 +339,7 @@ them.
          (pattern [id:id :colon type:expr]
                   #:with tvars tvars
                   #:with (expanded ...)
-                  (template ([id : (template-expand-type tvars type)])))
+                  (template ([id : (tmpl-expand-type tvars type)])))
          (pattern (~var kw (new-kw-formal tvars))
                   #:with (expanded ...) #'(kw.expanded ...)))
        
@@ -348,7 +348,7 @@ them.
          (pattern [id:id (~optional (~seq :colon type:expr)) default:expr]
                   #:with tvars tvars
                   #:with (expanded ...)
-                  (template ([id (?@ : (template-expand-type tvars type))
+                  (template ([id (?@ : (tmpl-expand-type tvars type))
                               default])))
          (pattern (~var kw (new-kw-formal tvars))
                   #:with (expanded ...) #'(kw.expanded ...)))
@@ -363,8 +363,8 @@ them.
                         (~seq (~datum ...) bound:expr)))
                   #:with tvars tvars
                   #:with expanded
-                  (template (rest : (template-expand-type tvars type)
-                                  (?? x* (?@ (... ...) (template-expand-type
+                  (template (rest : (tmpl-expand-type tvars type)
+                                  (?? x* (?@ (... ...) (tmpl-expand-type
                                                         tvars bound)))))))
        
        (define-syntax-class (new-lambda-formals tvars)
@@ -394,7 +394,7 @@ them.
                   #:with tvars tvars
                   #:with expanded
                   (template (name
-                             (?? (?@ : (template-expand-type tvars type)))))))
+                             (?? (?@ : (tmpl-expand-type tvars type)))))))
        
        (define-syntax-class (new-name-or-parenthesised-annotated-name tvars)
          (pattern name:id
@@ -402,7 +402,7 @@ them.
          (pattern [id:id :colon type:expr]
                   #:with tvars tvars
                   #:with expanded
-                  (template [id : (template-expand-type tvars type)])))]
+                  (template [id : (tmpl-expand-type tvars type)])))]
 
 @subsection{@racket[define-type]}
 
@@ -412,7 +412,7 @@ them.
            [(_ (~or name:id (name:id TVar ...)) type . rest)
             (template
              (define-type (?? (name TVar ...) name)
-               (template-expand-type (?? (TVar ...) ()) type)
+               (tmpl-expand-type (?? (TVar ...) ()) type)
                . rest))]))]
 
 @chunk[<test-define-type>
@@ -437,7 +437,7 @@ them.
                e ...)
             (template
              (define (?@ . tvars) (?? v formals.expanded)
-               (?? (?@ : (template-expand-type tvars.vars type)))
+               (?? (?@ : (tmpl-expand-type tvars.vars type)))
                e ...))]))]
 
 @CHUNK[<test-define>
@@ -471,7 +471,7 @@ them.
                (~optional (~seq :colon ret-type))
                e ...)
             (template (lambda (?@ . tvars) args.expanded
-                        (?? (?@ : (template-expand-type tvars.vars ret-type)))
+                        (?? (?@ : (tmpl-expand-type tvars.vars ret-type)))
                         e ...))]))]
 
 @CHUNK[<test-lambda>
@@ -495,8 +495,12 @@ them.
                (~and name+parent (~or name:id [name:id parent:id]))
                ([field:id :colon type:expr] ...)
                . rest)
-            (template (struct (?? tvars.maybe) name+parent
-                        ([field : (template-expand-type tvars.vars type)] ...)
+            (displayln #'(tvars= tvars
+                                 name+parent= name+parent
+                                 field...= field ...
+                                 rest= rest))
+            (template (struct (?? tvars.maybe) name (?? parent)
+                        ([field : (tmpl-expand-type tvars.vars type)] ...)
                         . rest))]))]
 
 @chunk[<test-struct>
@@ -507,6 +511,11 @@ them.
        (struct s4 () #:transparent)
        (struct (A B) s5 ([x : A] [y : B]) #:transparent)
        (struct (A B) s6 () #:transparent)
+       (struct (s7 s2) ([z : String]) #:transparent)
+       (struct (A) (s8 s3) ([z : A]) #:transparent)
+       (struct (A B C) (s9 s5) ([z : C]) #:transparent)
+       (struct (A B C) (s10 s2) ([z : C]) #:transparent)
+       (struct (A B C) (s11 s5) ([z : C]))
        
        (check (λ (a b) (not (equal? a b))) (s0) (s0))
        (check-equal? (s1-x (s1 123)) 123)
@@ -518,13 +527,119 @@ them.
        (check-equal? (s5-x (s5 6 7)) 6)
        (check-equal? (s5-y (s5 6 7)) 7)
        (check-equal? (s5 6 7) (s5 6 7))
-       (check-equal? (s6) (s6))]
+       (check-equal? ((inst s5 Number String) 6 "g") (s5 6 "g"))
+       (check-equal? (s6) (s6))
+       (check-equal? ((inst s6 Number String)) (s6))
+       
+       ;(check-equal? (s7-x (s7 -1 -2 "c") -1))
+       ;(check-equal? (s7-y (s7 -1 -2 "c") -2))
+       (check-equal? (s7-z (s7 -1 -2 "c")) "c")
+       (check-equal? (s2-x (s7 -1 -2 "c")) -1)
+       (check-equal? (s2-y (s7 -1 -2 "c")) -2)
+       (check-not-equal? (s7 -1 -2 "c") (s7 -1 -2 "c"))
+       (check-not-exn (λ () (ann (s7 -1 -2 "c") s2)))
+       (check-true (s2? (s7 -1 -2 "c")))
+       
+       ;(check-equal? (s8-x (s8 -1 -2 "c") -1))
+       ;(check-equal? (s8-y (s8 -1 -2 "c") -2))
+       (check-equal? (s8-z (s8 -1 -2 "c")) "c")
+       (check-equal? (s3-x (s8 -1 -2 "c")) -1)
+       (check-equal? (s3-y (s8 -1 -2 "c")) -2)
+       (check-equal? (s8 -1 -2 "c") (s8 -1 -2 "c"))
+       (check-equal? ((inst s8 String) -1 -2 "c") (s8 -1 -2 "c"))
+       (check-not-exn (λ () (ann ((inst s8 String) -1 -2 "c") s3)))
+       (check-true (s3? ((inst s8 String) -1 -2 "c")))
+       
+       ;(check-equal? (s9-x (s9 8 9 10)) 8)
+       ;(check-equal? (s9-y (s9 8 9 10)) 9)
+       (check-equal? (s9-z (s9 8 9 10)) 10)
+       (check-equal? (s5-x (s9 8 9 10)) 8)
+       (check-equal? (s5-y (s9 8 9 10)) 9)
+       (check-equal? (s9 8 9 10) (s9 8 9 10))
+       ;(check-not-exn (λ () (ann ((inst s9 Number Symbol String) 8 'i "j");;;;;;;;;;;;;;
+       ;                          (Struct s5))));;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+       (check-not-exn (λ () (ann ((inst s9 Number Symbol String) 8 'i "j")
+                                 (s5 Number Symbol))))
+       (check-true (s5? ((inst s9 Number Symbol String) -1 'i "j")))
+       (check-not-equal? (s10 11 12 13) (s10 11 12 13))
+       (check-not-equal? (s11 14 15 16) (s11 14 15 16))]
+
+@subsection{@racket[define-struct/exec]}
+
+@chunk[<define-struct/exec>
+       (define-syntax (new-define-struct/exec stx)
+         (syntax-parse stx
+           [(_ (~and name+parent (~or name:id [name:id parent:id]))
+               ([field:id (~maybe :colon type:expr)] ...)
+               [proc :colon proc-type])
+            (template (define-struct/exec name+parent
+                        ([field (?? (?@ : (tmpl-expand-type () type)))] ...)
+                        [proc : (tmpl-expand-type () proc-type)]))]))]
+
+@chunk[<test-define-struct/exec>
+       (define-struct/exec se0 ()
+         ;[(λ (self v) (cons self v)) : (∀ (A) (→ se0 A (Pairof se0 A)))])
+         [(λ (self v) (cons self v)) : (→ se0 Any (Pairof se0 Any))])
+       (define-struct/exec se1 ([x : Number])
+         ;[(λ (self v) (cons self v)) : (∀ (A) (→ se0 A (Pairof se0 A)))])
+         [(λ (self v) (cons self v)) : (→ se1 Any (Pairof se1 Any))])
+       (define-struct/exec se2 ([x : Number] [y : Number])
+         [(λ (self v) (cons self v)) : (→ se2 Any (Pairof se2 Any))])
+       (define-struct/exec (se3 se2) ([z : String])
+         [(λ (self v w) (list self v w))
+          ;: (∀ (A B) (→ se3 A B (List se2 A B)))])
+          : (→ se3 Any Any (List se2 Any Any))])
+       (define-struct/exec (se4 se2) ([z : String])
+         [(λ (self v w) (list self v w))
+          ;: (∀ (A B) (→ se4 A B (List se2 A B)))])
+          : (→ se4 Any (→ Number Number) (List se2 Any (→ Number Number)))])
+       
+       (check (λ (a b) (not (equal? a b))) (se0) (se0))
+       (check-equal? (cdr ((se0) 'a)) 'a)
+       (check-not-exn (λ () (ann (car ((se0) 'a)) se0)))
+       (check-true (se0? (car ((se0) 'a))))
+       
+       (check (λ (a b) (not (equal? a b))) (se1 123) (se1 123))
+       (check-equal? (se1-x (se1 123)) 123)
+       (check-equal? (se1-x (car ((se1 123) 'b))) 123)
+       (check-equal? (cdr ((se1 123) 'b)) 'b)
+       (check-not-exn (λ () (ann (car ((se1 123) 'b)) se1)))
+       (check-true (se1? (car ((se1 123) 'b))))
+       
+       (check (λ (a b) (not (equal? a b))) (se2 2 3) (se2 2 3))
+       (check-equal? (se2-x (se2 2 3)) 2)
+       (check-equal? (se2-y (se2 2 3)) 3)
+       (check-equal? (se2-x (car ((se2 2 3) 'c))) 2)
+       (check-equal? (se2-y (car ((se2 2 3) 'c))) 3)
+       (check-equal? (cdr ((se2 2 3) 'c)) 'c)
+       (check-not-exn (λ () (ann (car ((se2 2 3) 'c)) se2)))
+       (check-true (se2? (car ((se2 2 3) 'c))))
+
+       (check (λ (a b) (not (equal? a b))) (se3 4 5 "f") (se3 4 5 "f"))
+       (check-equal? (se2-x (se3 4 5 "f")) 4)
+       (check-equal? (se2-y (se3 4 5 "f")) 5)
+       (check-equal? (se3-z (se3 4 5 "f")) "f")
+       (check-equal? (se2-x (car ((se3 4 5 "f") 'd 'e))) 2)
+       (check-equal? (se2-y (car ((se3 4 5 "f") 'd 'e))) 3)
+       (check-equal? (let ([ret : Any (car ((se3 4 5 "f") 'd 'e))])
+                       (if (se3? ret)
+                           (se3-z ret)
+                           "wrong type!"))
+                     "f")
+       (check-equal? (cadr ((se3 4 5 "f") 'd 'e)) 'd)
+       (check-equal? (caddr ((se3 4 5 "f") 'd 'e)) 'e)
+       (check-equal? ((caddr ((se4 4 5 "f") 'd (λ ([x : Number]) (* x 2)))) 123)
+                     246)
+       (check-not-exn (λ () (ann (car ((se3 4 5 "f") 'd 'e)) se2)))
+       (check-not-exn (λ () (ann (car ((se3 4 5 "f") 'd 'e)) se3)))
+       (check-true (se2? (car ((se2 2 3) 'd))))
+       (check-true (se3? (car ((se2 2 3) 'e))))]
 
 @subsection{@racket[ann]}
 
 @chunk[<ann>
        (define-syntax/parse (new-ann value:expr (~optional :colon) type:expr)
-         (template (ann value (template-expand-type () type))))]
+         (template (ann value (tmpl-expand-type () type))))]
 
 @chunk[<test-ann>
        (let ()
@@ -543,8 +658,8 @@ them.
        (define-syntax/parse (new-inst v
                                       (~optional :colon) t ...
                                       (~optional (~seq last (~datum ...) b:id)))
-         (template (inst v (template-expand-type () t) ...
-                         (?? (?@ (template-expand-type () last)
+         (template (inst v (tmpl-expand-type () t) ...
+                         (?? (?@ (tmpl-expand-type () last)
                                  (... ...) b)))))]
 
 @chunk[<test-inst>
@@ -577,8 +692,8 @@ them.
             e:expr] ...)
           . rest)
          (template
-          (let (?? (?@ loop (?? (?@ : (template-expand-type tvars.vars
-                                                            return-type)))))
+          (let (?? (?@ loop (?? (?@ : (tmpl-expand-type tvars.vars
+                                                        return-type)))))
             (?@ . tvars)
             ([(?@ . name.expanded) e] ...)
             . rest)))]
@@ -664,7 +779,7 @@ them.
 
 @chunk[<make-predicate>
        (define-syntax/parse (new-make-predicate type:expr)
-         (template (make-predicate (template-expand-type () type))))]
+         (template (make-predicate (tmpl-expand-type () type))))]
 
 @chunk[<test-make-predicate>
        (let ()
@@ -781,7 +896,7 @@ yet.
         do:
         with-handlers
         define-struct/exec:
-        define-struct/exec)]
+        #|define-struct/exec|#)]
 
 @section{Future work}
 
@@ -863,7 +978,8 @@ We can finally define the overloaded forms, as well as the extra
          (require (for-syntax racket
                               racket/syntax
                               syntax/parse
-                              syntax/parse/experimental/template)
+                              syntax/parse/experimental/template
+                              "../lib/low-untyped.rkt")
                   "../lib/low.rkt")
          
          (require (submod ".." expander))
@@ -880,6 +996,7 @@ We can finally define the overloaded forms, as well as the extra
                               [new-lambda lambda]
                               [new-lambda λ]
                               [new-struct struct]
+                              [new-define-struct/exec define-struct/exec]
                               [new-ann ann]
                               [new-inst inst]
                               [new-let let]
@@ -897,6 +1014,7 @@ We can finally define the overloaded forms, as well as the extra
          <define>
          <lambda>
          <struct>
+         <define-struct/exec>
          <ann>
          <inst>
          <let>
@@ -921,6 +1039,7 @@ And, last but not least, we will add a @tc[test] module.
          <test-define>
          <test-lambda>
          <test-struct>
+         <test-define-struct/exec>
          <test-ann>
          <test-inst>
          <test-let>

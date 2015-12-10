@@ -91,12 +91,51 @@
   (require 'mb)
   (check-equal? require-provide-foo 7))
 
-;; ==== low/define-syntax-parse.rkt ====
+;; ==== low/syntax-parse.rkt ====
 (require syntax/parse
-         syntax/parse/define)
+         syntax/parse/define
+         (for-syntax racket/syntax))
 
 (provide define-syntax/parse
-         λ/syntax-parse)
+         λ/syntax-parse
+         ~maybe
+         ~lit
+         ~or-bug)
+
+(define-syntax ~maybe
+  (pattern-expander
+   (λ (stx)
+     (syntax-case stx ()
+       [(~maybe pat ...)
+        (datum->syntax #'~maybe
+                       #'(~optional (~seq pat ...)))]))))
+
+;; Circumvent the bug that causes "syntax-parse: duplicate attribute in: a" in:
+;; (syntax-parse #'(x y z) [((~or a (a b c)) ...) #'(a ...)])
+(define-syntax ~or-bug
+  (pattern-expander
+   (λ (stx)
+     (syntax-case stx ()
+       [(~or-bug pat ...)
+        (let ()
+          (define (s stx) (datum->syntax #'~or-bug stx))
+          ;(define/with-syntax ~~and (datum->syntax #'~or-bug #'~and))
+          ;(define/with-syntax ~~parse (datum->syntax #'~or-bug #'~parse))
+          ;(define/with-syntax ~~or (datum->syntax #'~or-bug #'~parse))
+          #;#'(~~and x (~~parse (~~or pat ...) #'x))
+          #`(#,(s #'~and) x (#,(s #'~parse) #,(s #'(~or pat ...)) #'x))
+          )]))))
+
+(define-syntax ~lit
+  (pattern-expander
+   (λ (stx)
+     (syntax-case stx ()
+       [(~lit lit)
+        (datum->syntax #'~lit
+                       #'(~literal lit))]
+       [(~lit lit …)
+        (datum->syntax #'lit
+                       #'(~seq (~literal lit)))]))))
 
 (begin-for-syntax
   (require (for-syntax racket/base
@@ -132,7 +171,8 @@
               syntax/parse/experimental/template)
   typed/rackunit)
 
-(provide check-equal:?)
+(provide check-equal:?
+         check-not-equal:?)
 
 ;; TODO: this won't expand types in the ann.
 
@@ -140,7 +180,15 @@
   (check-equal:? actual
                  (~optional (~seq (~datum :) type))
                  expected)
-  (template (check-equal? (?? (ann actual type) actual) expected)))
+  (template (check-equal? (?? (ann actual type) actual)
+                          (?? (ann expected type) expected))))
+
+(define-syntax/parse
+  (check-not-equal:? actual
+                     (~optional (~seq (~datum :) type))
+                     expected)
+  (template (check-not-equal? (?? (ann actual type) actual)
+                              (?? (ann expected type) expected))))
 
 ;; ==== low/typed-fixnum.rkt ===
 
@@ -637,14 +685,14 @@
          (define/with-syntax pat
            (format-id #'base.id (syntax-e #'format) #'base.id))
          (define/with-syntax pat-dotted ((attribute base.make-dotted) #'pat))
-
+         
          (define/with-syntax format-temp-ids*
            ((attribute base.wrap) #'(compose car (curry format-temp-ids format))
                                   (λ (x deepest?)
                                     (if deepest?
                                         x
                                         #`(curry stx-map #,x)))))
-
+         
          (syntax-cons-property
           (template (begin (define/with-syntax pat-dotted
                              (format-temp-ids* #'base))

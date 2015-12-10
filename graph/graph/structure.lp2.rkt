@@ -12,12 +12,116 @@ Structures are represented using regular racket @tc[struct]s, see
 @seclink["type-system|structures"]{the overview document}.
 @;secref["structures" #:doc "type-system.scrbl"].
 
+When called, @tc[structure] accepts several syntaxes:
+@tc[(structure [field] …)], which returns a constructor with @tc[∀] types for,
+@tc[(structure [field value] …)], which returns an instance, inferring the type
+of the fields, @tc[(structure [field : type] …)], which returns a constructor
+with the given types, or @tc[(structure [field : type value] …)], which returns
+an instance using the given types. the types have to be all provided, or not
+given at all, but a mix of typed and @tc[∀] is not allowed for now (rationale:
+since typed/racket currently doesn't support named instantiation of polymorphic
+types, it wouldn't be clear what fields the remaining type parameters affect).
+
+@;{(begin-for-syntax
+ (define-syntax-class field-descriptor
+ (pattern
+ (~or field:id
+ [field:id (~maybe (~lit :) type:expr) (~maybe value:expr)]))))}
+
 @chunk[<structure>
        (define-multi-id structure
          #:type-expander structure-type-expander
          #:match-expander structure-match-expander
-         #:call (λ/syntax-parse (_ [field value] ...)
-                  #'((make-structure-constructor field ...) value ...)))]
+         #:call (λ (stx)
+                  (syntax-parse stx
+                    [(_) <hybrid-empty>]
+                    [(_ (~or (~seq (~or-bug [field:id] field:id) …)
+                             (~seq [field:id (~lit :) type:expr] …)
+                             (~seq [field:id value:expr] …)
+                             (~seq [field:id (~lit :) type:expr value:expr] …)))
+                     (define/with-syntax c
+                       #'(make-structure-constructor field …))
+                     (define/with-syntax ct
+                       (if (and (attribute type) (not (stx-null? #'(type …))))
+                           #'(inst c type …)
+                           #'c))
+                     (template (?? (ct value …) ct))])))]
+
+@subsection[#:tag "structure|hybrid-empty"]{Hybrid constructor / instance for
+ the empty structure}
+
+A call to @tc[(structure)] with no field, is ambiguous: it could return a
+constructor function, or an instance. We use @tc[define-struct/exec] to make it
+behave like both.
+
+@CHUNK[<declare-hybrid-empty>
+       (struct empty/noexec-type ())
+       
+       (define-struct/exec (empty/exec-type empty)
+         ()
+         [(λ _ empty-instance) : (→ Any empty)])
+       
+       (define empty-instance (empty/exec-type))]
+
+@CHUNK[<test-hybrid-empty>
+       (check-equal:? empty-instance : empty empty-instance)
+       (check-equal:? empty-instance : empty (empty-instance))
+       (check-equal:? (empty-instance) : empty empty-instance)
+       (check-equal:? (empty-instance) : empty (empty-instance))]
+
+@CHUNK[<test-hybrid-empty-2>
+       (check-equal:? (structure) (structure))
+       (check-equal:? (structure) ((structure)))
+       (check-equal:? ((structure)) (structure))
+       (check-equal:? ((structure)) ((structure)))]
+
+@chunk[<test-structure>
+       (let ()
+         (define-structure empty-st)
+         (define-structure stA [a Number])
+         (check-equal:? (empty-st) ((structure)))
+         (check-not-equal:? (empty-st) (structure [a 1]))
+         (check-not-equal:? (structure) (structure [a 1]))
+         (check-not-equal:? (empty-st) (stA 1))
+         (check-not-equal:? (structure) (stA 1)))
+       #;(let ()
+           (define-structure st [a Number] [b String])
+           (define-structure stA [a Number])
+           (define-structure stABC [a Number] [b String] [c Number])
+           (define st1 (st 1 "b"))
+           (check-equal:? st1 (structure [a 1] [b "b"]))
+           (check-equal:? st1 (structure [a : Number 1] [b : String "b"]))
+           (check-equal:? st1 ((structure [a : Number] [b : String]) 1 "b"))
+           (check-equal:? st1 ((structure [a] [b]) 1 "b"))
+           (check-equal:? st1 ((structure a b) 1 "b"))
+           (check-equal:? st1 ((structure [a] b) 1 "b"))
+           
+           (define st2 (st 2 "b"))
+           (check-not-equal:? st2 st1)
+           (check-not-equal:? st2 (structure [a 1] [b "b"]))
+           (check-not-equal:? st2 (structure [a : Number 1] [b : String "b"]))
+           (check-not-equal:? st2 ((structure [a : Number] [b : String]) 1 "b"))
+           (check-not-equal:? st2 ((structure [a] [b]) 1 "b"))
+           (check-not-equal:? st2 ((structure a b) 1 "b"))
+           (check-not-equal:? st2 ((structure [a] b) 1 "b"))
+           
+           (define sta (stA 1))
+           (check-not-equal:? sta st1)
+           (check-not-equal:? sta (structure [a 1] [b "b"]))
+           (check-not-equal:? sta (structure [a : Number 1] [b : String "b"]))
+           (check-not-equal:? sta ((structure [a : Number] [b : String]) 1 "b"))
+           (check-not-equal:? sta ((structure [a] [b]) 1 "b"))
+           (check-not-equal:? sta ((structure a b) 1 "b"))
+           (check-not-equal:? sta ((structure [a] b) 1 "b"))
+           
+           (define st3 (stABC 1 "b" 3))
+           (check-not-equal:? st3 st1)
+           (check-not-equal:? st3 (structure [a 1] [b "b"]))
+           (check-not-equal:? st3 (structure [a : Number 1] [b : String "b"]))
+           (check-not-equal:? st3 ((structure [a : Number] [b : String]) 1 "b"))
+           (check-not-equal:? st3 ((structure [a] [b]) 1 "b"))
+           (check-not-equal:? st3 ((structure a b) 1 "b"))
+           (check-not-equal:? st3 ((structure [a] b) 1 "b")))]
 
 @chunk[<define-structure>
        (define-syntax (define-structure stx)
@@ -34,16 +138,20 @@ Structures are represented using regular racket @tc[struct]s, see
                   (syntax-case stx2 ()
                     [(_ pat ...) #'(structure [field pat] ...)]))
                 #:else
-                (inst (make-structure-constructor field ...) type ...))]))]
+                (if (not (stx-null? #'(type …)))
+                    #'(inst (make-structure-constructor field ...) type ...)
+                    #'(make-structure-constructor field ...)))]))]
 
 
 @chunk[<test-define-structure>
+       (define-structure empty-st)
        (define-structure st [a Number] [b String])
        (define-structure st2 [b String] [a Number])]
 
 Test constructor:
 
 @chunk[<test-define-structure>
+       (check-equal:? (empty-st) : empty-st (empty-st))
        (check-equal:? (get (st 1 "b") b) : String "b")
        (check-equal:? (get (st2 "a" 2) b) : String "a")]
 
@@ -139,9 +247,17 @@ one low-level @tc[struct] is generated for them.
 @CHUNK[<named-sorted-structures>
        (define-for-syntax named-sorted-structures
          (for/list ([s (remove-duplicates (map (λ (s) (sort s symbol<?))
-                                               (get-remembered 'structure)))]
+                                               <all-remembered-structs+empty>))]
                     [i (in-naturals)])
            `(,(string->symbol (format "struct-~a" i)) . ,s)))]
+
+We add the empty struct (with no fields) to the list of remembered structs as a
+special case, because we need it to define the hybrid instance/constructor in
+section @secref{structure|hybrid-empty}.
+
+@chunk[<all-remembered-structs+empty>
+       (cons '()
+             (get-remembered 'structure))]
 
 We will also need utility functions to sort the fields when querying this
 associative list.
@@ -175,8 +291,8 @@ be used to make @tc[structure] instances like this:
 
 @chunk[<test-make-structure-constructor>
        (check-equal? (begin ((make-structure-constructor a b c) 1 "b" #t)
-                            #t)
-                     #t)]
+                            'it-works)
+                     'it-works)]
 
 To create such an instance, we use the underlying @tc[struct]'s constructor.
 First, we need to check if the list of fields was already remembered, in which
@@ -332,8 +448,8 @@ instead of needing an extra recompilation.
                 (let ()
                   (define/with-syntax ([sorted-field sorted-type] ...)
                     (sort-car-fields #'((field type) ...)))
-                  (if (null? (syntax->list #'(sorted-type ...)))
-                      (fields→stx-name #'(field ...))
+                  (if (stx-null? #'(sorted-type ...))
+                      (fields→stx-name #'(field …)) ; #'(field …) is empty here.
                       #`(#,(fields→stx-name #'(field ...)) sorted-type ...)))
                 (remember-all-errors #'U stx #'(field ...)))]))]
 
@@ -417,6 +533,7 @@ chances that we could write a definition for that identifier.
            (require (for-syntax racket
                                 racket/syntax
                                 syntax/parse
+                                syntax/parse/experimental/template
                                 mzlib/etc
                                 racket/struct-info
                                 syntax/stx
@@ -441,6 +558,9 @@ chances that we could write a definition for that identifier.
            <sort-fields>
            <declare-all-structs>
            <fields→stx-name>
+           <declare-hybrid-empty>
+           (require typed/rackunit)
+           <test-hybrid-empty>
            <make-structure-constructor>
            <delayed-error-please-recompile>
            
@@ -468,7 +588,9 @@ chances that we could write a definition for that identifier.
            <test-get-field>
            <test-match-expander>
            <test-type-expander>
+           <test-structure>
            <test-define-structure>
+           <test-hybrid-empty-2>
            
            (require (submod ".." doc))))]
 

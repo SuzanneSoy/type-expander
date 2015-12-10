@@ -14,16 +14,21 @@ TODO: maybe we should cache @tc[p-else] and @tc[p-get].
           'self
           (format "can't set ~a" (syntax->datum #'self)))]
 
-@chunk[<stx-class-kw-else>
+@CHUNK[<stx-class-kw-else>
        (define-splicing-syntax-class kw-else
+         #:attributes (p-just-set! p-just-call p-just-id)
          (pattern (~seq #:mutable-else p-else)
                   #:with p-just-set! #'#'(set! p-else . rest)
                   #:with p-just-call #'#'(p-else . rest)
                   #:with p-just-id #'#'p-else)
          (pattern (~seq #:else p-else)
                   #:with p-just-set! <fail-set!>
-                  #:with p-just-call #'#'(p-else . rest)
-                  #:with p-just-id #'#'p-else))]
+                  #:with p-just-call #'#`(#,p-else . rest)
+                  #:with p-just-id #'p-else)
+         (pattern (~seq #:mutable-else-id p-else-id)
+                  #:with (:kw-else) #'(#:mutable-else #'p-else-id))
+         (pattern (~seq #:else-id p-else-id)
+                  #:with (:kw-else) #'(#:else #'p-else-id)))]
 
 @chunk[<stx-class-kw-set!+call+id>
        (define-splicing-syntax-class kw-set!+call+id
@@ -31,6 +36,10 @@ TODO: maybe we should cache @tc[p-else] and @tc[p-get].
                         (~optional (~or (~seq #:call p-user-call:expr)
                                         (~seq #:call-id p-user-call-id:id)))
                         (~optional (~seq #:id p-user-id:expr)))
+                  ; TODO: add #:macro with prop:procedure, see
+                  ; file:///usr/local/racket-6.3.0.4/doc/syntax/stxparse-patter
+                  ; ns.html?q=~optional#%28def._%28%28lib._syntax%2Fparse..rkt%
+                  ; 29._prop~3apattern-expander%29%29
                   #:attr p-just-set!
                   (and (attribute p-user-set!) #'(p-user-set! stx))
                   #:attr p-just-call
@@ -130,6 +139,31 @@ to configure).
 Test with @tc[#:else]:
 
 @chunk[<test-multi-id>
+       (define-multi-id bar-id
+         #:type-expander
+         (λ (stx) #'(List `,(Repeat 'x 2) Number))
+         #:match-expander
+         (λ (stx) #'(cons _ _))
+         #:custom-write
+         (λ (self port mode) (display "custom-write for foo" port))
+         #:else-id p1)
+       
+       (check-equal? (ann (ann '((x x) 79) bar)
+                          (List (List 'x 'x) Number))
+                     '((x x) 79))
+       
+       ;(set! bar 'bad)
+       
+       (let ([test-match (λ (val) (match val [(bar-id) #t] [_ #f]))])
+         (check-equal? (test-match '(a . b)) #t)
+         (check-equal? (test-match #(1 2 3)) #f))
+
+       (let ([f-bar-id bar-id])
+         (check-equal? (f-bar-id 6) 7))
+       (check-equal? (bar-id 6) 7)
+       (check-equal? (map bar-id '(1 5 3 4 2)) '(2 6 4 5 3))]
+
+@chunk[<test-multi-id>
        (define-multi-id bar
          #:type-expander
          (λ (stx) #'(List `,(Repeat 'x 2) Number))
@@ -137,7 +171,7 @@ Test with @tc[#:else]:
          (λ (stx) #'(cons _ _))
          #:custom-write
          (λ (self port mode) (display "custom-write for foo" port))
-         #:else p1)
+         #:else #'p1)
        
        (check-equal? (ann (ann '((x x) 79) bar)
                           (List (List 'x 'x) Number))

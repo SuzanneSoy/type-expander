@@ -1,5 +1,19 @@
 #lang debug typed/racket
 
+(require "structure.lp2.rkt")
+(require "../type-expander/type-expander.lp2.rkt")
+(require "../lib/low.rkt")
+
+(define-structure st [a Number] [b String])
+(check-equal:? (st 1 "b") (structure [a 1] [b "b"]))
+(check-equal:? (st 1 "b") (structure [a : Number 1] [b : String "b"]))
+(check-equal:? (st 1 "b") ((structure [a : Number] [b : String]) 1 "b"))
+(check-equal:? (st 1 "b") ((structure [a] [b]) 1 "b"))
+(check-equal:? (st 1 "b") ((structure a b) 1 "b"))
+(check-equal:? (st 1 "b") ((structure [a] b) 1 "b"))
+
+
+#|
 (require (submod "graph3.lp2.rkt" test))
 (require "../lib/low.rkt")
 (require racket/list)
@@ -34,3 +48,5 @@
       x))
 
 (forceall 5 g)
+
+|#

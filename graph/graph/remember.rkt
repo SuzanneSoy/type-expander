@@ -38,3 +38,5 @@
 (structure faa fab fav)
 (structure fba fbv)
 (structure fav)
+(structure a)
+(structure a)
