@@ -78,39 +78,27 @@ handle the empty structure as a special case.
            (define-structure stA [a Number])
            (define-structure stABC [a Number] [b String] [c Number])
            (define st1 (st 1 "b"))
-           (check-equal:? st1 (structure [a 1] [b "b"]))
-           (check-equal:? st1 (structure [a : Number 1] [b : String "b"]))
-           (check-equal:? st1 ((structure [a : Number] [b : String]) 1 "b"))
-           (check-equal:? st1 ((structure [a] [b]) 1 "b"))
-           (check-equal:? st1 ((structure a b) 1 "b"))
-           (check-equal:? st1 ((structure [a] b) 1 "b"))
-           
            (define st2 (st 2 "b"))
-           (check-not-equal:? st2 st1)
-           (check-not-equal:? st2 (structure [a 1] [b "b"]))
-           (check-not-equal:? st2 (structure [a : Number 1] [b : String "b"]))
-           (check-not-equal:? st2 ((structure [a : Number] [b : String]) 1 "b"))
-           (check-not-equal:? st2 ((structure [a] [b]) 1 "b"))
-           (check-not-equal:? st2 ((structure a b) 1 "b"))
-           (check-not-equal:? st2 ((structure [a] b) 1 "b"))
-           
            (define sta (stA 1))
-           (check-not-equal:? sta st1)
-           (check-not-equal:? sta (structure [a 1] [b "b"]))
-           (check-not-equal:? sta (structure [a : Number 1] [b : String "b"]))
-           (check-not-equal:? sta ((structure [a : Number] [b : String]) 1 "b"))
-           (check-not-equal:? sta ((structure [a] [b]) 1 "b"))
-           (check-not-equal:? sta ((structure a b) 1 "b"))
-           (check-not-equal:? sta ((structure [a] b) 1 "b"))
-           
            (define st3 (stABC 1 "b" 3))
-           (check-not-equal:? st3 st1)
-           (check-not-equal:? st3 (structure [a 1] [b "b"]))
-           (check-not-equal:? st3 (structure [a : Number 1] [b : String "b"]))
-           (check-not-equal:? st3 ((structure [a : Number] [b : String]) 1 "b"))
-           (check-not-equal:? st3 ((structure [a] [b]) 1 "b"))
-           (check-not-equal:? st3 ((structure a b) 1 "b"))
-           (check-not-equal:? st3 ((structure [a] b) 1 "b")))]
+           
+           (check-equal?-classes:
+            [#:name st1
+             st1
+             (structure [a 1] [b "b"])
+             (structure [a : Number 1] [b : String "b"])
+             ((structure [a : Number] [b : String]) 1 "b")
+             (structure [a : Any 1] [b : Any "b"])
+             ((structure [a : Any] [b : Any]) 1 "b")
+             ((structure [a] [b]) 1 "b")
+             ((structure a b) 1 "b")
+             ((structure [a] b) 1 "b")]
+            [(structure [a "1"] [b 'b])
+             (structure [a : String "1"] [b : Symbol 'b])
+             (structure [a : Any "1"] [b : Any 'b])]
+            [st2]
+            [sta]
+            [st3]))]
 
 @chunk[<define-structure>
        (define-syntax (define-structure stx)
