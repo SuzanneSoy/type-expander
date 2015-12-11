@@ -117,10 +117,34 @@ number of name collisions.
          (λ/syntax-parse (_ tag:id . structure-pat)
            #`(constructor tag #,(syntax/loc #'structure-pat
                                   (structure . structure-pat))))
-         #:call
-         (λ/syntax-parse (_ tag:id . structure-field-value)
-           #`(constructor tag #,(syntax/loc #'structure-field-value
-                                  (structure . structure-field-value)))))]
+         #:call ;; TODO: clean this up a bit, and explain it.
+         (λ/syntax-parse
+           (~and (_ (~and (~seq disambiguate …) (~or (~seq #:instance)
+                                                     (~seq #:constructor)
+                                                     (~seq)))
+                    tag:id . fields)
+                 (~parse (sa:structure-args-stx-class)
+                           #'(disambiguate … . fields)))
+           (define-temp-ids "~a/TTemp" (sa.field …))
+           (define/with-syntax c
+             (if (attribute sa.type)
+                 #`(λ ([sa.field : sa.type] …)
+                     : (constructor tag #,(syntax/loc #'fields
+                                            (structure [sa.field sa.type] …)))
+                     (constructor tag
+                                  #,(syntax/loc #'fields
+                                      (structure #:instance
+                                                 [sa.field : sa.type sa.field] …))))
+                 #`(λ #:∀ (sa.field/TTemp …) ([sa.field : sa.field/TTemp] …)
+                     : (constructor tag #,(syntax/loc #'fields
+                                            (structure [sa.field sa.field/TTemp] …)))
+                     (constructor tag
+                                  #,(syntax/loc #'fields
+                                      (structure #:instance
+                                                 [sa.field sa.field] …))))))
+           (if (attribute sa.value)
+               #'(c sa.value …)
+               #'c)))]
 
 @chunk[<test-tagged>
        (check-equal? (match (ann (tagged foo [x "o"] [y 3] [z 'z])
@@ -146,7 +170,7 @@ number of name collisions.
                #'(tagged tag [field pat] ...))
              #:call
              (λ/syntax-parse (_ value ...)
-               #'(tagged tag [field value] ...))))]
+               #'(tagged tag #:instance [field value] ...))))]
 
 @chunk[<test-define-tagged>
        (define-tagged tagged-s1)

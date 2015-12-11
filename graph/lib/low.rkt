@@ -10,11 +10,19 @@
 (provide half-typed-module typed/untyped-prefix define-modules)
 
 ;; half-typed-module
-(define-syntax-rule (typed-module m typed-language untyped-language . body)
-  (module m typed-language . body))
+(define-syntax-rule (typed-module m t u typed-language untyped-language . body)
+  (begin
+    (module m typed-language
+      (module t typed-language . body)
+      (module u untyped-language . body)
+      . body)))
 
-(define-syntax-rule (untyped-module m typed-language untyped-language . body)
-  (module m untyped-language . body))
+(define-syntax-rule (untyped-module m u typed-language untyped-language . body)
+  (begin
+    (module m untyped-language
+      (module t typed-language . body)
+      (module u untyped-language . body)
+      . body)))
 
 (define-typed/untyped-identifier half-typed-module typed-module untyped-module)
 
@@ -92,74 +100,76 @@
   (check-equal? require-provide-foo 7))
 
 ;; ==== low/syntax-parse.rkt ====
-(require syntax/parse
-         syntax/parse/define
-         (for-syntax racket/syntax))
 
-(provide define-syntax/parse
-         λ/syntax-parse
-         ~maybe
-         ~lit
-         ~or-bug)
-
-(define-syntax ~maybe
-  (pattern-expander
-   (λ (stx)
-     (syntax-case stx ()
-       [(~maybe pat ...)
-        (datum->syntax #'~maybe
-                       #'(~optional (~seq pat ...)))]))))
-
-;; Circumvent the bug that causes "syntax-parse: duplicate attribute in: a" in:
-;; (syntax-parse #'(x y z) [((~or a (a b c)) ...) #'(a ...)])
-(define-syntax ~or-bug
-  (pattern-expander
-   (λ (stx)
-     (syntax-case stx ()
-       [(~or-bug pat ...)
-        (let ()
-          (define (s stx) (datum->syntax #'~or-bug stx))
-          ;(define/with-syntax ~~and (datum->syntax #'~or-bug #'~and))
-          ;(define/with-syntax ~~parse (datum->syntax #'~or-bug #'~parse))
-          ;(define/with-syntax ~~or (datum->syntax #'~or-bug #'~parse))
-          #;#'(~~and x (~~parse (~~or pat ...) #'x))
-          #`(#,(s #'~and) x (#,(s #'~parse) #,(s #'(~or pat ...)) #'x))
-          )]))))
-
-(define-syntax ~lit
-  (pattern-expander
-   (λ (stx)
-     (syntax-case stx ()
-       [(~lit lit)
-        (datum->syntax #'~lit
-                       #'(~literal lit))]
-       [(~lit lit …)
-        (datum->syntax #'lit
-                       #'(~seq (~literal lit)))]))))
-
-(begin-for-syntax
-  (require (for-syntax racket/base
-                       racket/stxparam)
-           racket/stxparam)
+(define-modules ([no-submodule]
+                 [syntax-parse-extensions-untyped typed/racket/no-check])
+  (require syntax/parse
+           syntax/parse/define
+           (for-syntax racket/base
+                       racket/syntax))
   
-  (provide stx)
+  (provide define-syntax/parse
+           λ/syntax-parse
+           ~maybe
+           ~lit
+           ~or-bug)
   
-  (define-syntax-parameter stx
-    (lambda (stx)
-      (raise-syntax-error (syntax-e stx)
-                          "Can only be used in define-syntax/parse"))))
-
-(define-simple-macro (define-syntax/parse (name . args) . body)
-  (define-syntax (name stx2)
-    (syntax-parameterize ([stx (make-rename-transformer #'stx2)])
-                         (syntax-parse stx2
-                           [(_ . args) . body]))))
-
-(define-simple-macro (λ/syntax-parse args . body)
-  (λ (stx2)
-    ;(syntax-parameterize ([stx (make-rename-transformer #'stx2)])
-    (syntax-parse stx2
-      [args . body])));)
+  (define-syntax ~maybe
+    (pattern-expander
+     (λ (stx)
+       (syntax-parse stx
+         [(self pat ...)
+          (define (s stx) (datum->syntax #'self stx stx stx))
+          #`(#,(s #'~optional) (#,(s #'~seq) pat ...))]))))
+  
+  ;; Circumvent the bug that causes "syntax-parse: duplicate attribute in: a" in
+  ;; (syntax-parse #'(x y z) [((~or a (a b c)) ...) #'(a ...)])
+  (define-syntax ~or-bug
+    (pattern-expander
+     (λ (stx)
+       (syntax-parse stx
+         [(self pat ...)
+          (define (s stx) (datum->syntax #'self stx stx stx))
+          #`(#,(s #'~and) x (#,(s #'~parse) (#,(s #'~or) pat ...) #'x))]))))
+  
+  (define-syntax ~lit
+    (pattern-expander
+     (λ (stx)
+       (syntax-parse stx
+         [(self (~optional (~seq name:id (~literal ~))) lit)
+          (define (s stx) (datum->syntax #'self stx stx stx))
+          (if (attribute name)
+              #`(#,(s #'~and) name (#,(s #'~literal) lit))
+              #`(#,(s #'~literal) lit))]
+         [(self (~optional (~seq name:id (~literal ~))) lit …)
+          (define (s stx) (datum->syntax #'self stx stx stx))
+          (if (attribute name)
+              #`(#,(s #'~and) name (#,(s #'~seq) (#,(s #'~literal) lit)))
+              #`(#,(s #'~seq) (#,(s #'~literal) lit)))]))))
+  
+  (begin-for-syntax
+    (require (for-syntax racket/base
+                         racket/stxparam)
+             racket/stxparam)
+    
+    (provide stx)
+    
+    (define-syntax-parameter stx
+      (lambda (stx)
+        (raise-syntax-error (syntax-e stx)
+                            "Can only be used in define-syntax/parse"))))
+  
+  (define-simple-macro (define-syntax/parse (name . args) body0 . body)
+    (define-syntax (name stx2)
+      (syntax-parameterize ([stx (make-rename-transformer #'stx2)])
+                           (syntax-parse stx2
+                             [(_ . args) body0 . body]))))
+  
+  (define-simple-macro (λ/syntax-parse args . body)
+    (λ (stx2)
+      ;(syntax-parameterize ([stx (make-rename-transformer #'stx2)])
+      (syntax-parse stx2
+        [args . body]))))
 
 ;; If you include this as a file, you need to do:
 ;(begin-for-syntax (provide stx))
@@ -220,6 +230,7 @@
          sixth-value seventh-value eighth-value ninth-value tenth-value
          ∘
          …
+         …+
          stx-list
          stx-e
          stx-pair
@@ -240,7 +251,9 @@
 
 (require (only-in racket
                   [compose ∘]
-                  [... …]))
+                  [... …])
+         (only-in syntax/parse
+                  [...+ …+]))
 
 (require (for-syntax syntax/parse syntax/parse/experimental/template))
 
@@ -437,7 +450,7 @@
                   ([x : (Listof Number) (in-heads '(1 2 3 4 5))]) x)
                 '((1) (1 2) (1 2 3) (1 2 3 4) (1 2 3 4 5))))
 
-;; Can't write the type of on-split, because typed/racket doesn't allow writing
+;; Can't write the type of in-split, because typed/racket doesn't allow writing
 ;; (Sequenceof A B), just (Sequenceof A).
 ;; in-parallel's type has access to the multi-valued version of Sequenceof,
 ;; though, so we let typed/racket propagate the inferred type.
@@ -997,5 +1010,187 @@
   (syntax-parse stx
     [(_ expr )]))
 |#
+
+;; ==== low/repeat-stx.rkt ===
+
+(define-modules ([no-submodule] [repeat-stx-untyped typed/racket/no-check])
+  (require syntax/stx
+           (for-syntax racket/base
+                       racket/syntax
+                       syntax/parse))
+  
+  (provide repeat-stx)
+  
+  (define-for-syntax (repeat-stx-2 stx)
+    (syntax-parse stx
+      [(a:id b:id)
+       #'(λ _ a)]
+      [(a:id (b:expr (~literal ...)))
+       #`(λ (bs) (stx-map #,(repeat-stx-2 #'(a b)) bs))]))
+  
+  (define-for-syntax (repeat-stx-1 stx)
+    (syntax-parse stx
+      [(a:id b:expr)
+       #`(λ (a bs) (#,(repeat-stx-2 #'(a b)) bs))]
+      [((a:expr (~literal ...)) (b:expr (~literal ...)))
+       #`(λ (s1 s2) (stx-map #,(repeat-stx-1 #'(a b)) s1 s2))]))
+  
+  (define-syntax (repeat-stx stx)
+    (syntax-parse stx
+      [(_ a:expr b:expr)
+       #`(#,(repeat-stx-1 #'(a b)) #'a #'b)])))
+
+(module repeat-stx-test racket
+  (require (submod ".." repeat-stx-untyped))
+  (require syntax/parse
+           rackunit)
+  
+  (check-equal?
+   (syntax-parse #'(1 2)
+     [(a b)
+      (syntax->datum
+       (datum->syntax
+        #'dummy
+        (repeat-stx a b)))])
+   1)
+  
+  (check-equal?
+   (syntax-parse #'(1 2 3)
+     [(a b ...)
+      (syntax->datum
+       (datum->syntax
+        #'dummy
+        (repeat-stx a (b ...))))])
+   '(1 1))
+  
+  (check-equal?
+   (syntax-parse #'(1 (2 3) (uu vv ww) (xx yy))
+     [(a (b ...) ...)
+      (syntax->datum
+       (datum->syntax
+        #'dummy
+        (repeat-stx a ((b ...) ...))))])
+   '((1 1) (1 1 1) (1 1)))
+  
+  (check-equal?
+   (syntax-parse #'(1 ((2) (3 3)) ((uu) (vv vv) (ww ww ww)) ((xx) (yy)))
+     [(a ((b ...) ...) ...)
+      (syntax->datum
+       (datum->syntax
+        #'dummy
+        (repeat-stx a (((b ...) ...) ...))))])
+   '(((1) (1 1)) ((1) (1 1) (1 1 1)) ((1) (1))))
+  
+  (check-equal?
+   (syntax-parse #'([1 x] [2 y] [3 z])
+     [([a b] ...)
+      (syntax->datum
+       (datum->syntax
+        #'dummy
+        (repeat-stx (a ...) (b ...))))])
+   '(1 2 3))
+  
+  (check-equal?
+   (syntax-parse #'((1 2 3) (a b))
+     [([a b ...] ...)
+      (syntax->datum
+       (datum->syntax
+        #'dummy
+        (repeat-stx (a ...) ((b ...) ...))))])
+   '((1 1) (a)))
+  
+  (check-equal?
+   (syntax-parse #'(((1 2 3) (a b)) ((x y z t) (-1 -2)))
+     [[[[a b ...] ...] ...]
+      (syntax->datum
+       (datum->syntax
+        #'dummy
+        (repeat-stx ((a ...) ...) (((b ...) ...) ...))))])
+   '(((1 1) (a)) ((x x x) (-1))))
+  
+  (check-equal?
+   (syntax-parse #'((f (1 2 3) (a b)) (g (x y z t) (-1 -2)))
+     [[[a (b ...) ...] ...]
+      (syntax->datum
+       (datum->syntax
+        #'dummy
+        (repeat-stx (a ...) (((b ...) ...) ...))))])
+   '(((f f f) (f f)) ((g g g g) (g g))))
+  
+  (check-equal?
+   (syntax-parse #'((h () ()) (i () (x y z) ()))
+     [([a (b ...) ...] ...)
+      (syntax->datum
+       (datum->syntax
+        #'dummy
+        (repeat-stx (a ...) (((b ...) ...) ...))))])
+   '((() ()) (() (i i i) ()))))
+
+(module+ test
+  (require (submod ".." repeat-stx-test)))
+
+;; ==== low/test-framework.rkt ====
+(require (for-syntax syntax/parse)
+         (for-syntax (submod "." syntax-parse-extensions-untyped))
+         (for-syntax (submod "." repeat-stx-untyped))
+         typed/rackunit)
+
+(provide check-equal?-classes
+         check-equal?-classes:)
+
+(: check-equal?-classes (∀ (A ...) (→ (Pairof String (Listof A)) ... Void)))
+(define (check-equal?-classes . classes)
+  (for* ([(head tail) (in-split* classes)])
+    (let ([this-class (sequence-ref tail 0)]
+          [different-classes (in-sequences head (sequence-tail tail 1))])
+      (for ([val (cdr this-class)])
+        (for ([other-val (cdr this-class)])
+          #;(displayln (format "Test ~a ∈ ~a = ~a ∈ ~a …"
+                               val
+                               this-class
+                               other-val
+                               this-class))
+          (check-equal? val other-val
+                        (format "Test ~a ∈ ~a = ~a ∈ ~a failed."
+                                val
+                                this-class
+                                other-val
+                                this-class)))
+        (for ([different-class different-classes])
+          (for ([different-val (cdr different-class)])
+            #;(displayln (format "Test ~a ∈ ~a != ~a ∈ ~a ∈ ~a …"
+                                 val
+                                 this-class
+                                 different-val
+                                 different-class
+                                 (sequence->list different-classes)))
+            (check-not-equal? val different-val
+                              (format "Test ~a ∈ ~a != ~a ∈ ~a ∈ ~a failed."
+                                      val
+                                      this-class
+                                      different-val
+                                      different-class
+                                      (sequence->list different-classes)))))))))
+
+(define-syntax/parse (check-equal?-classes:
+                      (~seq [(~maybe #:name name:expr)
+                             (~maybe (~lit :) c-type)
+                             (~seq val (~maybe (~lit :) v-type)) …])
+                      …)
+  (define/with-syntax ([a-val …] …)
+    (template ([(?? (ann val v-type) val) …] …)))
+  (define/with-syntax ([aa-val …] …)
+    (let ()
+      ;; TODO: this is ugly, repeat-stx should handle missing stuff instead.
+      (define/with-syntax (xx-c-type …) (template ((?? (c-type) ()) …)))
+      (syntax-parse (repeat-stx (xx-c-type …) ([val …] …))
+        [([((~optional c-type-rep)) …] …)
+         (template ([(?? name "") (?? (ann a-val c-type-rep) a-val) …] …))])))
+  (template
+   (check-equal?-classes (list aa-val …) …)))
+
+;; ==== low/typed-not-implemented-yet.rkt ====
+
+(define-syntax-rule (? t) ((λ () : t (error "Not implemented yet"))))
 
 ;; ==== end ====

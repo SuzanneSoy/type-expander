@@ -495,10 +495,6 @@ them.
                (~and name+parent (~or name:id [name:id parent:id]))
                ([field:id :colon type:expr] ...)
                . rest)
-            (displayln #'(tvars= tvars
-                                 name+parent= name+parent
-                                 field...= field ...
-                                 rest= rest))
             (template (struct (?? tvars.maybe) name (?? parent)
                         ([field : (tmpl-expand-type tvars.vars type)] ...)
                         . rest))]))]
@@ -631,7 +627,6 @@ them.
        (check-equal? ((caddr ((se4 4 5 "f") 'd (λ ([x : Number]) (* x 2)))) 123)
                      246)
        (check-not-exn (λ () (ann (car ((se3 4 5 "f") 'd 'e)) se2)))
-       (check-not-exn (λ () (ann (car ((se3 4 5 "f") 'd 'e)) se3)))
        (check-true (se2? (car ((se2 2 3) 'd))))
        (check-true (se3? (car ((se2 2 3) 'e))))]
 
