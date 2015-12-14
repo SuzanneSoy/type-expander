@@ -1,5 +1,6 @@
 #lang debug typed/racket
 
+#|
 (require "structure.lp2.rkt")
 (require "variant.lp2.rkt")
 (require "../type-expander/type-expander.lp2.rkt")
@@ -12,14 +13,23 @@
 (tagged t [a : Number 1] [b : Symbol 'b] [c : String "c"])
 (tagged t [a 1] [b 'b] [c "c"])
 
-#|
+(tagged t [a 1] [b 'b] [c "c"])
+
+(define-tagged tabc t [a 1] [b 'b] [c "c"])
+|#
+
 (require (submod "graph3.lp2.rkt" test))
+(require "structure.lp2.rkt")
 (require "../lib/low.rkt")
 (require racket/list)
 
 (define #:∀ (A) (map-force [l : (Listof (Promise A))])
   (map (inst force A) l))
 
+(map-force (get g people))
+(map-force (get g streets))
+
+#|
 (let ()
   (map-force (second g))
   (cars (map-force (second g)))

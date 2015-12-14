@@ -30,7 +30,7 @@ these constructors:
 
 @chunk[<example-variants>
        [City [streets : (Listof Street)] [people : (Listof Person)] <m-city>]
-       [Street [name : String] [houses : (Listof House)] <m-street>]
+       [Street [sname : String] [houses : (Listof House)] <m-street>]
        [House [owner : Person] [location : Street] <m-house>]
        [Person [name : String] <m-person>]]
 
@@ -161,12 +161,12 @@ wrapper macros.
 Where @tc[<field-signature>] is:
 
 @chunk[<field-signature>
-       [field:id (~literal :) field-type:expr]]
+       [field:id :colon field-type:expr]]
 
 And @tc[<mapping-declaration>] is:
 
 @chunk[<mapping-declaration>
-       ((mapping:id [param:id (~literal :) param-type:expr] …)
+       ((mapping:id [param:id :colon param-type:expr] …)
         . mapping-body)]
 
 @subsection{The different types of a node}
@@ -229,7 +229,9 @@ We derive identifiers for these based on the @tc[node] name:
        
        (define-temp-ids "~a/mapping-function" (node …))
        
-       (define-temp-ids "~a/database" (node …) #:first-base root)]
+       (define-temp-ids "~a/database" (node …) #:first-base root)
+       
+       (define-temp-ids "~a/value" ((field …) …))]
 
 @subsection{Overview}
 
@@ -372,13 +374,15 @@ that node's @tc[with-promises] type.
        …
        
        (define-type node/with-promises-type
-         (List 'node/with-promises-tag
-               field/with-promises-type …))
+         (tagged node/with-promises-tag
+                 [field : field/with-promises-type] …))
        
        (: node/make-with-promises (→ field/with-promises-type …
                                      node/with-promises-type))
-       (define (node/make-with-promises field …)
-         (list 'node/with-promises-tag field …))]
+       (define (node/make-with-promises field/value …)
+         (tagged node/with-promises-tag
+                 [field : field/with-promises-type field/value]
+                 …))]
 
 @subsection{Making incomplete nodes}
 
@@ -616,7 +620,10 @@ are replaced by tagged indices:
                   alexis/util/threading; DEBUG
                   "fold-queues.lp2.rkt"
                   "rewrite-type.lp2.rkt"
-                  "../lib/low.rkt")
+                  "../lib/low.rkt"
+                  "structure.lp2.rkt"
+                  "variant.lp2.rkt"
+                  "../type-expander/type-expander.lp2.rkt")
          
          ;(begin-for-syntax
          ;<multiassoc-syntax>)
@@ -624,12 +631,20 @@ are replaced by tagged indices:
          (provide define-graph)
          <define-graph>)]
 
+In @tc[module-test], we have to require @tc[type-expander] because it provides a
+@tc[:] macro which is a different identifier than the one from typed/racket,
+therefore the @tc[:] bound in the @tc[graph] macro with @tc[:colon] would
+not match the one from @tc[typed/racket]
+
 @chunk[<module-test>
        (module* test typed/racket
          (require (submod "..")
                   "fold-queues.lp2.rkt"; DEBUG
                   "rewrite-type.lp2.rkt"; DEBUG
                   "../lib/low.rkt"; DEBUG
+                  "structure.lp2.rkt"; DEBUG
+                  "variant.lp2.rkt"; DEBUG
+                  "../type-expander/type-expander.lp2.rkt"
                   typed/rackunit)
          
          (provide g)

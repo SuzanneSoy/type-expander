@@ -305,7 +305,7 @@ them.
 
 @CHUNK[<syntax-classes>
        (define-syntax-class colon
-         (pattern (~literal new-:)))
+         (pattern (~or (~literal new-:) (~literal :))))
        
        (define-splicing-syntax-class (new-maybe-kw-type-vars)
          #:attributes (vars maybe)
@@ -1012,7 +1012,9 @@ We can finally define the overloaded forms, as well as the extra
          
          (begin-for-syntax
            <template-metafunctions>
-           <syntax-classes>)
+           <syntax-classes>
+
+           (provide colon))
          
          <define-type>
          <define>

@@ -103,21 +103,29 @@ handle the empty structure as a special case.
 @chunk[<define-structure>
        (define-syntax (define-structure stx)
          (syntax-parse stx
-           [(_ name [field type] ...)
+           [(_ name [field type] ... (~maybe #:? name?))
             (define/with-syntax ([sorted-field sorted-type] ...)
               (sort-car-fields #'([field type] ...)))
             (define/with-syntax (pat ...) (generate-temporaries #'(field ...)))
-            #'(define-multi-id name
-                #:type-expand-once
-                (structure [field type] ...)
-                #:match-expander
-                (λ (stx2)
-                  (syntax-case stx2 ()
-                    [(_ pat ...) #'(structure [field pat] ...)]))
-                #:else
-                (if (not (stx-null? #'(type …)))
-                    #'(inst (make-structure-constructor field ...) type ...)
-                    #'(make-structure-constructor field ...)))]))]
+            (define/with-syntax default-name? (format-id #'name "~a?" #'name))
+            (template
+             (begin
+               (define-multi-id name
+                 #:type-expand-once
+                 (structure [field type] ...)
+                 #:match-expander
+                 (λ (stx2)
+                   (syntax-case stx2 ()
+                     [(_ pat ...) #'(structure [field pat] ...)]))
+                 #:else
+                 (if (not (stx-null? #'(type …)))
+                     #'(inst (make-structure-constructor field ...) type ...)
+                     #'(make-structure-constructor field ...)))
+               (: (?? name? default-name?) (→ Any Any))
+               (define ((?? name? default-name?) x)
+                 (match x
+                   [(structure [field _] …) #t]
+                   [_ #f]))))]))]
 
 
 @chunk[<test-define-structure>
@@ -135,10 +143,10 @@ Test constructor:
 Test constructor, as id:
 
 @chunk[<test-define-structure>
-       (check-equal?: (get (cadr (map st '(1 2 3) '("x" "y" "z"))) b)
-                      : String "y")
-       (check-equal?: (get (cadr (map st2 '("d" "e" "f") '(1 2 3))) b)
-                      : String "e")]
+       (check-equal?: (get (cadr (map st '(1 2 3) '("x" "y" "z"))) b) : String
+                      "y")
+       (check-equal?: (get (cadr (map st2 '("d" "e" "f") '(1 2 3))) b) : String
+                      "e")]
 
 Test the type-expander:
 
@@ -293,21 +301,44 @@ The fields in @tc[fields→stx-name-alist] are already sorted.
 @subsection{Accessor}
 
 @CHUNK[<get-field2>
-       (define-syntax/parse (get v field:id)
-         (define structs (filter (λ (s)
-                                   (member (syntax->datum #'field) (car s)))
-                                 fields→stx-name-alist))
-         (define/with-syntax (name? ...)
-           (map (λ (s) <get-predicate>) structs))
-         (define/with-syntax (name-field ...)
-           (map (λ (s) <get-field-accessor>) structs))
-         #`(let ([v-cache v])
-             (cond
-               [(name? v-cache)
-                (let ([accessor name-field])
-                  (accessor v-cache))]; cover does not see the call otherwise?
-               ...
-               [else (typecheck-fail #,stx #:covered-id v-cache)])))]
+       (define-syntax (get stx)
+         (syntax-parse stx
+           [(_ v field:id)
+            (define struct-names
+              (filter (λ (s)
+                        (member (syntax->datum #'field) (car s)))
+                      fields→stx-name-alist))
+            (define/with-syntax (name? ...)
+              (map (λ (s) <get-predicate>) struct-names))
+            (define/with-syntax (name-field ...)
+              (map (λ (s) <get-field-accessor>) struct-names))
+            #`(let ([v-cache v])
+                (cond
+                  [(name? v-cache)
+                   (let ([accessor name-field])
+                     (accessor v-cache))]; cover doesn't see the call otherwise?
+                  …
+                  ;; For variants:
+                  ;; If we hit the bug where refinements cause loss of precision
+                  ;; in later clauses, then just use separate functions, forming
+                  ;; a BTD:
+                  ;; (λ ([x : (U A1 A2 A3 B1 B2 B3)]) (if (A? x) (fa x) (fb x)))
+                  [(and (pair? v-cache)
+                        (symbol? (car v-cache))
+                        (null? (cddr v-cache))
+                        (name? (cadr v-cache)))
+                   (let ([accessor name-field])
+                     (accessor (cadr v-cache)))]
+                  …
+                  [else (typecheck-fail #,stx #:covered-id v-cache)]))]
+           [(_ field:id)
+            (define/with-syntax (struct-name …)
+              (filter (λ (s)
+                        (member (syntax->datum #'field) (car s)))
+                      fields→stx-name-alist))
+              #'(λ ([v : (U struct-name …
+                            (List Symbol struct-name) …)])
+                  (get v field))]))]
 
 @chunk[<get-predicate>
        (my-st-type-info-predicate (get-struct-info stx (cdr s)))]
@@ -418,7 +449,7 @@ instead of needing an extra recompilation.
                     (sort-fields #'(field …)))
                   (fields→stx-name #'(field …)))
                 (remember-all-errors #'U stx #'(field ...)))]
-           [(_ (~seq [field:id type:expr] …))
+           [(_ (~seq [field:id (~optional :colon) type:expr] …))
             (if (check-remember-fields #'(field ...))
                 (let ()
                   (define/with-syntax ([sorted-field sorted-type] ...)

@@ -78,8 +78,20 @@ twice, and it is likely that a constructor will have the same identifier as an
 existing variable or function.
 
 @chunk[<define-variant>
-       (define-syntax/parse (define-variant name [tag:id type:expr ...] ...)
-         #'(define-type name (U (constructor tag type ...) ...)))]
+       (define-syntax/parse (define-variant name [tag:id type:expr ...] ...
+                              (~maybe #:? name?))
+         (define/with-syntax default-name? (format-id #'name "~a?" #'name))
+         (define-temp-ids "pat" ((type …) …))
+         (template
+          (begin
+            (define-type name (U (constructor tag type ...) ...))
+            ;; TODO: for now, we don't check properly, it could be any list with
+            ;; that symbol as the first element.
+            (define ((?? name? default-name?) [x : Any])
+              (match x
+                [(constructor tag pat …) #t]
+                …
+                [_ #f])))))]
 
 @chunk[<test-define-variant>
        (define-variant v1 [x Number String] [y String Number] [z Number String])
@@ -161,18 +173,27 @@ number of name collisions.
 
 @chunk[<define-tagged>
        (define-syntax/parse (define-tagged tag:id [field type] ...
-                              (~optional #:type-noexpand))
+                              (~optional #:type-noexpand)
+                              (~maybe #:? tag?))
          (define/with-syntax (pat ...) (generate-temporaries #'(field ...)))
          (define/with-syntax (value ...) (generate-temporaries #'(field ...)))
-         #'(define-multi-id tag
-             #:type-expand-once
-             (tagged tag [field type] ...)
-             #:match-expander
-             (λ/syntax-parse (_ pat ...)
-               #'(tagged tag [field pat] ...))
-             #:call
-             (λ/syntax-parse (_ value ...)
-               #'(tagged tag #:instance [field value] ...))))]
+         (define/with-syntax default-tag? (format-id #'tag "~a?" #'tag))
+         (template
+          (begin
+            (define-multi-id tag
+              #:type-expand-once
+              (tagged tag [field type] ...)
+              #:match-expander
+              (λ/syntax-parse (_ pat ...)
+                #'(tagged tag [field pat] ...))
+              #:call
+              (λ/syntax-parse (_ value ...)
+                #'(tagged tag #:instance [field value] ...)))
+            (: (?? tag? default-tag?) (→ Any Any))
+            (define ((?? tag? default-tag?) x)
+              (match x
+                [(tagged tag [field _] …) #t]
+                [_ #f])))))]
 
 @chunk[<test-define-tagged>
        (define-tagged tagged-s1)
@@ -248,6 +269,7 @@ number of name collisions.
        (begin
          (module main typed/racket
            (require (for-syntax syntax/parse
+                                syntax/parse/experimental/template
                                 racket/syntax
                                 "../lib/low-untyped.rkt")
                     "../lib/low.rkt"

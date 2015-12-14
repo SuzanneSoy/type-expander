@@ -12,10 +12,10 @@
 
 @chunk[<fold-queues-signature>
        (fold-queues root-value
-                    [(name [element (~literal :) Element-Type]
-                           [Δ-queues (~literal :) Δ-Queues-Type-Name]
+                    [(name [element :colon Element-Type]
+                           [Δ-queues :colon Δ-Queues-Type-Name]
                            enqueue)
-                     (~literal :) Result-Type
+                     :colon Result-Type
                      . body]
                     …
                     (~parse (root-name . _) #'(name …)))]
@@ -279,7 +279,8 @@ added to the @tc[Δ-Hash] since its creation from a simple @tc[HashTable].
                               racket/syntax
                               racket/pretty; DEBUG
                               "../lib/low-untyped.rkt")
-                  "../lib/low.rkt")
+                  "../lib/low.rkt"
+                  "../type-expander/type-expander.lp2.rkt")
          
          (provide fold-queues)
          

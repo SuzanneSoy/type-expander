@@ -746,7 +746,6 @@
       
       [(_ format:simple-format
           base:dotted
-          (~optional (~seq #:first-base first-base))
           (~optional (~seq #:first first)))
        (let* ([base-len (string-length (symbol->string (syntax-e #'base.id)))])
          (define/with-syntax pat
@@ -790,14 +789,33 @@
                             (syntax-local-introduce #'format)
                             (attribute format.right-start)
                             (attribute format.right-len))
-                    '())))
-         )]
-      [(_ format (base:id (~literal ...)))
+                    '()))))]
+      [(_ format base:dotted)
        #:when (string? (syntax-e #'format))
-       (with-syntax ([pat (format-id #'base (syntax-e #'format) #'base)])
-         #'(define/with-syntax (pat (... ...))
-             (format-temp-ids format #'(base (... ...)))))]
-      [(_ name:expr format:expr . vs)
+       #:when (regexp-match #rx"^[^~]*$" (syntax-e #'format))
+       (define/with-syntax pat (format-id #'base (syntax-e #'format)))
+       (define/with-syntax pat-dotted ((attribute base.make-dotted) #'pat))
+       (define/with-syntax format-temp-ids*
+           ((attribute base.wrap) #'(λ (x)
+                                      (car (format-temp-ids
+                                            (string-append format "~a")
+                                            "")))
+                                  (λ (x deepest?)
+                                    (if deepest?
+                                        x
+                                        #`(curry stx-map #,x)))))
+       (syntax-cons-property
+        #'(define/with-syntax pat-dotted
+            (format-temp-ids* #'base))
+        'sub-range-binders
+        (list (vector (syntax-local-introduce #'pat)
+                      0
+                      (string-length (syntax-e #'format))
+                      
+                      (syntax-local-introduce #'format)
+                      1
+                      (string-length (syntax-e #'format)))))]
+      [(_ name:id format:expr . vs)
        #`(define/with-syntax name (format-temp-ids format . vs))])))
 
 (module+ test
