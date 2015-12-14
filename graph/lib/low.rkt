@@ -7,27 +7,31 @@
 ;; ==== low/typed-untyped-module.rkt ====
 
 (require typed/untyped-utils)
-(provide half-typed-module typed/untyped-prefix define-modules)
+(provide define-half-typed-module typed/untyped-prefix define-modules)
 
-;; half-typed-module
-(define-syntax-rule (typed-module m t u typed-language untyped-language . body)
+;; define-half-typed-module
+(define-syntax-rule (typed-module (m t u typed-#lang untyped-#lang) . body)
   (begin
-    (module m typed-language
-      (module t typed-language . body)
-      (module u untyped-language . body)
+    (module m typed-#lang
+      ; PROBLEM: require submod ".." won't work because we're one level deeper.
+      ;(module t typed-language . body)
+      ;(module u untyped-language . body)
       . body)))
 
-(define-syntax-rule (untyped-module m u typed-language untyped-language . body)
+(define-syntax-rule (untyped-module (m t u typed-#lang untyped-#lang) . body)
   (begin
-    (module m untyped-language
-      (module t typed-language . body)
-      (module u untyped-language . body)
+    (module m untyped-#lang
+      ; PROBLEM: require submod ".." won't work because we're one level deeper.
+      ;(module t typed-language . body)
+      ;(module u untyped-language . body)
       . body)))
 
-(define-typed/untyped-identifier half-typed-module typed-module untyped-module)
+(define-typed/untyped-identifier define-half-typed-module
+  typed-module
+  untyped-module)
 
 #| ;; test: should work in no-check but not in typed:
-(half-typed-module moo typed/racket typed/racket/no-check
+(define-half-typed-module moo typed/racket typed/racket/no-check
   (: foo One)
   (define foo 2))
 |#
@@ -176,29 +180,79 @@
 ;; It's not provided by (all-from-out) :-(
 
 ;; ==== low/check-type-and-equal.rkt ====
-(require ;"define-syntax-parse.rkt"
-  (for-syntax syntax/parse
-              syntax/parse/experimental/template)
-  typed/rackunit)
-
-(provide check-equal:?
-         check-not-equal:?)
-
 ;; TODO: this won't expand types in the ann.
 
-(define-syntax/parse
-  (check-equal:? actual
-                 (~optional (~seq (~datum :) type))
-                 expected)
-  (template (check-equal? (?? (ann actual type) actual)
-                          (?? (ann expected type) expected))))
+(define-half-typed-module (my-typed-rackunit typed untyped
+                                             typed/racket typed/racket/no-check)
+  (require/typed rackunit
+                 [(check-true untyped:check-true)
+                  (->* (Any) (String) Any)]
+                 [#:struct check-info ([name : Symbol] [value : Any])]
+                 [make-check-info (→ Symbol Any check-info)]
+                 [make-check-location (→ (List Any
+                                               (U Number False)
+                                               (U Number False)
+                                               (U Number False)
+                                               (U Number False))
+                                         check-info)]
+                 [make-check-name (→ Any check-info)]
+                 [make-check-params (→ Any check-info)]
+                 [make-check-actual (→ Any check-info)]
+                 [make-check-expected (→ Any check-info)]
+                 [make-check-expression (→ Any check-info)]
+                 [make-check-message (→ Any check-info)]
+                 [with-check-info* (→ (Listof check-info) (→ Any) Any)])
+  
+  (require (submod ".." syntax-parse-extensions-untyped);define-syntax-parse.rkt
+           (for-syntax syntax/parse
+                       syntax/parse/experimental/template))
+  
+  (provide check-equal?:
+           check-not-equal?:)
+  
+  (define-syntax/parse
+    (check-equal?: actual
+                   (~optional (~seq (~datum :) type))
+                   expected
+                   (~optional message:expr))
+    (quasitemplate
+     (with-check-info* (list (make-check-actual (format "~s" actual))
+                             (make-check-expected (format "~s" expected))
+                             (make-check-name 'check-equal?:)
+                             (make-check-params (format "~s" (list actual
+                                                                   expected)))
+                             (make-check-location '(#,(syntax-source stx)
+                                                    #,(syntax-line stx)
+                                                    #,(syntax-column stx)
+                                                    #,(syntax-position stx)
+                                                    #,(syntax-span stx)))
+                             (make-check-expression '#,(syntax->datum stx)))
+                       (λ ()
+                         (untyped:check-true
+                          (equal? actual expected))))))
+  
+  (define-syntax/parse
+    (check-not-equal?: actual
+                       (~optional (~seq (~datum :) type))
+                       expected
+                       (~optional message))
+    (quasitemplate
+     (with-check-info* (list (make-check-actual (format "~s" actual))
+                             (make-check-expected (format "~s" expected))
+                             (make-check-name 'check-not-equal?:)
+                             (make-check-params (format "~s" (list actual
+                                                                   expected)))
+                             (make-check-location '(#,(syntax-source stx)
+                                                    #,(syntax-line stx)
+                                                    #,(syntax-column stx)
+                                                    #,(syntax-position stx)
+                                                    #,(syntax-span stx)))
+                             (make-check-expression '#,(syntax->datum stx)))
+                       (λ ()
+                         (untyped:check-true
+                          (not (equal? actual expected))))))))
 
-(define-syntax/parse
-  (check-not-equal:? actual
-                     (~optional (~seq (~datum :) type))
-                     expected)
-  (template (check-not-equal? (?? (ann actual type) actual)
-                              (?? (ann expected type) expected))))
+(require/provide 'my-typed-rackunit)
 
 ;; ==== low/typed-fixnum.rkt ===
 

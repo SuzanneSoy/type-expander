@@ -124,7 +124,7 @@ number of name collisions.
                                                      (~seq)))
                     tag:id . fields)
                  (~parse (sa:structure-args-stx-class)
-                           #'(disambiguate … . fields)))
+                         #'(disambiguate … . fields)))
            (define-temp-ids "~a/TTemp" (sa.field …))
            (define/with-syntax c
              (if (attribute sa.type)
@@ -134,10 +134,12 @@ number of name collisions.
                      (constructor tag
                                   #,(syntax/loc #'fields
                                       (structure #:instance
-                                                 [sa.field : sa.type sa.field] …))))
+                                                 [sa.field : sa.type sa.field]
+                                                 …))))
                  #`(λ #:∀ (sa.field/TTemp …) ([sa.field : sa.field/TTemp] …)
                      : (constructor tag #,(syntax/loc #'fields
-                                            (structure [sa.field sa.field/TTemp] …)))
+                                            (structure [sa.field sa.field/TTemp]
+                                                       …)))
                      (constructor tag
                                   #,(syntax/loc #'fields
                                       (structure #:instance

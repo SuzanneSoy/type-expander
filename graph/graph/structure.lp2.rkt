@@ -68,11 +68,11 @@ handle the empty structure as a special case.
        (let ()
          (define-structure empty-st)
          (define-structure stA [a Number])
-         (check-equal:? (empty-st) ((structure #:constructor)))
-         (check-not-equal:? (empty-st) (structure [a 1]))
-         (check-not-equal:? (structure #:constructor) (structure [a 1]))
-         (check-not-equal:? (empty-st) (stA 1))
-         (check-not-equal:? (structure #:constructor) (stA 1)))
+         (check-equal?: (empty-st) ((structure #:constructor)))
+         (check-not-equal?: (empty-st) (structure [a 1]))
+         (check-not-equal?: (structure #:constructor) (structure [a 1]))
+         (check-not-equal?: (empty-st) (stA 1))
+         (check-not-equal?: (structure #:constructor) (stA 1)))
        #;(let ()
            (define-structure st [a Number] [b String])
            (define-structure stA [a Number])
@@ -128,16 +128,16 @@ handle the empty structure as a special case.
 Test constructor:
 
 @chunk[<test-define-structure>
-       (check-equal:? (empty-st) : empty-st (empty-st))
-       (check-equal:? (get (st 1 "b") b) : String "b")
-       (check-equal:? (get (st2 "a" 2) b) : String "a")]
+       (check-equal?: (empty-st) : empty-st (empty-st))
+       (check-equal?: (get (st 1 "b") b) : String "b")
+       (check-equal?: (get (st2 "a" 2) b) : String "a")]
 
 Test constructor, as id:
 
 @chunk[<test-define-structure>
-       (check-equal:? (get (cadr (map st '(1 2 3) '("x" "y" "z"))) b)
+       (check-equal?: (get (cadr (map st '(1 2 3) '("x" "y" "z"))) b)
                       : String "y")
-       (check-equal:? (get (cadr (map st2 '("d" "e" "f") '(1 2 3))) b)
+       (check-equal?: (get (cadr (map st2 '("d" "e" "f") '(1 2 3))) b)
                       : String "e")]
 
 Test the type-expander:
@@ -148,7 +148,7 @@ Test the type-expander:
 Test the match-expander:
 
 @chunk[<test-define-structure>
-       (check-equal:? (match (st2 "h" 7) [(st x y) (cons x y)])
+       (check-equal?: (match (st2 "h" 7) [(st x y) (cons x y)])
                       : (Pairof Number String)
                       '(7 . "h"))]
 
@@ -317,7 +317,7 @@ The fields in @tc[fields→stx-name-alist] are already sorted.
                  (indexof (syntax->datum #'field) (reverse (car s))))]
 
 @chunk[<test-get-field>
-       (check-equal:?
+       (check-equal?:
         (get ((make-structure-constructor a b c d) 1 "b" 'value-c 4) c)
         : 'value-c
         'value-c)]

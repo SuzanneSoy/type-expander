@@ -116,6 +116,10 @@ else.
            [((~literal quasiquote) T) (expand-quasiquote 'quasiquote 1 #'T)]
            [((~literal syntax) T) (expand-quasiquote 'syntax 1 #'T)]
            [((~literal quasisyntax) T) (expand-quasiquote 'quasisyntax 1 #'T)]
+           [((~literal Struct) T)
+            (display #'(Struct T))
+            (displayln #`(Struct #,(expand-type #'(T))))
+            #`(Struct #,(expand-type #'T))]
            [(T TArg ...)
             #`(T #,@(stx-map expand-type #'(TArg ...)))]
            [T #'T]))]
@@ -179,10 +183,10 @@ Shadowing and @tc[∀] variables:
        (define (count-five-more x)
          (list (+ x 1) (+ x 2) (+ x 3) (+ x 4) (+ x 5)))
        
-       (check-equal? (count-five-more 3)
-                     '(4 5 6 7 8))
-       (check-equal? (ann (count-five-more 15) (Repeat Number 5))
-                     '(16 17 18 19 20))]
+       (check-equal?: (count-five-more 3)
+                      '(4 5 6 7 8))
+       (check-equal?: (ann (count-five-more 15) (Repeat Number 5))
+                      '(16 17 18 19 20))]
 
 @section{Example type-expanders: quasiquote and quasisyntax}
 
@@ -423,7 +427,7 @@ them.
                                       (range (syntax->datum #'n))))]))
          
          (define-type R5 (Repeat Number 5))
-         (check-equal? (ann '(1 2 3 4 5) R5) '(1 2 3 4 5)))]
+         (check-equal?: (ann '(1 2 3 4 5) R5) '(1 2 3 4 5)))]
 
 @subsection{@racket[define]}
 
@@ -444,7 +448,7 @@ them.
        (define d0
          : `(2 "abc" #,,(Pairof (U 'x 'y) (U 'y 'z)) #(1 "b" x) d)
          '(2 "abc" #,(x . z) #(1 "b" x) d))
-       (check-equal? (ann d0 (List 2
+       (check-equal?: (ann d0 (List 2
                                    "abc"
                                    (List 'unsyntax (Pairof (U 'x 'y) (U 'y 'z)))
                                    (Vector 1 "b" 'x) 'd))
@@ -452,14 +456,14 @@ them.
        
        (: d1 (→ Number (→ Number Number)))
        (define ((d1 [x : Number]) [y : Number]) : Number (+ x y))
-       (check-equal? (ann ((d1 2) 3) Number) 5)
+       (check-equal?: (ann ((d1 2) 3) Number) 5)
        
        (: d2 (→ Number (→ Number Number)))
        (define ((d2 [x : Number]) [y : Number]) (+ x y))
-       (check-equal? (ann ((d2 3) 4) Number) 7)
+       (check-equal?: (ann ((d2 3) 4) Number) 7)
        
        (define #:∀ (T) ((d3 [x : T]) [y : T]) : (Pairof T T) (cons x y))
-       (check-equal? (ann ((d3 'x) 'y) (Pairof Symbol Symbol)) '(x . y))]
+       (check-equal?: (ann ((d3 'x) 'y) (Pairof Symbol Symbol)) '(x . y))]
 
 @subsection{@racket[lambda]}
 
@@ -475,16 +479,16 @@ them.
                         e ...))]))]
 
 @CHUNK[<test-lambda>
-       (check-equal? ((ann (lambda ([x : Number]) : Number (* x 2))
+       (check-equal?: ((ann (lambda ([x : Number]) : Number (* x 2))
                            (→ Number Number))
                       3)
                      6)
-       (check-equal? ((ann (λ ([x : Number]) : Number (* x 2))
+       (check-equal?: ((ann (λ ([x : Number]) : Number (* x 2))
                            (→ Number Number))
                       3)
                      6)
-       (check-equal? ((λ x x) 1 2 3) '(1 2 3))
-       (check-equal? ((λ #:∀ (A) [x : A ...*] : (Listof A) x) 1 2 3) '(1 2 3))]
+       (check-equal?: ((λ x x) 1 2 3) '(1 2 3))
+       (check-equal?: ((λ #:∀ (A) [x : A ...*] : (Listof A) x) 1 2 3) '(1 2 3))]
 
 @subsection{@racket[struct]}
 
@@ -492,7 +496,8 @@ them.
        (define-syntax (new-struct stx)
          (syntax-parse stx
            [(_ tvars:new-maybe-type-vars
-               (~and name+parent (~or name:id [name:id parent:id]))
+               (~and (~seq name+parent …) (~or (~seq name:id)
+                                               (~seq name:id parent:id)))
                ([field:id :colon type:expr] ...)
                . rest)
             (template (struct (?? tvars.maybe) name (?? parent)
@@ -507,58 +512,61 @@ them.
        (struct s4 () #:transparent)
        (struct (A B) s5 ([x : A] [y : B]) #:transparent)
        (struct (A B) s6 () #:transparent)
-       (struct (s7 s2) ([z : String]) #:transparent)
-       (struct (A) (s8 s3) ([z : A]) #:transparent)
-       (struct (A B C) (s9 s5) ([z : C]) #:transparent)
-       (struct (A B C) (s10 s2) ([z : C]) #:transparent)
-       (struct (A B C) (s11 s5) ([z : C]))
+       (struct s7 s2 ([z : String]) #:transparent)
+       (struct (A) s8 s3 ([z : A]) #:transparent)
+       (struct (A B C) s9 s5 ([z : C]) #:transparent)
+       (struct (A B C) s10 s2 ([z : C]) #:transparent)
+       (struct (A B C) s11 s5 ([z : C]))
        
        (check (λ (a b) (not (equal? a b))) (s0) (s0))
-       (check-equal? (s1-x (s1 123)) 123)
-       (check-equal? (s2-x (s2 2 3)) 2)
-       (check-equal? (s2-y (s2 2 3)) 3)
-       (check-equal? (s3-x (s3 4 5)) 4)
-       (check-equal? (s3-y (s3 4 5)) 5)
-       (check-equal? (s4) (s4))
-       (check-equal? (s5-x (s5 6 7)) 6)
-       (check-equal? (s5-y (s5 6 7)) 7)
-       (check-equal? (s5 6 7) (s5 6 7))
-       (check-equal? ((inst s5 Number String) 6 "g") (s5 6 "g"))
-       (check-equal? (s6) (s6))
-       (check-equal? ((inst s6 Number String)) (s6))
+       (check-equal?: (s1-x (s1 123)) 123)
+       (check-equal?: (s2-x (s2 2 3)) 2)
+       (check-equal?: (s2-y (s2 2 3)) 3)
+       (check-equal?: (s3-x (s3 4 5)) 4)
+       (check-equal?: (s3-y (s3 4 5)) 5)
+       (check-equal?: (s4) (s4))
+       (check-equal?: (s5-x (s5 6 7)) 6)
+       (check-equal?: (s5-y (s5 6 7)) 7)
+       (check-equal?: (s5 6 7) (s5 6 7))
+       (check-equal?: ((inst s5 Number String) 6 "g") (s5 6 "g"))
+       (check-equal?: (s6) (s6))
+       (check-equal?: ((inst s6 Number String)) (s6))
        
-       ;(check-equal? (s7-x (s7 -1 -2 "c") -1))
-       ;(check-equal? (s7-y (s7 -1 -2 "c") -2))
-       (check-equal? (s7-z (s7 -1 -2 "c")) "c")
-       (check-equal? (s2-x (s7 -1 -2 "c")) -1)
-       (check-equal? (s2-y (s7 -1 -2 "c")) -2)
-       (check-not-equal? (s7 -1 -2 "c") (s7 -1 -2 "c"))
+       ;(check-equal?: (s7-x (s7 -1 -2 "c") -1))
+       ;(check-equal?: (s7-y (s7 -1 -2 "c") -2))
+       (check-equal?: (s7-z (s7 -1 -2 "c")) "c")
+       (check-equal?: (s2-x (s7 -1 -2 "c")) -1)
+       (check-equal?: (s2-y (s7 -1 -2 "c")) -2)
+       (check-not-equal?: (s7 -1 -2 "c") (s7 -1 -2 "c"))
        (check-not-exn (λ () (ann (s7 -1 -2 "c") s2)))
        (check-true (s2? (s7 -1 -2 "c")))
        
-       ;(check-equal? (s8-x (s8 -1 -2 "c") -1))
-       ;(check-equal? (s8-y (s8 -1 -2 "c") -2))
-       (check-equal? (s8-z (s8 -1 -2 "c")) "c")
-       (check-equal? (s3-x (s8 -1 -2 "c")) -1)
-       (check-equal? (s3-y (s8 -1 -2 "c")) -2)
-       (check-equal? (s8 -1 -2 "c") (s8 -1 -2 "c"))
-       (check-equal? ((inst s8 String) -1 -2 "c") (s8 -1 -2 "c"))
+       ;(check-equal?: (s8-x (s8 -1 -2 "c") -1))
+       ;(check-equal?: (s8-y (s8 -1 -2 "c") -2))
+       (check-equal?: (s8-z (s8 -1 -2 "c")) "c")
+       (check-equal?: (s3-x (s8 -1 -2 "c")) -1)
+       (check-equal?: (s3-y (s8 -1 -2 "c")) -2)
+       (check-equal?: (s8 -1 -2 "c") (s8 -1 -2 "c"))
+       (check-equal?: ((inst s8 String) -1 -2 "c") (s8 -1 -2 "c"))
        (check-not-exn (λ () (ann ((inst s8 String) -1 -2 "c") s3)))
        (check-true (s3? ((inst s8 String) -1 -2 "c")))
        
-       ;(check-equal? (s9-x (s9 8 9 10)) 8)
-       ;(check-equal? (s9-y (s9 8 9 10)) 9)
-       (check-equal? (s9-z (s9 8 9 10)) 10)
-       (check-equal? (s5-x (s9 8 9 10)) 8)
-       (check-equal? (s5-y (s9 8 9 10)) 9)
-       (check-equal? (s9 8 9 10) (s9 8 9 10))
-       ;(check-not-exn (λ () (ann ((inst s9 Number Symbol String) 8 'i "j");;;;;;;;;;;;;;
-       ;                          (Struct s5))));;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+       ;(check-equal?: (s9-x (s9 8 9 10)) 8)
+       ;(check-equal?: (s9-y (s9 8 9 10)) 9)
+       (check-equal?: (s9-z (s9 8 9 10)) 10)
+       (check-equal?: (s5-x (s9 8 9 10)) 8)
+       (check-equal?: (s5-y (s9 8 9 10)) 9)
+       (check-equal?: (s9 8 9 10) (s9 8 9 10))
+       ;; Bug (to report)
+       ;(check-not-exn (λ () (ann ((inst s9 Number Symbol String) 8 'i "j")
+       ;                          (Struct s5))))
        (check-not-exn (λ () (ann ((inst s9 Number Symbol String) 8 'i "j")
                                  (s5 Number Symbol))))
+       (check-not-exn (λ () (ann ((inst s9 Number Symbol String) 8 'i "j")
+                                 (s5 Any Any))))
        (check-true (s5? ((inst s9 Number Symbol String) -1 'i "j")))
-       (check-not-equal? (s10 11 12 13) (s10 11 12 13))
-       (check-not-equal? (s11 14 15 16) (s11 14 15 16))]
+       (check-not-equal?: (s10 11 12 13) (s10 11 12 13))
+       (check-not-equal?: (s11 14 15 16) (s11 14 15 16))]
 
 @subsection{@racket[define-struct/exec]}
 
@@ -591,44 +599,44 @@ them.
           : (→ se4 Any (→ Number Number) (List se2 Any (→ Number Number)))])
        
        (check (λ (a b) (not (equal? a b))) (se0) (se0))
-       (check-equal? (cdr ((se0) 'a)) 'a)
+       (check-equal?: (cdr ((se0) 'a)) 'a)
        (check-not-exn (λ () (ann (car ((se0) 'a)) se0)))
        (check-true (se0? (car ((se0) 'a))))
        
        (check (λ (a b) (not (equal? a b))) (se1 123) (se1 123))
-       (check-equal? (se1-x (se1 123)) 123)
-       (check-equal? (se1-x (car ((se1 123) 'b))) 123)
-       (check-equal? (cdr ((se1 123) 'b)) 'b)
+       (check-equal?: (se1-x (se1 123)) 123)
+       (check-equal?: (se1-x (car ((se1 123) 'b))) 123)
+       (check-equal?: (cdr ((se1 123) 'b)) 'b)
        (check-not-exn (λ () (ann (car ((se1 123) 'b)) se1)))
        (check-true (se1? (car ((se1 123) 'b))))
-       
+
        (check (λ (a b) (not (equal? a b))) (se2 2 3) (se2 2 3))
-       (check-equal? (se2-x (se2 2 3)) 2)
-       (check-equal? (se2-y (se2 2 3)) 3)
-       (check-equal? (se2-x (car ((se2 2 3) 'c))) 2)
-       (check-equal? (se2-y (car ((se2 2 3) 'c))) 3)
-       (check-equal? (cdr ((se2 2 3) 'c)) 'c)
+       (check-equal?: (se2-x (se2 2 3)) 2)
+       (check-equal?: (se2-y (se2 2 3)) 3)
+       (check-equal?: (se2-x (car ((se2 2 3) 'c))) 2)
+       (check-equal?: (se2-y (car ((se2 2 3) 'c))) 3)
+       (check-equal?: (cdr ((se2 2 3) 'c)) 'c)
        (check-not-exn (λ () (ann (car ((se2 2 3) 'c)) se2)))
        (check-true (se2? (car ((se2 2 3) 'c))))
 
        (check (λ (a b) (not (equal? a b))) (se3 4 5 "f") (se3 4 5 "f"))
-       (check-equal? (se2-x (se3 4 5 "f")) 4)
-       (check-equal? (se2-y (se3 4 5 "f")) 5)
-       (check-equal? (se3-z (se3 4 5 "f")) "f")
-       (check-equal? (se2-x (car ((se3 4 5 "f") 'd 'e))) 2)
-       (check-equal? (se2-y (car ((se3 4 5 "f") 'd 'e))) 3)
-       (check-equal? (let ([ret : Any (car ((se3 4 5 "f") 'd 'e))])
+       (check-equal?: (se2-x (se3 4 5 "f")) 4)
+       (check-equal?: (se2-y (se3 4 5 "f")) 5)
+       (check-equal?: (se3-z (se3 4 5 "f")) "f")
+       (check-equal?: (se2-x (car ((se3 4 5 "f") 'd 'e))) 4)
+       (check-equal?: (se2-y (car ((se3 4 5 "f") 'd 'e))) 5)
+       (check-equal?: (let ([ret : Any (car ((se3 4 5 "f") 'd 'e))])
                        (if (se3? ret)
                            (se3-z ret)
                            "wrong type!"))
                      "f")
-       (check-equal? (cadr ((se3 4 5 "f") 'd 'e)) 'd)
-       (check-equal? (caddr ((se3 4 5 "f") 'd 'e)) 'e)
-       (check-equal? ((caddr ((se4 4 5 "f") 'd (λ ([x : Number]) (* x 2)))) 123)
-                     246)
+       (check-equal?: (cadr ((se3 4 5 "f") 'd 'e)) 'd)
+       (check-equal?: (caddr ((se3 4 5 "f") 'd 'e)) 'e)
+       (check-equal?: ((caddr ((se4 4 5 "f") 'd (λ ([x : Number]) (* x 2)))) 12)
+                      24)
        (check-not-exn (λ () (ann (car ((se3 4 5 "f") 'd 'e)) se2)))
-       (check-true (se2? (car ((se2 2 3) 'd))))
-       (check-true (se3? (car ((se2 2 3) 'e))))]
+       (check-true (se2? (car ((se3 4 5 "f") 'd 'e))))
+       (check-true (se3? (car ((se3 4 5 "f") 'd 'e))))]
 
 @subsection{@racket[ann]}
 
@@ -642,7 +650,7 @@ them.
            (syntax-case stx ()
              [(_ t n) #`(List #,@(map (λ (x) #'t)
                                       (range (syntax->datum #'n))))]))
-         (check-equal? (ann (ann '(1 2 3)
+         (check-equal?: (ann (ann '(1 2 3)
                                  (Repeat Number 3))
                             (List Number Number Number))
                        '(1 2 3)))]
@@ -667,7 +675,7 @@ them.
          (: f (∀ (A B C D) (→ (Pairof A B) (Pairof C D) (List A C B D))))
          (define (f x y) (list (car x) (car y) (cdr x) (cdr y)))
          
-         (check-equal? ((inst f
+         (check-equal?: ((inst f
                               (Repeat Number 3)
                               (Repeat String 2)
                               (Repeat 'x 1)
@@ -694,13 +702,14 @@ them.
             . rest)))]
 
 @chunk[<test-let>
-       (check-equal? (let loop-id ([x 1])
-                       (if (= x 2)
-                           x
-                           (loop-id (+ x 1))))
-                     2)
-       (check-equal? (let () 'x) 'x)
-       (check-equal? (ann (let #:∀ (T) ([a : T 3]
+       (check-equal?: (let loop-id ([x 1])
+                        (if (equal? x 2)
+                            x
+                            (loop-id 2)))
+                      : Any
+                      2)
+       (check-equal?: (let () 'x) 'x)
+       (check-equal?: (ann (let #:∀ (T) ([a : T 3]
                                         [b : (Pairof T T) '(5 . 7)])
                             (cons a b))
                           (Pairof Number (Pairof Number Number)))
@@ -725,7 +734,7 @@ them.
              [(_ t n) #`(List #,@(map (λ (x) #'t)
                                       (range (syntax->datum #'n))))]))
          
-         (check-equal? (let* ([x* : (Repeat Number 3) '(1 2 3)]
+         (check-equal?: (let* ([x* : (Repeat Number 3) '(1 2 3)]
                               [y* : (Repeat Number 3) x*])
                          y*)
                        '(1 2 3)))]
@@ -749,21 +758,21 @@ them.
              [(_ t n) #`(List #,@(map (λ (x) #'t)
                                       (range (syntax->datum #'n))))]))
          
-         (check-equal? (ann (let-values
+         (check-equal?: (ann (let-values
                                 ([([x : (Repeat Number 3)])
                                   (list 1 2 3)])
                               (cdr x))
                             (List Number Number))
                        '(2 3))
          
-         (check-equal? (ann (let-values
+         (check-equal?: (ann (let-values
                                 ([([x : (Repeat Number 3)] [y : Number])
                                   (values (list 1 2 3) 4)])
                               (cons y x))
                             (Pairof Number (List Number Number Number)))
                        '(4 . (1 2 3)))
          
-         (check-equal? (ann (let-values
+         (check-equal?: (ann (let-values
                                 ([(x y)
                                   (values (list 1 2 3) 4)])
                               (cons y x))
@@ -782,8 +791,8 @@ them.
            (syntax-case stx ()
              [(_ t n) #`(List #,@(map (λ (x) #'t)
                                       (range (syntax->datum #'n))))]))
-         (check-equal? ((make-predicate (Repeat Number 3)) '(1 2 3)) #t)
-         (check-equal? ((make-predicate (Repeat Number 3)) '(1 "b" 3)) #f))]
+         (check-equal?: ((make-predicate (Repeat Number 3)) '(1 2 3)) #t)
+         (check-equal?: ((make-predicate (Repeat Number 3)) '(1 "b" 3)) #f))]
 
 @subsection[#:tag "type-expander|other-forms"]{Other @racket[typed/racket]
  forms}
@@ -1022,25 +1031,31 @@ And, last but not least, we will add a @tc[test] module.
 
 @chunk[<module-test>
        (module* test typed/racket
-         (require typed/rackunit)
-         (require (submod ".."))
-         (require (for-syntax (submod ".." expander)))
-         (require (for-syntax racket/list))
+         (require typed/rackunit
+                  (submod ".." main)
+                  "../lib/low.rkt"
+                  (for-syntax (submod ".." expander)
+                              racket/list
+                              "../lib/low-untyped.rkt"))
          
          <test-expand-type>
-         
+
+         #|
          <test-:>
          <test-define-type>
          <test-define>
          <test-lambda>
-         <test-struct>
+|#
+         ;<test-struct>
          <test-define-struct/exec>
+#|
          <test-ann>
          <test-inst>
          <test-let>
          <test-let*>
          <test-let-values>
          <test-make-predicate>
+|#
          
          ;; Make the code coverage take the docs into account.
          (require (submod ".." doc)))]

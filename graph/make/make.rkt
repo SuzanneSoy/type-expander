@@ -58,7 +58,8 @@
 (run! (list(find-executable-path-or-fail "sh")
            "-c"
            @string-append{
- printf "\033[m"; grep -i TODO --with-filename --color=yes -- `find \
+ printf "\033[m"; grep -i TODO --with-filename --line-number --color=yes -- \
+ `find \
  \( -path ./lib/doc/bracket -prune -and -false \) \
  -or \( -name compiled -prune -and -false \) \
  -or -name '*.rkt'`}))
@@ -194,11 +195,11 @@
  (argv))
 
 (run! `(,(find-executable-path-or-fail "raco")
-        "cover"
-        "-v"
+        "test"
+        "-j" "8"
         ,@(exclude-dirs rkt-files (list "make/"))))
 
 (run! `(,(find-executable-path-or-fail "raco")
-        "test"
-        "-j" "8"
+        "cover"
+        "-v"
         ,@(exclude-dirs rkt-files (list "make/"))))
