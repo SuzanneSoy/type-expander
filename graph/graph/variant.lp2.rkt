@@ -160,6 +160,16 @@ number of name collisions.
                #'(c sa.value …)
                #'c)))]
 
+@CHUNK[<tagged>
+       (define-multi-id any-tagged
+         #:type-expander
+         (λ/syntax-parse (_ . structure-type)
+           #'(List Symbol (structure . structure-type)))
+         #:match-expander
+         (λ/syntax-parse (_ tag-pat:id . structure-pat)
+           #`(list (? symbol? tag-pat:id) #,(syntax/loc #'structure-pat
+                                              (structure . structure-pat)))))]
+
 @chunk[<test-tagged>
        (check-equal? (match (ann (tagged foo [x "o"] [y 3] [z 'z])
                                  (tagged foo
@@ -279,7 +289,8 @@ number of name collisions.
            (provide constructor
                     define-variant
                     tagged
-                    define-tagged)
+                    define-tagged
+                    any-tagged)
            
            <constructor>
            <define-variant>

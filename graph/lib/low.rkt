@@ -4,6 +4,17 @@
 (: degub (∀ (T) (→ T T)))
 (define (degub x) (display "degub:") (displayln x) x)
 
+;; ==== low/threading.rkt
+
+;; raco pkg install alexis-util
+;; or:
+;; raco pkg install threading
+(require alexis/util/threading)
+
+(define-syntax-rule (~>_ clause ... expr) (~> expr clause ...))
+
+(provide ~>_ ~> ~>> _ (rename-out [_ ♦]))
+
 ;; ==== low/typed-untyped-module.rkt ====
 
 (require typed/untyped-utils)
@@ -299,6 +310,7 @@
          *in-split
          my-in-syntax
          indexof
+         replace-first
          Syntax-Listof
          check-duplicate-identifiers
          generate-temporary)
@@ -534,6 +546,21 @@
         (if (compare elt (car lst))
             index
             (rec (cdr lst) (+ index 1))))))
+
+(: replace-first (∀ (A B C) (->* (B
+                                  C
+                                  (Listof (U A B)))
+                                 (#:equal? (→ (U A B) (U A B) Any : #:+ B))
+                                 (Rec R (U (Pairof (U A B) R)
+                                           Null
+                                           (Pairof C (Listof (U A B))))))))
+(define (replace-first from to l #:equal? [equal? eq?])
+  (if (null? l)
+      '()
+      (if (equal? from (car l))
+          (cons to (cdr l))
+          (cons (car l)
+                (replace-first from to (cdr l))))))
 
 ;; See also syntax-e, which does not flatten syntax pairs, and syntax->list,
 ;; which isn't correctly typed (won't take #'(a . (b c d e))).
@@ -880,7 +907,10 @@
 (provide syntax-cons-property
          stx-assoc
          cdr-stx-assoc
-         stx-map-nested)
+         stx-map-nested
+         identifier-length
+         identifier->string
+         (rename-out [identifier->string identifier→string]))
 
 (: syntax-cons-property (∀ (A) (→ (Syntaxof A) Symbol Any (Syntaxof A))))
 (define (syntax-cons-property stx key v)
@@ -889,7 +919,10 @@
 
 
 (: identifier-length (→ Identifier Index))
-(define (identifier-length id) (string-length (symbol->string (syntax-e id))))
+(define (identifier-length id) (string-length (identifier->string id)))
+
+(: identifier->string (→ Identifier String))
+(define (identifier->string id) (symbol->string (syntax-e id)))
 
 (: stx-map-nested (∀ (A B) (→ (→ A B)
                               (Syntaxof (Listof (Syntaxof (Listof A))))

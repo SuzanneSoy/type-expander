@@ -137,21 +137,23 @@ Test constructor:
 
 @chunk[<test-define-structure>
        (check-equal?: (empty-st) : empty-st (empty-st))
-       (check-equal?: (get (st 1 "b") b) : String "b")
-       (check-equal?: (get (st2 "a" 2) b) : String "a")]
+       (check-equal?: (structure-get (st 1 "b") b) : String "b")
+       (check-equal?: (structure-get (st2 "a" 2) b) : String "a")]
 
 Test constructor, as id:
 
 @chunk[<test-define-structure>
-       (check-equal?: (get (cadr (map st '(1 2 3) '("x" "y" "z"))) b) : String
+       (check-equal?: (structure-get (cadr (map st '(1 2 3) '("x" "y" "z"))) b)
+                      : String
                       "y")
-       (check-equal?: (get (cadr (map st2 '("d" "e" "f") '(1 2 3))) b) : String
+       (check-equal?: (structure-get (cadr (map st2 '("d" "e" "f") '(1 2 3))) b)
+                      : String
                       "e")]
 
 Test the type-expander:
 
 @chunk[<test-define-structure>
-       (check-equal? (get (ann (st2 "g" 123) st2) b) "g")]
+       (check-equal? (structure-get (ann (st2 "g" 123) st2) b) "g")]
 
 Test the match-expander:
 
@@ -298,47 +300,72 @@ The fields in @tc[fields→stx-name-alist] are already sorted.
          (cdr (assoc (syntax->datum (datum->syntax #f (sort-fields fields)))
                      fields→stx-name-alist)))]
 
+@subsection{Has-field}
+
+@chunk[<structure-supertype-match-expander>
+       (λ/syntax-parse (_ :match-field-or-field-pat ...)
+         (define/with-syntax ([(all-field …) . name] …)
+           (fields→supertypes #'(field …)))
+         (define/with-syntax ([sorted-field1 …] …)
+           (stx-map sort-fields #'((all-field …) …)))
+         (define/with-syntax ([[sorted-field sorted-pat …] …] …)
+           (stx-map (curry stx-map
+                           (λ (x) (multiassoc-syntax x #'([field pat …] …))))
+                    #'((sorted-field1 …) …)))
+         #'(or (name (and sorted-field sorted-pat …) …) …))]
+
+@chunk[<structure-supertype>
+       (define-multi-id structure-supertype
+         #:type-expander
+         (λ/syntax-parse (_ field:id …)
+           #`(U #,@(map cdr (fields→supertypes #'(field …)))))
+         #:match-expander <structure-supertype-match-expander>)]
+
+@chunk[<fields→supertypes>
+       (define-for-syntax (fields→supertypes stx-fields)
+         (with-syntax ([(field …) stx-fields])
+           (foldl (λ (f alist)
+                    (filter (λ (s) (member (syntax->datum f) (car s)))
+                            alist))
+                  fields→stx-name-alist
+                  (syntax->list #'(field …)))))]
+
 @subsection{Accessor}
 
-@CHUNK[<get-field2>
-       (define-syntax (get stx)
-         (syntax-parse stx
-           [(_ v field:id)
-            (define struct-names
-              (filter (λ (s)
-                        (member (syntax->datum #'field) (car s)))
-                      fields→stx-name-alist))
-            (define/with-syntax (name? ...)
-              (map (λ (s) <get-predicate>) struct-names))
-            (define/with-syntax (name-field ...)
-              (map (λ (s) <get-field-accessor>) struct-names))
-            #`(let ([v-cache v])
-                (cond
-                  [(name? v-cache)
-                   (let ([accessor name-field])
-                     (accessor v-cache))]; cover doesn't see the call otherwise?
-                  …
-                  ;; For variants:
-                  ;; If we hit the bug where refinements cause loss of precision
-                  ;; in later clauses, then just use separate functions, forming
-                  ;; a BTD:
-                  ;; (λ ([x : (U A1 A2 A3 B1 B2 B3)]) (if (A? x) (fa x) (fb x)))
-                  [(and (pair? v-cache)
-                        (symbol? (car v-cache))
-                        (null? (cddr v-cache))
-                        (name? (cadr v-cache)))
-                   (let ([accessor name-field])
-                     (accessor (cadr v-cache)))]
-                  …
-                  [else (typecheck-fail #,stx #:covered-id v-cache)]))]
-           [(_ field:id)
-            (define/with-syntax (struct-name …)
-              (filter (λ (s)
-                        (member (syntax->datum #'field) (car s)))
-                      fields→stx-name-alist))
-              #'(λ ([v : (U struct-name …
-                            (List Symbol struct-name) …)])
-                  (get v field))]))]
+@CHUNK[<get-field>
+       (define-syntax/parse (structure-get v field:id)
+         (define structs (fields→supertypes #'(field)))
+         (define/with-syntax (name? ...)
+           (map (λ (s) <get-predicate>) structs))
+         (define/with-syntax (name-field ...)
+           (map (λ (s) <get-field-accessor>) structs))
+         #`(let ([v-cache v])
+             (cond
+               ;; If we hit the bug where refinements cause loss of precision
+               ;; in later clauses, then just use separate functions, forming
+               ;; a BTD:
+               ;; (λ ([x : (U A1 A2 A3 B1 B2 B3)]) (if (A? x) (fa x) (fb x)))
+               [(name? v-cache)
+                (let ([accessor name-field])
+                  (accessor v-cache))]; cover doesn't see the call otherwise?
+               …
+               [else (typecheck-fail #,stx #:covered-id v-cache)])))]
+
+@CHUNK[<get-field>
+       (define-syntax/parse (λstructure-get field:id)
+         (define/with-syntax ([(all-field …) . name] …)
+           (fields→supertypes #'(field)))
+         (define-temp-ids "~a/T" field)
+         (define/syntax-parse ([all-field/T …] …)
+           (stx-map (curry stx-map
+                           (λ (f)
+                             (if (free-identifier=? f #'field)
+                                 #'field/T
+                                 #'Any)))
+                    #'([all-field …] …)))
+         #'(λ #:∀ (field/T)
+             ([v : (U [(structure [all-field : all-field/T]) …] …)])
+             (structure-get v field)))]
 
 @chunk[<get-predicate>
        (my-st-type-info-predicate (get-struct-info stx (cdr s)))]
@@ -349,9 +376,9 @@ The fields in @tc[fields→stx-name-alist] are already sorted.
 
 @chunk[<test-get-field>
        (check-equal?:
-        (get ((make-structure-constructor a b c d) 1 "b" 'value-c 4) c)
-        : 'value-c
-        'value-c)]
+        (structure-get ((make-structure-constructor a b c d) 1 "b" 'val-c 4) c)
+        : 'val-c
+        'val-c)]
 
 @subsection{Match-expander}
 
@@ -362,7 +389,6 @@ The fields in @tc[fields→stx-name-alist] are already sorted.
            (pattern field:id #:with (pat ...) #'())))]
 
 @chunk[<match-expander>
-       <syntax-class-for-match>
        (define-for-syntax (structure-match-expander stx)
          (syntax-parse stx
            [(_ :match-field-or-field-pat ...)
@@ -460,10 +486,11 @@ instead of needing an extra recompilation.
                 (remember-all-errors #'U stx #'(field ...)))]))]
 
 @chunk[<test-type-expander>
-       (check-equal? (get (ann ((make-structure-constructor a b c) 1 "b" #t)
-                               (structure [a Number] [c Boolean] [b String]))
-                          b)
-                     "b")]
+       (check-equal?
+        (structure-get (ann ((make-structure-constructor a b c) 1 "b" #t)
+                            (structure [a Number] [c Boolean] [b String]))
+                       b)
+        "b")]
 
 @section[#:tag "structure|remember"]{Closed-world assumption and global
  compilation}
@@ -546,14 +573,17 @@ chances that we could write a definition for that identifier.
                                 racket/sequence
                                 ;; in-syntax on older versions:
                                 ;;;unstable/sequence
-                                "../lib/low-untyped.rkt")
+                                "../lib/low-untyped.rkt"
+                                "../lib/low/multiassoc-syntax.rkt")
                     "../lib/low.rkt"
                     "../type-expander/type-expander.lp2.rkt"
                     "../type-expander/multi-id.lp2.rkt")
            (provide define-structure
                     make-structure-constructor
-                    get
-                    structure)
+                    structure-get
+                    λstructure-get
+                    structure
+                    structure-supertype)
            
            (begin-for-syntax
              (provide structure-args-stx-class))
@@ -572,9 +602,11 @@ chances that we could write a definition for that identifier.
            
            <my-st-type-info>
            <struct-info>
-           <get-field2>
-           ;<get-field>
+           <fields→supertypes>
+           <get-field>
            
+           <syntax-class-for-match>
+           <structure-supertype>
            <match-expander>
            <type-expander>
            

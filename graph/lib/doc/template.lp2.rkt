@@ -46,25 +46,31 @@ scribble, see
 
 @section{Conclusion}
 
+@chunk[<module-main>
+       (module main typed/racket
+         (require (for-syntax syntax/parse
+                              racket/syntax
+                              "../../lib/low-untyped.rkt")
+                  "../../lib/low-untyped.rkt")
+         (provide foo)
+         
+         <foo>
+         <scribble-macro-expansion>)]
+
+@chunk[<module-test>
+       (module* test typed/racket
+         (require (submod "..")
+                  typed/rackunit)
+         
+         <test-foo>
+         
+         (require (submod ".." doc)))]
+
 @chunk[<*>
        (begin
-         (module main typed/racket
-           (require (for-syntax syntax/parse
-                                racket/syntax
-                                "../../lib/low-untyped.rkt")
-                    "../../lib/low-untyped.rkt")
-           (provide foo)
-           
-           <foo>
-           <scribble-macro-expansion>)
+         <module-main>
          
          (require 'main)
          (provide (all-from-out 'main))
          
-         (module* test typed/racket
-           (require (submod "..")
-                    typed/rackunit)
-           
-           <test-foo>
-           
-           (require (submod ".." doc))))]
+         <module-test>)]

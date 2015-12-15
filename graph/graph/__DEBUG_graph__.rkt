@@ -19,15 +19,23 @@
 |#
 
 (require (submod "graph3.lp2.rkt" test))
+(require "graph4.lp2.rkt")
 (require "structure.lp2.rkt")
+(require "variant.lp2.rkt")
 (require "../lib/low.rkt")
-(require racket/list)
 
+;(structure-get people)
+(structure-get (cadr g) people)
+(get g people)
+(get g streets cadr houses car owner name)
+
+#|
 (define #:∀ (A) (map-force [l : (Listof (Promise A))])
   (map (inst force A) l))
 
 (map-force (get g people))
 (map-force (get g streets))
+|#
 
 #|
 (let ()

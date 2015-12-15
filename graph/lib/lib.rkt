@@ -17,12 +17,6 @@
 (require (for-syntax syntax/parse
                      racket/syntax))
 
-;; raco pkg install alexis-util
-(require alexis/util/threading)
-
-;; From alexis/util/threading
-(provide ~> ~>> _ (rename-out [_ ♦]))
-
 (define-syntax (comment stx)
   #'(values))
 

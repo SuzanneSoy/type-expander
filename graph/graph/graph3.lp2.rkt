@@ -211,13 +211,11 @@ We derive identifiers for these based on the @tc[node] name:
        (define-temp-ids "~a/incomplete-type" (node …))
        (define-temp-ids "~a/make-incomplete" (node …))
        (define-temp-ids "~a/incomplete-tag" (node …))
-       (define-temp-ids "~a/incomplete-type" ((field …) …))
        
        (define-temp-ids "~a/with-indices-type" (node …))
        (define-temp-ids "~a/make-with-indices" (node …))
        (define-temp-ids "~a/with-indices-tag" (node …))
        (define-temp-ids "~a/with-indices-tag2" (node …))
-       (define-temp-ids "~a/with-indices-type" ((field …) …))
        (define-temp-ids "~a/index-type" (node …))
        (define-temp-ids "~a/with-indices→with-promises" (node …)
          #:first-base root)
@@ -225,7 +223,6 @@ We derive identifiers for these based on the @tc[node] name:
        (define-temp-ids "~a/with-promises-type" (node …) #:first-base root)
        (define-temp-ids "~a/make-with-promises" (node …))
        (define-temp-ids "~a/with-promises-tag" (node …))
-       (define-temp-ids "~a/with-promises-type" ((field …) …))
        
        (define-temp-ids "~a/mapping-function" (node …))
        
@@ -346,17 +343,16 @@ indicates at which index in the queue's results the successor can be found.
 @CHUNK[<define-with-indices>
        (define-type node/index-type (List 'node/with-indices-tag2 Index))
        
-       (define-type field/with-indices-type
-         (tmpl-replace-in-type field-type [node node/index-type] …))
-       …
-       
        (define-type node/with-indices-type
-         (List 'node/with-indices-tag field/with-indices-type …))
+         (List 'node/with-indices-tag <field/with-indices-type> …))
        
-       (: node/make-with-indices (→ field/with-indices-type …
+       (: node/make-with-indices (→ <field/with-indices-type> …
                                     node/with-indices-type))
        (define (node/make-with-indices field …)
          (list 'node/with-indices-tag field …))]
+
+@CHUNK[<field/with-indices-type>
+       (tmpl-replace-in-type field-type [node node/index-type] …)]
 
 @subsection{Making with-promises nodes}
 
@@ -368,21 +364,21 @@ that node's @tc[with-promises] type.
 @; TODO: use a type-expander here, instead of a template metafunction.
 
 @CHUNK[<define-with-promises>
-       (define-type field/with-promises-type
-         (tmpl-replace-in-type field-type
-                               [node (Promise node/with-promises-type)] …))
-       …
        
        (define-type node/with-promises-type
          (tagged node/with-promises-tag
-                 [field : field/with-promises-type] …))
+                 [field : <field/with-promises-type>] …))
        
-       (: node/make-with-promises (→ field/with-promises-type …
+       (: node/make-with-promises (→ <field/with-promises-type> …
                                      node/with-promises-type))
        (define (node/make-with-promises field/value …)
          (tagged node/with-promises-tag
-                 [field : field/with-promises-type field/value]
+                 [field : <field/with-promises-type> field/value]
                  …))]
+
+@CHUNK[<field/with-promises-type>
+       (tmpl-replace-in-type field-type
+                             [node (Promise node/with-promises-type)] …)]
 
 @subsection{Making incomplete nodes}
 
@@ -394,17 +390,17 @@ library. We replace all occurrences of a @tc[node] name with its
 @; TODO: use a type-expander here, instead of a template metafunction.
 
 @CHUNK[<define-incomplete>
-       (define-type field/incomplete-type
-         (tmpl-replace-in-type field-type
-                               [node node/placeholder-type] …))
-       …
-       
        (define-type node/incomplete-type
-         (List 'node/incomplete-tag field/incomplete-type …))
+         (List 'node/incomplete-tag <field/incomplete-type> …))
        
-       (: node/make-incomplete (→ field/incomplete-type … node/incomplete-type))
+       (: node/make-incomplete (→ <field/incomplete-type> …
+                                  node/incomplete-type))
        (define (node/make-incomplete field …)
          (list 'node/incomplete-tag field …))]
+
+@CHUNK[<field/incomplete-type>
+       (tmpl-replace-in-type field-type
+                             [node node/placeholder-type] …)]
 
 @subsection{Converting incomplete nodes to with-indices ones}
 
