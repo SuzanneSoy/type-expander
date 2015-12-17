@@ -1,4 +1,4 @@
-#lang debug typed/racket
+#lang typed/racket
 
 #|
 (require "structure.lp2.rkt")
@@ -19,15 +19,21 @@
 |#
 
 (require (submod "graph3.lp2.rkt" test))
+(require "graph3.lp2.rkt")
 (require "graph4.lp2.rkt")
 (require "structure.lp2.rkt")
 (require "variant.lp2.rkt")
 (require "../lib/low.rkt")
+(require "../type-expander/type-expander.lp2.rkt")
 
-;(structure-get people)
-(structure-get (cadr g) people)
+(structure-get (cadr (force g)) people)
 (get g people)
 (get g streets cadr houses car owner name)
+((λget people) g)
+((λget owner name) (get g streets cadr houses car))
+;;((λget streets cadr houses car owner name) g)
+;;(map (λget houses car owner name) (get g streets))
+
 
 #|
 (define #:∀ (A) (map-force [l : (Listof (Promise A))])

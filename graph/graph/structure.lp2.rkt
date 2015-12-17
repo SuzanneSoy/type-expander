@@ -26,7 +26,7 @@ types, it wouldn't be clear what fields the remaining type parameters affect).
  (define-syntax-class field-descriptor
  (pattern
  (~or field:id
- [field:id (~maybe (~lit :) type:expr) (~maybe value:expr)]))))}
+ [field:id (~maybe :colon type:expr) (~maybe value:expr)]))))}
 
 A call to @tc[(structure)] with no field, is ambiguous: it could return a
 constructor function, or an instance. We added two optional keywords,
@@ -41,10 +41,10 @@ handle the empty structure as a special case.
                (~seq #:constructor (~parse (field …) #'()))
                (~seq (~maybe #:constructor ~!)
                      (~or (~seq (~or-bug [field:id] field:id) …+)
-                          (~seq [field:id (~and C (~lit :)) type:expr] …+)))
+                          (~seq [field:id (~and C :colon) type:expr] …+)))
                (~seq (~maybe #:instance ~!)
                      (~or (~seq [field:id value:expr] …+)
-                          (~seq [field:id (~and C (~lit :)) type:expr
+                          (~seq [field:id (~and C :colon) type:expr
                                  value:expr] …+))))))]
 
 @chunk[<structure>
@@ -236,7 +236,7 @@ one low-level @tc[struct] is generated for them.
          (for/list ([s (remove-duplicates (map (λ (s) (sort s symbol<?))
                                                (get-remembered 'structure)))]
                     [i (in-naturals)])
-           `(,(string->symbol (format "struct-~a" i)) . ,s)))]
+           `(,(string->symbol (~a `(structure ,(~a "#|" i "|#") . ,s))) . ,s)))]
 
 We will also need utility functions to sort the fields when querying this
 associative list.
@@ -310,6 +310,7 @@ The fields in @tc[fields→stx-name-alist] are already sorted.
            (stx-map sort-fields #'((all-field …) …)))
          (define/with-syntax ([[sorted-field sorted-pat …] …] …)
            (stx-map (curry stx-map
+                           ;; TODO: add (_ _ …) for the not-matched fields.
                            (λ (x) (multiassoc-syntax x #'([field pat …] …))))
                     #'((sorted-field1 …) …)))
          #'(or (name (and sorted-field sorted-pat …) …) …))]
@@ -317,9 +318,29 @@ The fields in @tc[fields→stx-name-alist] are already sorted.
 @chunk[<structure-supertype>
        (define-multi-id structure-supertype
          #:type-expander
-         (λ/syntax-parse (_ field:id …)
-           #`(U #,@(map cdr (fields→supertypes #'(field …)))))
+         (λ/syntax-parse (_ [field:id type:expr] …)
+           (define/with-syntax ([(all-field …) . _] …)
+             (fields→supertypes #'(field …)))
+           (template
+            (U (structure
+                [all-field : (tmpl-cdr-assoc-syntax #:default Any
+                                                    all-field [field . type] …)]
+                …)
+               …)))
          #:match-expander <structure-supertype-match-expander>)]
+
+@chunk[<structure-supertype*>
+       (define-multi-id structure-supertype*
+         #:type-expander
+         (λ (stx)
+           (syntax-parse stx
+             [(_ T:expr)
+              #`T]
+             [(_ T:expr field:id other-fields:id …)
+              #`(structure-supertype
+                 [field (structure-supertype* T other-fields …)])]))
+         ;#:match-expander <structure-supertype-match-expander> ; TODO
+         )]
 
 @chunk[<fields→supertypes>
        (define-for-syntax (fields→supertypes stx-fields)
@@ -583,7 +604,8 @@ chances that we could write a definition for that identifier.
                     structure-get
                     λstructure-get
                     structure
-                    structure-supertype)
+                    structure-supertype
+                    structure-supertype*)
            
            (begin-for-syntax
              (provide structure-args-stx-class))
@@ -607,6 +629,7 @@ chances that we could write a definition for that identifier.
            
            <syntax-class-for-match>
            <structure-supertype>
+           <structure-supertype*>
            <match-expander>
            <type-expander>
            

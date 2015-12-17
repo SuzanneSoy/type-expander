@@ -30,8 +30,8 @@ Match expanders are identified by the @tc[prop:type-expander]
                        get-prop:type-expander-value)
          (make-struct-type-property 'type-expander prop-guard))]
 
-The prop:type-expander property should either be the index of a field which will
-contain the expander procedure, or directly an expander procedure.
+The @tc[prop:type-expander] property should either be the index of a field which
+will contain the expander procedure, or directly an expander procedure.
 
 @chunk[<prop-guard>
        (define (prop-guard val struct-type-info-list)
@@ -101,12 +101,25 @@ else.
          (define-syntax-class type-expander
            (pattern (~var expander
                           (static has-prop:type-expander? "a type expander"))))
+         (define-syntax-class type-expander-nested-application
+           #:attributes (expanded-once)
+           (pattern (~and expander-call-stx (:type-expander . args))
+                    #:with expanded-once
+                    (apply-type-expander #'expander #'expander-call-stx))
+           (pattern (nested-application:type-expander-nested-application
+                     . args) ;; TODO: test
+                    #:with expanded-once
+                    #'(nested-application.expanded-once . args)))
+         
          (define-syntax-class fa (pattern (~or (~literal ∀) (~literal All))))
          (syntax-parse stx
            [:type-expander
             (expand-type (apply-type-expander #'expander #'expander))]
-           [(~and expander-call-stx (:type-expander . args))
-            (expand-type (apply-type-expander #'expander #'expander-call-stx))]
+           [:type-expander-nested-application
+            (expand-type #'expanded-once)]
+           ;; TODO: find a more elegant way to write anonymous type expanders
+           [(((~literal curry) T Arg1 …) . Args2)
+            (expand-type #'(T Arg1 … . Args2))]
            ;; TODO: handle the pattern (∀ (TVar ... ooo) T)
            [(∀:fa (TVar ...) T)
             #`(∀ (TVar ...) #,(expand-type (bind-type-vars #'(TVar ...) #'T)))]
@@ -117,8 +130,6 @@ else.
            [((~literal syntax) T) (expand-quasiquote 'syntax 1 #'T)]
            [((~literal quasisyntax) T) (expand-quasiquote 'quasisyntax 1 #'T)]
            [((~literal Struct) T)
-            (display #'(Struct T))
-            (displayln #`(Struct #,(expand-type #'(T))))
             #`(Struct #,(expand-type #'T))]
            [(T TArg ...)
             #`(T #,@(stx-map expand-type #'(TArg ...)))]
@@ -160,6 +171,28 @@ identifier.
        
        (test-expander (∀ (A) (→ A (id (double (id A)))))
                       (∀ (A) (→ A (Pairof A A))))]
+
+Curry expander arguments:
+
+@CHUNK[<test-expand-type>
+       (define-type-expander (CPairof stx)
+         (syntax-case stx ()
+           [(_ a) #'(curry Pairof a)]
+           [(_ a b) #'(Pairof a b)]))
+       
+       (test-expander (CPairof Number String)
+                      (Pairof Number String))
+       
+       (test-expander ((CPairof Number) String)
+                      (Pairof Number String))
+       
+       (check-equal?: (ann (ann '(1 . "b") (CPairof Number String))
+                           (Pairof Number String))
+                      '(1 . "b"))
+       
+       (check-equal?: (ann (ann '(1 . "c") ((CPairof Number) String))
+                           (Pairof Number String))
+                      '(1 . "c"))]
 
 Shadowing and @tc[∀] variables:
 
@@ -449,10 +482,10 @@ them.
          : `(2 "abc" #,,(Pairof (U 'x 'y) (U 'y 'z)) #(1 "b" x) d)
          '(2 "abc" #,(x . z) #(1 "b" x) d))
        (check-equal?: (ann d0 (List 2
-                                   "abc"
-                                   (List 'unsyntax (Pairof (U 'x 'y) (U 'y 'z)))
-                                   (Vector 1 "b" 'x) 'd))
-                     '(2 "abc" (unsyntax (x . z)) #(1 "b" x) d))
+                                    "abc"
+                                    (List 'unsyntax (Pairof (U 'x 'y) (U 'y 'z)))
+                                    (Vector 1 "b" 'x) 'd))
+                      '(2 "abc" (unsyntax (x . z)) #(1 "b" x) d))
        
        (: d1 (→ Number (→ Number Number)))
        (define ((d1 [x : Number]) [y : Number]) : Number (+ x y))
@@ -480,13 +513,13 @@ them.
 
 @CHUNK[<test-lambda>
        (check-equal?: ((ann (lambda ([x : Number]) : Number (* x 2))
-                           (→ Number Number))
-                      3)
-                     6)
+                            (→ Number Number))
+                       3)
+                      6)
        (check-equal?: ((ann (λ ([x : Number]) : Number (* x 2))
-                           (→ Number Number))
-                      3)
-                     6)
+                            (→ Number Number))
+                       3)
+                      6)
        (check-equal?: ((λ x x) 1 2 3) '(1 2 3))
        (check-equal?: ((λ #:∀ (A) [x : A ...*] : (Listof A) x) 1 2 3) '(1 2 3))]
 
@@ -609,7 +642,7 @@ them.
        (check-equal?: (cdr ((se1 123) 'b)) 'b)
        (check-not-exn (λ () (ann (car ((se1 123) 'b)) se1)))
        (check-true (se1? (car ((se1 123) 'b))))
-
+       
        (check (λ (a b) (not (equal? a b))) (se2 2 3) (se2 2 3))
        (check-equal?: (se2-x (se2 2 3)) 2)
        (check-equal?: (se2-y (se2 2 3)) 3)
@@ -618,7 +651,7 @@ them.
        (check-equal?: (cdr ((se2 2 3) 'c)) 'c)
        (check-not-exn (λ () (ann (car ((se2 2 3) 'c)) se2)))
        (check-true (se2? (car ((se2 2 3) 'c))))
-
+       
        (check (λ (a b) (not (equal? a b))) (se3 4 5 "f") (se3 4 5 "f"))
        (check-equal?: (se2-x (se3 4 5 "f")) 4)
        (check-equal?: (se2-y (se3 4 5 "f")) 5)
@@ -626,10 +659,10 @@ them.
        (check-equal?: (se2-x (car ((se3 4 5 "f") 'd 'e))) 4)
        (check-equal?: (se2-y (car ((se3 4 5 "f") 'd 'e))) 5)
        (check-equal?: (let ([ret : Any (car ((se3 4 5 "f") 'd 'e))])
-                       (if (se3? ret)
-                           (se3-z ret)
-                           "wrong type!"))
-                     "f")
+                        (if (se3? ret)
+                            (se3-z ret)
+                            "wrong type!"))
+                      "f")
        (check-equal?: (cadr ((se3 4 5 "f") 'd 'e)) 'd)
        (check-equal?: (caddr ((se3 4 5 "f") 'd 'e)) 'e)
        (check-equal?: ((caddr ((se4 4 5 "f") 'd (λ ([x : Number]) (* x 2)))) 12)
@@ -651,9 +684,9 @@ them.
              [(_ t n) #`(List #,@(map (λ (x) #'t)
                                       (range (syntax->datum #'n))))]))
          (check-equal?: (ann (ann '(1 2 3)
-                                 (Repeat Number 3))
-                            (List Number Number Number))
-                       '(1 2 3)))]
+                                  (Repeat Number 3))
+                             (List Number Number Number))
+                        '(1 2 3)))]
 
 @subsection{@racket[inst]}
 
@@ -676,13 +709,13 @@ them.
          (define (f x y) (list (car x) (car y) (cdr x) (cdr y)))
          
          (check-equal?: ((inst f
-                              (Repeat Number 3)
-                              (Repeat String 2)
-                              (Repeat 'x 1)
-                              (Repeat undefined-type 0))
-                        '((1 2 3) . ("a" "b"))
-                        '((x) . ()))
-                       '((1 2 3) (x) ("a" "b") ())))]
+                               (Repeat Number 3)
+                               (Repeat String 2)
+                               (Repeat 'x 1)
+                               (Repeat undefined-type 0))
+                         '((1 2 3) . ("a" "b"))
+                         '((x) . ()))
+                        '((1 2 3) (x) ("a" "b") ())))]
 
 @subsection{@racket[let]}
 
@@ -710,10 +743,10 @@ them.
                       2)
        (check-equal?: (let () 'x) 'x)
        (check-equal?: (ann (let #:∀ (T) ([a : T 3]
-                                        [b : (Pairof T T) '(5 . 7)])
-                            (cons a b))
-                          (Pairof Number (Pairof Number Number)))
-                     '(3 5 . 7))]
+                                         [b : (Pairof T T) '(5 . 7)])
+                             (cons a b))
+                           (Pairof Number (Pairof Number Number)))
+                      '(3 5 . 7))]
 
 @subsection{@racket[let*]}
 
@@ -735,9 +768,9 @@ them.
                                       (range (syntax->datum #'n))))]))
          
          (check-equal?: (let* ([x* : (Repeat Number 3) '(1 2 3)]
-                              [y* : (Repeat Number 3) x*])
-                         y*)
-                       '(1 2 3)))]
+                               [y* : (Repeat Number 3) x*])
+                          y*)
+                        '(1 2 3)))]
 
 @subsection{@racket[let-values]}
 
@@ -759,25 +792,25 @@ them.
                                       (range (syntax->datum #'n))))]))
          
          (check-equal?: (ann (let-values
-                                ([([x : (Repeat Number 3)])
-                                  (list 1 2 3)])
-                              (cdr x))
-                            (List Number Number))
-                       '(2 3))
+                                 ([([x : (Repeat Number 3)])
+                                   (list 1 2 3)])
+                               (cdr x))
+                             (List Number Number))
+                        '(2 3))
          
          (check-equal?: (ann (let-values
-                                ([([x : (Repeat Number 3)] [y : Number])
-                                  (values (list 1 2 3) 4)])
-                              (cons y x))
-                            (Pairof Number (List Number Number Number)))
-                       '(4 . (1 2 3)))
+                                 ([([x : (Repeat Number 3)] [y : Number])
+                                   (values (list 1 2 3) 4)])
+                               (cons y x))
+                             (Pairof Number (List Number Number Number)))
+                        '(4 . (1 2 3)))
          
          (check-equal?: (ann (let-values
-                                ([(x y)
-                                  (values (list 1 2 3) 4)])
-                              (cons y x))
-                            (Pairof Number (List Number Number Number)))
-                       '(4 . (1 2 3))))]
+                                 ([(x y)
+                                   (values (list 1 2 3) 4)])
+                               (cons y x))
+                             (Pairof Number (List Number Number Number)))
+                        '(4 . (1 2 3))))]
 
 @subsection{@racket[make-predicate]}
 
@@ -945,17 +978,18 @@ To get around that problem, we define @tc[:] in a separate module, and
 Since our @tc[new-:] macro needs to call the @tc[type-expander], and the other
 forms too, we can't define @tc[type-expander] in the same module as these forms,
 it needs to be either in the same module as @tc[new-:], or in a separate module.
-Additionally, expand-type needs to be required @tc[for-syntax] by the forms, but
-needs to be @tc[provide]d too, so it is much easier if it is defined in a
-separate module (that should be used only @tc[for-syntax], so it will be written
-in @tc[racket], not @tc[typed/racket]).
+Additionally, @tc[expand-type] needs to be required @tc[for-syntax] by the
+forms, but needs to be @tc[provide]d too, so it is much easier if it is defined
+in a separate module (that will be used only by macros, so it will be written in
+@tc[racket], not @tc[typed/racket]).
 
 @chunk[<module-expander>
        (module expander racket
          (require racket
                   syntax/parse
                   syntax/stx
-                  racket/format)
+                  racket/format
+                  "../lib/low-untyped.rkt")
          
          (require (for-template typed/racket))
          
@@ -1013,7 +1047,7 @@ We can finally define the overloaded forms, as well as the extra
          (begin-for-syntax
            <template-metafunctions>
            <syntax-classes>
-
+           
            (provide colon))
          
          <define-type>
@@ -1041,7 +1075,7 @@ And, last but not least, we will add a @tc[test] module.
                               "../lib/low-untyped.rkt"))
          
          <test-expand-type>
-
+         
          #|
          <test-:>
          <test-define-type>
@@ -1050,7 +1084,7 @@ And, last but not least, we will add a @tc[test] module.
 |#
          ;<test-struct>
          <test-define-struct/exec>
-#|
+         #|
          <test-ann>
          <test-inst>
          <test-let>

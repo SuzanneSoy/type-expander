@@ -112,7 +112,9 @@ the root arguments as parameters.
 
 @chunk[<use-example>
        (define-graph make-g <example-variants>)
-       (define g (make-g <example-root>))]
+       #;(define g (make-g <example-root>))
+       (define g1 (make-g <example-root>))
+       (define g g1)]
 
 @subsection{More details on the semantics}
 
@@ -591,14 +593,14 @@ are replaced by tagged indices:
             (begin <define-with-promises>) …
             (begin <define-incomplete>) …
             (begin <define-mapping-function>) …
-            
-            (: name (→ root-param-type … root/with-promises-type))
+
+            (: name (→ root-param-type … (Promise root/with-promises-type)))
             (define (name root-param …)
               (match-let ([(list node/database …) <fold-queues>])
                 (begin <define-with-indices→with-promises>) …
-                ;(list node/with-indices→with-promises …)
-                (root/with-indices→with-promises
-                 (vector-ref root/database 0))))))#|)|#)]
+                (let ([root/with-promises (root/with-indices→with-promises
+                                           (vector-ref root/database 0))])
+                  (delay root/with-promises)))))))]
 
 @section{Conclusion}
 
