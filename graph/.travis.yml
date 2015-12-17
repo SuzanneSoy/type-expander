@@ -1,0 +1,18 @@
+sudo: false
+
+language: c
+
+env:
+- PATH=~/racket/bin:$PATH
+
+before_install:
+- curl -L -o installer.sh http://plt.eecs.northwestern.edu/snapshots/current/installers/racket-test-current-x86_64-linux-precise.sh
+- sh installer.sh --in-place --dest ~/racket/
+
+install:
+- make build-dep
+
+script:
+- make
+
+after_script:
