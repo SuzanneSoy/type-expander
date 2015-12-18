@@ -1,7 +1,8 @@
 #lang typed/racket
 
 (require (for-syntax syntax/parse)
-         "../lib/low.rkt")
+         "../lib/low.rkt"
+         "map1.rkt")
 
 (provide map:)
 
@@ -9,18 +10,16 @@
   (define-syntax-class lam
     (pattern (~or (~literal λ) (~literal lambda)))))
 
-(define-syntax-rule (map:: TVar Element-Type f l)
-  ((λ #:∀ (TVar) ([lst : (Listof Element-Type)])
-     ((inst map TVar Element-Type) f lst)) l))
-
 (define-syntax (map: stx)
   (syntax-parse stx
-    [(_ (~literal car) l) #'(map:: A (Pairof A Any) car l)]
-    [(_ (~literal cdr) l) #'(map:: B (Pairof Any B) cdr l)]
+    [(_ (~literal car) l) #'((curry-map A A (Pairof A Any) car) l)]
+    [(_ (~literal cdr) l) #'((curry-map B B (Pairof Any B) cdr) l)]
     ;; TODO: add caar etc.
     [(_ ((~literal values)) l) #'l]
     [(_ ((~literal compose)) l) #'l]
     [(_ ((~literal compose) f0 . fs) l) #'(map: f0 (map: (compose . fs) l))]
+    [(_ ((~literal curry) map: f) l)
+     #''_]
     [(_ f . ls)
      #'(map f . ls)]))
 

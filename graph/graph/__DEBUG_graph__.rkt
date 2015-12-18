@@ -26,13 +26,15 @@
 (require "../lib/low.rkt")
 (require "../type-expander/type-expander.lp2.rkt")
 
+(get '((1 2) (3)) … …)
 (structure-get (cadr (force g)) people)
 (get g people)
 (get g streets cadr houses car owner name)
 ((λget people) g)
 ((λget owner name) (get g streets cadr houses car))
-;;((λget streets cadr houses car owner name) g)
-;;(map (λget houses car owner name) (get g streets))
+(get g streets … houses … owner name)
+((λget streets … houses … owner name) g)
+;(map: (λget houses … owner name) (get g streets))
 
 
 #|

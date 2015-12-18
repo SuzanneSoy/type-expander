@@ -318,7 +318,7 @@ The fields in @tc[fields→stx-name-alist] are already sorted.
 @chunk[<structure-supertype>
        (define-multi-id structure-supertype
          #:type-expander
-         (λ/syntax-parse (_ [field:id type:expr] …)
+         (λ/syntax-parse (_ [field:id (~optional (~lit :)) type:expr] …)
            (define/with-syntax ([(all-field …) . _] …)
              (fields→supertypes #'(field …)))
            (template
