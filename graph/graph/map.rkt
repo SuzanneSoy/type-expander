@@ -102,9 +102,9 @@
              #:arg-funs () #:funs (identity))]
     [((~literal compose) f …)
      (syntax-parse (:map* #'(f …) #'(&l …) #'out)
-       [(~and (_ … first:map-info) (last:map-info . _) (:map-info …))
-        #'(info #:in first.in-type
-                #:out last.out-type
+       [(~and (_ … rightmost:map-info) (leftmost:map-info . _) (:map-info …))
+        #'(info #:in rightmost.in-type
+                #:out leftmost.out-type
                 #:∀ (∀-type … …)
                 #:arg-funs ([arg-fun param-fun fun-in fun-out] … …)
                 #:funs (fun … …))])]
@@ -131,10 +131,14 @@
      #'(info #:in f/in #:out out #:∀ (f/in)
              #:arg-funs ([f &f #:auto-in f/in out]) #:funs (&f))]))
 
-(define-syntax apply-compose
-  (syntax-rules ()
-    [(_ [] [a …]) (values a …)]
-    [(_ [f0 . f] [a …]) (apply-compose f [(f0 a …)])]))
+(define-syntax (apply-compose stx)
+  (syntax-parse stx
+    [(_ [] [a …])
+     #'(values a …)]
+    [(_ [f … (f-last x … (~literal _) y …)] [a …])
+     #'(apply-compose [f …] [(f-last x … a … y …)])]
+    [(_ [f … f-last] [a …])
+     #'(apply-compose [f …] [(f-last a …)])]))
 
 (define-for-syntax (internal-map: stx-f stx-&l… stx-out)
   (define/with-syntax f stx-f)
@@ -191,7 +195,7 @@
 (map: (∘ (curry map add1) (λ ([x : Number]) (list x))) '(1 2 3))
 
 
-#|(module* test typed/racket
+(module* test typed/racket
   (require (submod "..")
            "../lib/low.rkt")
   
@@ -219,9 +223,10 @@
   (check-equal?: (map: (compose add1 car) '((1 b x) (2 c) (3 d)))
                  : (Listof Number)
                  '(2 3 4))
+  #|
   (check-equal?: (map: + '(1 2 3) '(4 5 6))
                  : (Listof Number)
-                 '(5 7 9)))|#
+                 '(5 7 9))|#)
 
 
 
