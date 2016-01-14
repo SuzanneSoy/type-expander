@@ -34,6 +34,7 @@
 ((λget owner name) (get g streets cadr houses car))
 (get g streets … houses … owner name)
 ((λget streets … houses … owner name) g)
+(let ([f (λget streets … houses … owner name)]) f)
 ;(map: (λget houses … owner name) (get g streets))
 
 

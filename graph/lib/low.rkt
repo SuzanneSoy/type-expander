@@ -9,11 +9,20 @@
 ;; raco pkg install alexis-util
 ;; or:
 ;; raco pkg install threading
-(require alexis/util/threading)
+(require alexis/util/threading
+         (for-syntax racket/syntax
+                     syntax/parse))
 
 (define-syntax-rule (~>_ clause ... expr) (~> expr clause ...))
+(define-syntax (<~ stx)
+  (syntax-parse stx
+    [(_ expr clause ...)
+     (define/with-syntax (r-clause ...) (reverse (syntax->list #'(clause ...))))
+     #'(~> expr r-clause ...)]))
 
-(provide ~>_ ~> ~>> _ (rename-out [_ ♦]))
+(define-syntax-rule (<~_ clause ... expr) (<~ expr clause ...))
+
+(provide <~ <~_ ~>_ ~> ~>> _ (rename-out [_ ♦] [<~_ <~♦] [~>_ ~>♦]))
 
 ;; ==== low/typed-untyped-module.rkt ====
 
@@ -596,7 +605,7 @@
 (define (check-duplicate-identifiers ids)
   (if (check-duplicate-identifier (my-in-syntax ids)) #t #f))
 
-(require/typed racket/syntax [generate-temporary (→ Syntax Identifier)])
+(require/typed racket/syntax [generate-temporary (→ Any Identifier)])
 
 (require syntax/parse/define)
 (provide define-simple-macro)
@@ -619,7 +628,8 @@
   
   (require/typed racket/syntax
                  [format-id (→ Syntax String (U String Identifier) *
-                               Identifier)])
+                               Identifier)]
+                 [(generate-temporary generate-temporary2) (→ Any Identifier)])
   (require (only-in racket/syntax define/with-syntax)
            (only-in syntax/stx stx-map)
            (for-syntax racket/base
@@ -780,7 +790,9 @@
          (define/with-syntax pat-dotted ((attribute base.make-dotted) #'pat))
          
          (define/with-syntax format-temp-ids*
-           ((attribute base.wrap) #'(compose car (curry format-temp-ids format))
+           ((attribute base.wrap) #'(compose car
+                                             (curry format-temp-ids format)
+                                             generate-temporary)
                                   (λ (x deepest?)
                                     (if deepest?
                                         x
@@ -823,14 +835,14 @@
        (define/with-syntax pat (format-id #'base (syntax-e #'format)))
        (define/with-syntax pat-dotted ((attribute base.make-dotted) #'pat))
        (define/with-syntax format-temp-ids*
-           ((attribute base.wrap) #'(λ (x)
-                                      (car (format-temp-ids
-                                            (string-append format "~a")
-                                            "")))
-                                  (λ (x deepest?)
-                                    (if deepest?
-                                        x
-                                        #`(curry stx-map #,x)))))
+         ((attribute base.wrap) #'(λ (x)
+                                    (car (format-temp-ids
+                                          (string-append format "~a")
+                                          "")))
+                                (λ (x deepest?)
+                                  (if deepest?
+                                      x
+                                      #`(curry stx-map #,x)))))
        (syntax-cons-property
         #'(define/with-syntax pat-dotted
             (format-temp-ids* #'base))
@@ -892,15 +904,25 @@
   
   (check-equal? (fubar) '((1 . a) (2 . b) (3 . c))))
 
-#|
-(define-template-metafunction (t/gen-temp stx)
-  (syntax-parse stx
-    [(_ . id:id)
-     #:with (temp) (generate-temporaries #'(id))
-     #'temp]
-    [(_ id:id ...)
-     (generate-temporaries #'(id ...))]))
-|#
+(module m-t/gen-temp racket
+  (require syntax/parse
+           syntax/parse/experimental/template)
+  
+  (provide t/gen-temp)
+  
+  (define-template-metafunction (t/gen-temp stx)
+    (syntax-parse stx
+      [(_ id:id)
+       #:with (temp) (generate-temporaries #'(id))
+       #'temp]
+      #|[(_ . id:id)
+       #:with (temp) (generate-temporaries #'(id))
+       #'temp]
+      [(_ id:id ...)
+       (generate-temporaries #'(id ...))]|#)))
+
+(require 'm-t/gen-temp)
+(provide (rename-out [t/gen-temp &]))
 
 ;; ==== syntax.rkt ====
 
@@ -936,11 +958,75 @@
                [stx-car (∀ (A B) (→ (Syntaxof (Pairof A B)) A))]
                [stx-cdr (∀ (A B) (→ (Syntaxof (Pairof A B)) B))])
 |#
-(: stx-car (∀ (A B) (→ (Syntaxof (Pairof A B)) A)))
-(define (stx-car p) (car (syntax-e p)))
+(: stx-car (∀ (A B)
+              (case→ (→ (Syntaxof (Pairof A B)) A)
+                     ;; TODO: Not typesafe!
+                     (→ (U (Syntaxof (Listof A)) (Listof A)) A))))
+(define (stx-car p) (car (if (syntax? p) (syntax-e p) p)))
 
-(: stx-cdr (∀ (A B) (→ (Syntaxof (Pairof A B)) B)))
-(define (stx-cdr p) (cdr (syntax-e p)))
+(: stx-cdr (∀ (A B)
+              (case→ (→ (Syntaxof (Pairof A B)) B)
+                     ;; TODO: Not typesafe!
+                     (→ (U (Syntaxof (Listof A)) (Listof A)) (Listof A)))))
+(define (stx-cdr p) (cdr (if (syntax? p) (syntax-e p) p)))
+
+(: stx-null? (→ Any Boolean : (U (Syntaxof Null) Null)))
+(define (stx-null? v)
+  ((make-predicate (U (Syntaxof Null) Null)) v))
+
+(: stx-foldl
+   (∀ (E F G Acc)
+      (case→ (→ (→ E Acc Acc)
+                Acc
+                (U (Syntaxof (Listof E)) (Listof E))
+                Acc)
+             (→ (→ E F Acc Acc)
+                Acc
+                (U (Syntaxof (Listof E)) (Listof E))
+                (U (Syntaxof (Listof F)) (Listof F))
+                Acc)
+             (→ (→ E F G Acc Acc)
+                Acc
+                (U (Syntaxof (Listof E)) (Listof E))
+                (U (Syntaxof (Listof F)) (Listof F))
+                (U (Syntaxof (Listof G)) (Listof G))
+                Acc))))
+(define stx-foldl
+  (case-lambda
+    [(f acc l)
+     (if (stx-null? l)
+         acc
+         (stx-foldl f (f (stx-car l) acc) (stx-cdr l)))]
+    [(f acc l l2)
+     (if (or (stx-null? l) (stx-null? l2))
+         acc
+         (stx-foldl f
+                    (f (stx-car l) (stx-car l2) acc)
+                    (stx-cdr l)
+                    (stx-cdr l2)))]
+    [(f acc l l2 l3)
+     (if (or (stx-null? l) (stx-null? l2) (stx-null? l3))
+         acc
+         (stx-foldl f
+                    (f (stx-car l) (stx-car l2) (stx-car l3) acc)
+                    (stx-cdr l)
+                    (stx-cdr l2)
+                    (stx-cdr l3)))]))
+
+(module m-stx-untyped racket
+  (require syntax/stx)
+  (provide stx-cons stx-drop-last)
+  
+  ;(: stx-cons (∀ (A B) (→ A B (Syntaxof (Pairof A B)))))
+  (define (stx-cons a b) #`(#,a . #,b))
+  
+  ;(: stx-drop-last (∀ (A) (→ (Syntaxof (Listof A)) (Syntaxof (Listof A)))))
+  (define (stx-drop-last l)
+    (if (and (stx-pair? l) (stx-pair? (stx-cdr l)))
+        (stx-cons (stx-car l) (stx-drop-last (stx-cdr l)))
+        #'())))
+
+(require 'm-stx-untyped)
 
 ; (require/typed racket/base [(assoc assoc3)
 ;                             (∀ (a b) (→ Any (Listof (Pairof a b))

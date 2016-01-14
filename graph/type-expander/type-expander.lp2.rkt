@@ -385,7 +385,7 @@ them.
          (pattern [id:id (~optional (~seq :colon type:expr)) default:expr]
                   #:with tvars tvars
                   #:with (expanded ...)
-                  (template ([id (?@ : (tmpl-expand-type tvars type))
+                  (template ([id (?? (?@ : (tmpl-expand-type tvars type)))
                               default])))
          (pattern (~var kw (new-kw-formal tvars))
                   #:with (expanded ...) #'(kw.expanded ...)))
