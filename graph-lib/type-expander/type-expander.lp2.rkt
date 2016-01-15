@@ -619,21 +619,21 @@ them.
                           racket-6.4.0.1-i386-linux-precise.sh))
        #|
        (define-struct/exec se0 ()
-         ;[(λ (self v) (cons self v)) : (∀ (A) (→ se0 A (Pairof se0 A)))])
-         [(λ (self v) (cons self v)) : (→ se0 Any (Pairof se0 Any))])
+       ;[(λ (self v) (cons self v)) : (∀ (A) (→ se0 A (Pairof se0 A)))])
+       [(λ (self v) (cons self v)) : (→ se0 Any (Pairof se0 Any))])
        (define-struct/exec se1 ([x : Number])
-         ;[(λ (self v) (cons self v)) : (∀ (A) (→ se0 A (Pairof se0 A)))])
-         [(λ (self v) (cons self v)) : (→ se1 Any (Pairof se1 Any))])
+       ;[(λ (self v) (cons self v)) : (∀ (A) (→ se0 A (Pairof se0 A)))])
+       [(λ (self v) (cons self v)) : (→ se1 Any (Pairof se1 Any))])
        (define-struct/exec se2 ([x : Number] [y : Number])
-         [(λ (self v) (cons self v)) : (→ se2 Any (Pairof se2 Any))])
+       [(λ (self v) (cons self v)) : (→ se2 Any (Pairof se2 Any))])
        (define-struct/exec (se3 se2) ([z : String])
-         [(λ (self v w) (list self v w))
-          ;: (∀ (A B) (→ se3 A B (List se2 A B)))])
-          : (→ se3 Any Any (List se2 Any Any))])
+       [(λ (self v w) (list self v w))
+       ;: (∀ (A B) (→ se3 A B (List se2 A B)))])
+       : (→ se3 Any Any (List se2 Any Any))])
        (define-struct/exec (se4 se2) ([z : String])
-         [(λ (self v w) (list self v w))
-          ;: (∀ (A B) (→ se4 A B (List se2 A B)))])
-          : (→ se4 Any (→ Number Number) (List se2 Any (→ Number Number)))])
+       [(λ (self v w) (list self v w))
+       ;: (∀ (A B) (→ se4 A B (List se2 A B)))])
+       : (→ se4 Any (→ Number Number) (List se2 Any (→ Number Number)))])
        
        (check (λ (a b) (not (equal? a b))) (se0) (se0))
        (check-equal?: (cdr ((se0) 'a)) 'a)
@@ -663,14 +663,14 @@ them.
        (check-equal?: (se2-x (car ((se3 4 5 "f") 'd 'e))) 4)
        (check-equal?: (se2-y (car ((se3 4 5 "f") 'd 'e))) 5)
        (check-equal?: (let ([ret : Any (car ((se3 4 5 "f") 'd 'e))])
-                        (if (se3? ret)
-                            (se3-z ret)
-                            "wrong type!"))
-                      "f")
+       (if (se3? ret)
+       (se3-z ret)
+       "wrong type!"))
+       "f")
        (check-equal?: (cadr ((se3 4 5 "f") 'd 'e)) 'd)
        (check-equal?: (caddr ((se3 4 5 "f") 'd 'e)) 'e)
        (check-equal?: ((caddr ((se4 4 5 "f") 'd (λ ([x : Number]) (* x 2)))) 12)
-                      24)
+       24)
        (check-not-exn (λ () (ann (car ((se3 4 5 "f") 'd 'e)) se2)))
        (check-true (se2? (car ((se3 4 5 "f") 'd 'e))))
        (check-true (se3? (car ((se3 4 5 "f") 'd 'e))))
@@ -1084,22 +1084,18 @@ And, last but not least, we will add a @tc[test] module.
          
          <test-expand-type>
          
-         #|
          <test-:>
          <test-define-type>
          <test-define>
          <test-lambda>
-         |#
-         ;<test-struct>
+         <test-struct>
          <test-define-struct/exec>
-         #|
          <test-ann>
          <test-inst>
          <test-let>
          <test-let*>
          <test-let-values>
-         <test-make-predicate>
-         |#)]
+         <test-make-predicate>)]
 
 We can now assemble the modules in this order:
 

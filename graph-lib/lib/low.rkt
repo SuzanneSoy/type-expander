@@ -249,7 +249,8 @@
                              (make-check-expression '#,(syntax->datum stx)))
                        (λ ()
                          (untyped:check-true
-                          (equal? actual expected))))))
+                          (equal? (?? (ann actual type) actual)
+                                  expected))))))
   
   (define-syntax/parse
     (check-not-equal?: actual
@@ -270,7 +271,8 @@
                              (make-check-expression '#,(syntax->datum stx)))
                        (λ ()
                          (untyped:check-true
-                          (not (equal? actual expected))))))))
+                          (not (equal? (?? (ann actual type) actual)
+                                       expected))))))))
 
 (require/provide 'my-typed-rackunit)
 
