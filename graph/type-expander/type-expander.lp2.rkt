@@ -1072,8 +1072,11 @@ And, last but not least, we will add a @tc[test] module.
 
 @chunk[<module-test>
        (module* test typed/racket
+         ;; (require (submod ".." main)) must be on its own (or at least in
+         ;; first position), see this bug:
+         ;; https://github.com/racket/typed-racket/issues/292
+         (require (submod ".." main))
          (require typed/rackunit
-                  (submod ".." main)
                   "../lib/low.rkt"
                   (for-syntax (submod ".." expander)
                               racket/list
