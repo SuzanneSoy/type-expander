@@ -58,12 +58,12 @@
                              fun-in fun-out] …)
                 #:funs [fun …]))))
 
-(define-for-syntax (:map* stx* stx-&l… stx-out)
+(define-for-syntax (:map* stx* stx-&ls stx-out)
   (if (stx-null? stx*)
       '()
-      (syntax-parse (:map (stx-car stx*) stx-&l… stx-out)
+      (syntax-parse (:map (stx-car stx*) stx-&ls stx-out)
         [info:map-info
-         (let ([r (:map* (stx-cdr stx*) stx-&l… #'info.in-type)]
+         (let ([r (:map* (stx-cdr stx*) stx-&ls #'info.in-type)]
                [auto (attribute info.auto-in)])
            (if (and (not (null? auto)) (car auto) (not (null? r)))
                (syntax-parse (car r)
@@ -85,8 +85,8 @@
                           r))])
                (cons #'info r)))])))
 
-(define-for-syntax (:map stx stx-&l… stx-out)
-  (define/with-syntax (&l …) stx-&l…)
+(define-for-syntax (:map stx stx-&ls stx-out)
+  (define/with-syntax (&l …) stx-&ls)
   (define/with-syntax out stx-out)
   (syntax-parse (remove-identities1 stx)
     [(~literal car)
@@ -140,9 +140,9 @@
     [(_ [f … f-last] [a …])
      #'(apply-compose [f …] [(f-last a …)])]))
 
-(define-for-syntax (internal-map: stx-f stx-&l… stx-out)
+(define-for-syntax (internal-map: stx-f stx-&ls stx-out)
   (define/with-syntax f stx-f)
-  (define/with-syntax (&l …) stx-&l…)
+  (define/with-syntax (&l …) stx-&ls)
   (define/with-syntax out stx-out)
   (syntax-parse (:map #'f #'(&l …) #'out)
     [(~and i :map-info)
@@ -171,33 +171,122 @@
             #'(ann '(code arg-fun … l …) Any)
             #'(code arg-fun … l …))])]))
 
-(map: add1 '(1 2 3))
-(map: (compose add1) '(1 2 3))
-(map: (∘ identity add1) '(1 2 3))
-(map: (∘ add1 identity) '(1 2 3))
-(map: (∘ number->string add1) '(1 2 9))
-(map: (∘ string-length number->string add1) '(1 2 9))
-(map: car '((1 2) (2) (9 10 11)))
-(map: (∘ add1 car) '((1 2) (2) (9 10 11)))
-(map: (∘ string-length number->string add1 car cdr)
-      '((1 2) (2 3) (9 10 11)))
-(map: identity '(1 2 3))
-(map: values '(1 2 3))
-(map: (compose) '(1 2 3))
-(map: (compose identity) '(1 2 3))
-(map: (∘ identity values identity values) '(1 2 3))
-(map: (∘ length (curry map add1)) '((1 2) (3)))
-
-(map: (curry map add1) '((1 2) (3)))
-
-(define (numlist [x : Number]) (list x))
-(map: (∘ (curry map add1) numlist) '(1 2 3))
-(map: (∘ (curry map add1) (λ ([x : Number]) (list x))) '(1 2 3))
-
-
 (module* test typed/racket
   (require (submod "..")
            "../lib/low.rkt")
+  
+  (check-equal?: (map: add1 '(1 2 3))
+                 : (Listof Number)
+                 '(2 3 4))
+  (check-equal?: (map: (compose add1) '(1 2 3))
+                 : (Listof Number)
+                 '(2 3 4))
+  (check-equal?: (map: (∘ identity add1) '(1 2 3))
+                 : (Listof Number)
+                 '(2 3 4))
+  (check-equal?: (map: (∘ add1 identity) '(1 2 3))
+                 : (Listof Number)
+                 '(2 3 4))
+  (check-equal?: (map: (∘ number->string add1) '(1 2 9))
+                 : (Listof String)
+                 '("2" "3" "10"))
+  (check-equal?: (map: (∘ string-length number->string add1) '(1 2 9))
+                 : (Listof Number)
+                 '(1 1 2))
+  (check-equal?: (map: car '((1 2) (2) (9 10 11)))
+                 : (Listof Number)
+                 '(1 2 9))
+  (check-equal?: (map: (∘ add1 car) '((1 2) (2) (9 10 11)))
+                 : (Listof Number)
+                 '(2 3 10))
+  (check-equal?: (map: (∘ string-length number->string add1 car cdr)
+                       '((1 2) (2 3) (8 9 10)))
+                 : (Listof Number)
+                 '(1 1 2))
+  (check-equal?: (map: identity '(1 2 3))
+                 : (Listof Number)
+                 '(1 2 3))
+  (check-equal?: (map: values '(1 2 3))
+                 : (Listof Number)
+                 '(1 2 3))
+  (check-equal?: (map: (compose) '(1 2 3))
+                 : (Listof Number)
+                 '(1 2 3))
+  (check-equal?: (map: (compose identity) '(1 2 3))
+                 : (Listof Number)
+                 '(1 2 3))
+  (check-equal?: (map: (∘ identity values identity values) '(1 2 3))
+                 : (Listof Number)
+                 '(1 2 3))
+  (check-equal?: (map: (∘ length (curry map add1)) '((1 2) (3)))
+                 : (Listof Number)
+                 '(2 1))
+  (check-equal?: (map: (curry map add1) '((1 2) (3)))
+                 : (Listof (Listof Number))
+                 '((2 3) (4)))
+  
+  (define (numlist [x : Number]) (list x))
+  (check-equal?: (map: (∘ (curry map add1) numlist) '(1 2 3))
+                 : (Listof (Listof Number))
+                 '((2) (3) (4)))
+  
+  (check-equal?: (map: (∘ (curry map add1) (λ ([x : Number]) (list x)))
+                       '(1 2 3))
+                 : (Listof (Listof Number))
+                 '((2) (3) (4)))
+  
+  ;; The tests below using (curry map: …) don't work, because typed/racket wraps
+  ;; the map: identifier with a contract, so the identifier seen outside the
+  ;; module is not the same as the one used in the syntax-parse ~literal clause.
+  
+  #;(begin
+    (check-equal?: (map: (curry map add1) '((1 2 3) (4 5)))
+                   : (Listof (Listof Number))
+                   '((2 3 4) (5 6)))
+    #;(check-equal?: (map: (curry map: add1) '((1 2 3) (4 5)))
+                     : (Listof (Listof Number))
+                     '((2 3 4) (5 6)))
+    
+    (check-equal?: (map: (curry map (compose number->string add1))
+                         '((1 2 3) (4 5)))
+                   : (Listof (Listof String))
+                   '(("2" "3" "4") ("5" "6")))
+    #;(check-equal?: (map: (curry map: (compose number->string add1))
+                           '((1 2 3) (4 5)))
+                     : (Listof (Listof String))
+                     '(("2" "3" "4") ("5" "6")))
+    
+    (check-equal?: (map: add1 '(1 2 3))
+                   : (Listof Number)
+                   '(2 3 4))
+    
+    (check-equal?: (map: car '((1 a) (2 b) (3 c)))
+                   : (Listof Number)
+                   '(1 2 3))
+    
+    (check-equal?: (map: (curry map car) '([(1 a) (2 b)] [(3 c)]))
+                   : (Listof Number)
+                   '((1 a) (3 c)))
+    #;(check-equal?: (map: (curry map: car) '([(1 a) (2 b)] [(3 c)]))
+                     : (Listof Number)
+                     '((1 a) (3 c)))
+    
+    (check-equal?: (map: (curry map (curry map car))
+                         '([((1 a) (2 b)) ((3 c))] [((4))]))
+                   : (Listof (Listof (Listof Number)))
+                   '([(1 2) (3)] [(4)]))
+    #;(check-equal?: (map: (curry map (curry map: car))
+                           '([((1 a) (2 b)) ((3 c))] [((4))]))
+                     : (Listof (Listof (Listof Number)))
+                     '([(1 2) (3)] [(4)]))
+    #;(check-equal?: (map: (curry map: (curry map car))
+                           '([((1 a) (2 b)) ((3 c))] [((4))]))
+                     : (Listof (Listof (Listof Number)))
+                     '([(1 2) (3)] [(4)]))
+    #;(check-equal?: (map: (curry map: (curry map: car))
+                           '([((1 a) (2 b)) ((3 c))] [((4))]))
+                     : (Listof (Listof (Listof Number)))
+                     '([(1 2) (3)] [(4)])))
   
   (check-equal?: (map: car '((1 b x) (2 c) (3 d)))
                  : (Listof Number)
@@ -335,144 +424,6 @@ EDIT: that's what we did, using the #:auto-in
     [(_ f . ls)
      #'(map f . ls)]))
 
-
-
-|#
-
-
-
-
-
-
-
-
-
-#|
-
-#;#'(let ()      
-      (: map2 (∀ (poly-types …) (→ function-types …
-                                   (Listof (Listof A))
-                                   (Listof (Listof D)))))
-      (define (map2 f … l)
-        (if (null? l)
-            '()
-            (cons (map1 f … (car l))
-                  (map2 f … (cdr l)))))
-      (map2 f … l))
-
-; (map: (curry map add1) '((1 2 3) (4 5))) =>
-; (map: (curry map: add1) '((1 2 3) (4 5))) =>
-(let ()
-  (: map2 (∀ (A C) (→ (→ A C)
-                      (Listof (Listof A))
-                      (Listof (Listof C)))))
-  (define (map2 f l)
-    (if (null? l) '() (cons (map f (car l)) (map2 f (cdr l)))))
-  (map2 add1 '((1 2 3) (4 5))))
-
-;; TODO:
-; (map: (compose (curry map (compose list add1))
-;                (curry map (compose add1 add1)))
-;       '((1 2 3) (4 5)))
-; =>
-#;???
-
-; (map: (curry map (compose number->string add1)) '((1 2 3) (4 5))) =>
-; (map: (curry map: (compose number->string add1)) '((1 2 3) (4 5))) =>
-(let ()
-  (: map2 (∀ (A C D) (→ (→ A C)
-                        (→ C D)
-                        (Listof (Listof A))
-                        (Listof (Listof D)))))
-  (define (map2 f g l)
-    (if (null? l)
-        '()
-        (cons ;(map1 f g (car l))
-         ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-         (let ()
-           (: map1 (∀ (A C D) (→ (→ A C)
-                                 (→ C D)
-                                 (Listof A)
-                                 (Listof D))))
-           (define (map1 f g l)
-             (if (null? l) '() (cons (g (f (car l))) (map1 f g (cdr l)))))
-           (map1 f g (car l)))
-         ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-         (map2 f g (cdr l)))))
-  (map2 add1 number->string '((1 2 3) (4 5))))
-
-; (map: add1 '(1 2 3))
-(let ()
-  (: map1 (∀ (A C) (→ (→ A C)
-                      (Listof A)
-                      (Listof C))))
-  (define (map1 f l)
-    (if (null? l) '() (cons (f (car l)) (map1 f (cdr l)))))
-  (map1 add1 '(1 2 3)))
-
-; (map: car '((1 a) (2 b) (3 c)))
-(let ()
-  (: map1 (∀ (A B) (→ (→ (Pairof A B) A)
-                      (Listof (Pairof A B))
-                      (Listof A))))
-  (define (map1 f l)
-    (if (null? l) '() (cons (f (car l)) (map1 f (cdr l)))))
-  (map1 car
-        '((1 a) (2 b) (3 c))))
-
-; (map: (curry map car) '([(1 a) (2 b)] [(3 c)]))
-; (map: (curry map: car) '([(1 a) (2 b)] [(3 c)]))
-(let ()
-  (: map1 (∀ (A B) (→ (→ (Pairof A B) A)
-                      (Listof (Pairof A B))
-                      (Listof A))))
-  (define (map1 f l)
-    (if (null? l) '() (cons (f (car l)) (map1 f (cdr l)))))
-  
-  (: map2 (∀ (A B) (→ (→ (Pairof A B) A)
-                      (Listof (Listof (Pairof A B)))
-                      (Listof (Listof A)))))
-  (define (map2 f l)
-    (if (null? l) '() (cons (map1 f (car l)) (map2 f (cdr l)))))
-  
-  (map2 car
-        '([(1 a) (2 b)] [(3 c)])))
-
-; (map: (curry map (curry map car)) '([(1 a) (2 b)] [(3 c)]))
-; (map: (curry map (curry map: car)) '([(1 a) (2 b)] [(3 c)]))
-; (map: (curry map: (curry map car)) '([(1 a) (2 b)] [(3 c)]))
-; (map: (curry map: (curry map: car)) '([(1 a) (2 b)] [(3 c)]))
-(let ()
-  (: map3 (∀ (A B) (→ ;(→ (Pairof A B) A)
-                    (Listof (Listof (Listof (Pairof A B))))
-                    (Listof (Listof (Listof A))))))
-  (define (map3 #|f|# l)
-    (if (null? l)
-        '()
-        (cons (let ()
-                (: map2 (∀ (A B) (→ ;(→ (Pairof A B) A)
-                                  (Listof (Listof (Pairof A B)))
-                                  (Listof (Listof A)))))
-                (define (map2 #|f|# l)
-                  (if (null? l)
-                      '()
-                      (cons (let ()
-                              (: map1 (∀ (A B) (→ ;(→ (Pairof A B) A)
-                                                (Listof (Pairof A B))
-                                                (Listof A))))
-                              (define (map1 #|f|# l)
-                                (if (null? l)
-                                    '()
-                                    (cons (#|f|#car (car l))
-                                          (map1 #|f|# (cdr l)))))
-                              (map1 #|f|# (car l)))
-                            (map2 #|f|# (cdr l)))))
-                (map2 #|f|# (car l)))
-              (map3 #|f|# (cdr l)))))
-  (map3 ;car
-   '([[(1 a) (2 b)] [(3 c)]] [[(4 d)]])))
-
-;(define-syntax-rule (inst-∀ T …)
 
 
 |#

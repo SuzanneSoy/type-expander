@@ -309,6 +309,4 @@ number of name collisions.
            <test-constructor>
            <test-define-variant>
            <test-tagged>
-           <test-define-tagged>
-           
-           (require (submod ".." doc))))]
+           <test-define-tagged>))]

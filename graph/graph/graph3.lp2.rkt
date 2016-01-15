@@ -646,9 +646,7 @@ not match the one from @tc[typed/racket]
                   typed/rackunit)
          
          (provide g)
-         <use-example>
-         
-         (require (submod ".." doc)))]
+         <use-example>)]
 
 @chunk[<*>
        (begin

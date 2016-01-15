@@ -211,6 +211,4 @@ Test with @tc[#:else]:
                     typed/rackunit
                     (for-syntax racket/list))
            
-           <test-multi-id>
-           
-           (require (submod ".." doc))))]
+           <test-multi-id>))]

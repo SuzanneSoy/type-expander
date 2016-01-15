@@ -417,6 +417,4 @@ was a tag requested.
                                                    acc
                                                    x)]
                             [(t2 acc2 x2) (get-tag 127 acc1 x1)])
-                (values (list 'a e t1) acc2 x2))))
-           
-           (require (submod ".." doc))))]
+                (values (list 'a e t1) acc2 x2))))))]

@@ -62,9 +62,7 @@ scribble, see
          (require (submod "..")
                   typed/rackunit)
          
-         <test-foo>
-         
-         (require (submod ".." doc)))]
+         <test-foo>)]
 
 @chunk[<*>
        (begin

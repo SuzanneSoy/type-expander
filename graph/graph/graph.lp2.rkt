@@ -881,6 +881,4 @@ checker, unless it is absorbed by a larger type, like in
            ;;
            
            <test-graph>
-           <test-make-graph-constructor>
-           
-           (require (submod ".." doc))))]
+           <test-make-graph-constructor>))]

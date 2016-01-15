@@ -633,6 +633,4 @@ These metafunctions just extract the arguments for @tc[replace-in-type] and
            <test-big>
            
            <test-make-fold>
-           <test-fold-instance>
-           
-           (require (submod ".." doc))))]
+           <test-fold-instance>))]

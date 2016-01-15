@@ -293,9 +293,7 @@ added to the @tc[Δ-Hash] since its creation from a simple @tc[HashTable].
          (require (submod "..")
                   typed/rackunit)
          
-         ; TODO
-         
-         (require (submod ".." doc)))]
+         #| TODO |#)]
 
 @chunk[<*>
        (begin

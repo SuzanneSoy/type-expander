@@ -650,9 +650,7 @@ chances that we could write a definition for that identifier.
            <test-match-expander>
            <test-type-expander>
            <test-structure>
-           <test-define-structure>
-           
-           (require (submod ".." doc))))]
+           <test-define-structure>))]
 
 @section{Optimizing access to fields}
 

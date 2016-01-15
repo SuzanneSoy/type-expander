@@ -606,9 +606,7 @@ to return an incomplete node type.
          
          <use-example>
          
-         g
-         
-         (require (submod ".." doc)))]
+         g)]
 
 @chunk[<*>
        (begin

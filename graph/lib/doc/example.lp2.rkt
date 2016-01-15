@@ -43,9 +43,7 @@ Blah @math{n}, as described by M@._ Foo@.__
        (module* test racket
          (require (submod ".."))
          (require rackunit)
-         (check-equal? (foo) "foo")
-         
-         (require (submod ".." doc)))]
+         (check-equal? (foo) "foo"))]
 
 It would be nice to be able to alter existing chunks, by inserting stuff later,
 for example:

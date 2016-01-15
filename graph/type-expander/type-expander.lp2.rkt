@@ -483,7 +483,8 @@ them.
          '(2 "abc" #,(x . z) #(1 "b" x) d))
        (check-equal?: (ann d0 (List 2
                                     "abc"
-                                    (List 'unsyntax (Pairof (U 'x 'y) (U 'y 'z)))
+                                    (List 'unsyntax
+                                          (Pairof (U 'x 'y) (U 'y 'z)))
                                     (Vector 1 "b" 'x) 'd))
                       '(2 "abc" (unsyntax (x . z)) #(1 "b" x) d))
        
@@ -614,6 +615,9 @@ them.
                         [proc : (tmpl-expand-type () proc-type)]))]))]
 
 @chunk[<test-define-struct/exec>
+       (define TODO '(bug in version 20160114-9498bdd
+                          racket-6.4.0.1-i386-linux-precise.sh))
+       #|
        (define-struct/exec se0 ()
          ;[(λ (self v) (cons self v)) : (∀ (A) (→ se0 A (Pairof se0 A)))])
          [(λ (self v) (cons self v)) : (→ se0 Any (Pairof se0 Any))])
@@ -669,7 +673,8 @@ them.
                       24)
        (check-not-exn (λ () (ann (car ((se3 4 5 "f") 'd 'e)) se2)))
        (check-true (se2? (car ((se3 4 5 "f") 'd 'e))))
-       (check-true (se3? (car ((se3 4 5 "f") 'd 'e))))]
+       (check-true (se3? (car ((se3 4 5 "f") 'd 'e))))
+       |#]
 
 @subsection{@racket[ann]}
 
@@ -1081,7 +1086,7 @@ And, last but not least, we will add a @tc[test] module.
          <test-define-type>
          <test-define>
          <test-lambda>
-|#
+         |#
          ;<test-struct>
          <test-define-struct/exec>
          #|
@@ -1091,10 +1096,7 @@ And, last but not least, we will add a @tc[test] module.
          <test-let*>
          <test-let-values>
          <test-make-predicate>
-|#
-         
-         ;; Make the code coverage take the docs into account.
-         (require (submod ".." doc)))]
+         |#)]
 
 We can now assemble the modules in this order:
 
