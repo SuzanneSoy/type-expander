@@ -15,7 +15,7 @@ before_install:
 - sh installer.sh --in-place --dest ~/racket/
 
 install:
-- cd graph
+- cd graph-lib
 - make build-dep
 
 script:
