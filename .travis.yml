@@ -5,13 +5,13 @@ language: c
 addons:
   apt:
     packages:
-    - texlive-base
+    - texlive-latex-base
 
 env:
 - PATH=~/racket/bin:$PATH
 
 before_install:
-- curl -L -o installer.sh http://plt.eecs.northwestern.edu/snapshots/current/installers/racket-test-current-x86_64-linux-precise.sh
+- curl -L -o installer.sh http://www.cs.utah.edu/plt/snapshots/current/installers/racket-current-x86_64-linux-precise.sh
 - sh installer.sh --in-place --dest ~/racket/
 
 install:
