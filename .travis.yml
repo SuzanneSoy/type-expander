@@ -12,21 +12,32 @@ addons:
     - latex-xcolor
 
 env:
-- PATH=~/racket/bin:$PATH
+  global:
+  - PATH=~/racket/bin:$PATH
+  - secure: "hqNXK7TIurZigxWFRkprGjdvcA9FRzizPksPu3qEapeEIZbfi6Au8bH0HG4coCn9yUBnAvydqlZutrCUl64kNt0Ftw03C0++wyx4oMG3cgoC0QjwAN7O70zhq6lSzg2fNmrIPv4UJYJosyrK5TcEM1yeYPZshQIsFMolCA2zW6sLGX9ujHdNsw2HcBkbQmOnCUR7OhtTpOpLLwjOM87Mohdkt5p20c9B12kYtUu6a00HtDUb0j1zkmFD0tAPEOXYplo0VZ8jmsbpJgGCv4xWlorqxA2LVEUIcRTCuCx42EgshlPh6rNOhA+3XZVb6NKHXBCunq8hiHs0niLnlI6QD3v8IkpK0t6JmDJXK4mPTG87G0syghRCXiyjWKTl0KlcJ19+h2bZFIKWTBYbr0sgKw/8TgvOdM1eqFivRNgpchS4QAwhvtrHxs4p4jtbWUVH32UJlHwkcyTqxJSYdi73a8Kv/4rX7aMYhF7OrAy3DSapvGS63JBFayN8ze3EjVjyLNOXbnXB3a5+lOYXG1XaUBkiQIukdA9dlfTKBLJisgFwgCYSyYefCiGIdXKJq2xKvksPlOP4YXZEeg1SqBsj9F8MPh6cPvo8sm5LHqtdYlrFvMCAfAi+Dja8R3siKrbCZEQ+8NlzH/k7Rk3jsJFaJ86NLQ4B1SNn+mXQLvsXg7w="
 
 before_install:
 - racket_commit=fail
 - racket_commit=$(curl http://www.cs.utah.edu/plt/snapshots/current/ | tr "\n" " " | sed -e 's/[  ][      ]*/ /g' | sed -e 's/^.*<span class="checksum"> *//' | sed -e 's| *</span>.*$||')
 - if test ${#racket_commit} -ne 40 || echo $racket_commit | grep [^0-9a-f]; then racket_commit=fail; fi
-- if test -e $HOME/cache/racket_commit -a "${racket_commit}" = "$(cat $HOME/cache/racket_commit)"; then echo "Using cached version of racket installer, commit ${racket_commit} == $(cat $HOME/cache/racket_commit)."; else test -e $HOME/cache && rm -fr $HOME/cache; mkdir -p $HOME/cache; echo $racket_commit > $HOME/cache/racket_commit; curl -L -o $HOME/cache/installer.sh http://www.cs.utah.edu/plt/snapshots/current/installers/racket-current-x86_64-linux-precise.sh; fi
+- if test -e $HOME/cache/racket_commit -a "${racket_commit}" = "$(cat $HOME/cache/racket_commit)"; then echo "Using cached version of racket installer, commit ${racket_commit} == $(cat $HOME/cache/racket_commit)."; else if test -e $HOME/cache; then rm -fr $HOME/cache; fi; mkdir -p $HOME/cache; echo $racket_commit > $HOME/cache/racket_commit; curl -L -o $HOME/cache/installer.sh http://www.cs.utah.edu/plt/snapshots/current/installers/racket-current-x86_64-linux-precise.sh; fi
 - sh $HOME/cache/installer.sh --in-place --dest ~/racket/
 - echo "LaTeX extra packages:"
+- echo "tlmgr init-usertree"
+- echo "sudo apt-get install xzdec"
+- echo "tlmgr install newunicodechar.sty"
 - latex_home=$(kpsewhich -var-value=TEXMFHOME)
 - curl -L -o newunicodechar.ins http://mirrors.ctan.org/macros/latex/contrib/newunicodechar/newunicodechar.ins
 - curl -L -o newunicodechar.dtx http://mirrors.ctan.org/macros/latex/contrib/newunicodechar/newunicodechar.dtx
 - latex newunicodechar.ins
 - mkdir -p "$latex_home/tex/latex/newunicodechar"
 - mv newunicodechar.sty "$latex_home/tex/latex/newunicodechar"
+- echo "Automatic push to gh-pages"
+- if test -e ~/gh-pages; then rm -rf ~/gh-pages; fi
+- git config --global user.name "Travis CI"
+- git config --global user.email "travis@nobody.com"
+- git init ~/gh-pages
+
 
 cache:
   apt: true
@@ -41,3 +52,6 @@ script:
 - make
 
 after_script:
+- mv -i coverage docs ~/gh-pages
+- (cd ~/gh-pages && git add -A . && git commit -m "Auto-publish to gh-pages")
+- (cd ~/gh-pages; git push --force --quiet "https://${GH_TOKEN}@github.com/jsmaniac/phc.git" master:gh-pages >/dev/null 2>&1 || true) # redirect to /dev/null to avoid showing credentials.
