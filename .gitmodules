@@ -1,8 +1,8 @@
-[submodule "graph/lib/doc/bracket"]
-	path = graph/lib/doc/bracket
+[submodule "graph-lib/lib/doc/bracket"]
+	path = graph-lib/lib/doc/bracket
 	url = https://github.com/jsmaniac/bracket
 	branch = ignore-compiled-folders
-[submodule "graph/lib/doc/MathJax"]
-	path = graph/lib/doc/MathJax
+[submodule "graph-lib/lib/doc/MathJax"]
+	path = graph-lib/lib/doc/MathJax
 	url = https://github.com/mathjax/MathJax.git
 	branch = master
