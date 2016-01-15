@@ -2,6 +2,11 @@ sudo: false
 
 language: c
 
+addons:
+  apt:
+    packages:
+    - texlive-base
+
 env:
 - PATH=~/racket/bin:$PATH
 
