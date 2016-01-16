@@ -5,8 +5,9 @@ How to build this project
 =========================
 
 To install the build dependencies of this project on a clean Ubuntu 14.04
-machine, you need to install a recent version of racket. First, you need to
-install a recent version of racket. Then run the following commands:
+machine, first install a recent [snapshot version of
+ racket](https://pre.racket-lang.org/installers/). Then run the following
+ commands:
 
     cd graph-lib/
     sudo apt-get install git
