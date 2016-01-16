@@ -37,7 +37,9 @@ before_install:
 - git config --global user.name "Travis CI"
 - git config --global user.email "travis@nobody.com"
 - git init ~/gh-pages
-
+- echo "Temporary switch to my fork of cover:"
+- git clone https://github.com/jsmaniac/cover.git -b multiple-output-formats ~/cover-tool/cover
+- (cd ~/cover-tool/cover; raco pkg install --deps search-auto --update-deps --skip-installed)
 
 cache:
   apt: true

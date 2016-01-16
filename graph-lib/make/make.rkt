@@ -201,7 +201,9 @@
 
 (run! `(,(find-executable-path-or-fail "raco")
         "cover"
-	"-s" "doc"
-	"-s" "test"
+        "-s" "doc"
+        "-s" "test"
+        "-f" "html"
+        "-f" "coveralls"
         "-v"
         ,@(exclude-dirs rkt-files (list "make/"))))
