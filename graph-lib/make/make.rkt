@@ -205,5 +205,4 @@
         "-s" "test"
         "-f" "html"
         "-f" "coveralls"
-        "-v"
         ,@(exclude-dirs rkt-files (list "make/"))))
