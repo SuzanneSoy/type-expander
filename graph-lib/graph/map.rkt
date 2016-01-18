@@ -5,12 +5,15 @@
                      syntax/parse
                      syntax/parse/experimental/template
                      "../lib/low-untyped.rkt")
+         (for-meta 2
+                   racket/base
+                   racket/syntax)
          "../lib/low.rkt"
          "map1.rkt"
          "graph4.lp2.rkt"
          "../type-expander/type-expander.lp2.rkt")
 
-(provide map:)
+(provide map: apply-compose) ;; TODO: move apply-compose to lib/low.rkt
 
 (begin-for-syntax
   (define-syntax-class lam
@@ -50,6 +53,7 @@
 (begin-for-syntax
   (define-syntax-class map-info
     (pattern (_ #:in in-type
+                #:in-∀ [in-∀ …]
                 #:out out-type
                 #:∀ (∀-type …)
                 #:arg-funs ([arg-fun
@@ -58,12 +62,21 @@
                              fun-in fun-out] …)
                 #:funs [fun …]))))
 
-(define-for-syntax (:map* stx* stx-&ls stx-out)
+(begin-for-syntax
+  (define-syntax (mk-info stx)
+    (syntax-case stx ()
+      [(_ . rest-stx)
+       (begin
+         (define/with-syntax whole-stx (syntax/loc stx (info . rest-stx)))
+         #'(syntax-parse #`whole-stx
+             [i:map-info #'i]))])))
+
+(define-for-syntax (:map* stx* stx-&ls stx-out stx-out-∀)
   (if (stx-null? stx*)
       '()
-      (syntax-parse (:map (stx-car stx*) stx-&ls stx-out)
+      (syntax-parse (:map (stx-car stx*) stx-&ls stx-out stx-out-∀)
         [info:map-info
-         (let ([r (:map* (stx-cdr stx*) stx-&ls #'info.in-type)]
+         (let ([r (:map* (stx-cdr stx*) stx-&ls #'info.in-type #'[info.in-∀ …])]
                [auto (attribute info.auto-in)])
            (if (and (not (null? auto)) (car auto) (not (null? r)))
                (syntax-parse (car r)
@@ -76,88 +89,102 @@
                                       info.param-fun
                                       r-info.out-type ;;info.fun-in ;;;
                                       info.fun-out] …)])
-                    (cons #`(info #:in info.in-type
-                                  #:out info.out-type
-                                  #:∀ (info.∀-type …)
-                                  #:arg-funs (#,(stx-car replaced)
-                                              #,@(stx-cdr intact))
-                                  #:funs [info.fun …])
+                    (cons (mk-info #:in info.in-type
+                                   #:in-∀ [info.in-∀ …]
+                                   #:out info.out-type
+                                   #:∀ (info.∀-type …)
+                                   #:arg-funs (#,(stx-car replaced)
+                                               #,@(stx-cdr intact))
+                                   #:funs [info.fun …])
                           r))])
                (cons #'info r)))])))
 
-(define-for-syntax (:map stx stx-&ls stx-out)
+(define-for-syntax (:map stx stx-&ls stx-out stx-out-∀)
   (define/with-syntax (&l …) stx-&ls)
   (define/with-syntax out stx-out)
+  (define/with-syntax (out-∀ …) stx-out-∀)
   (syntax-parse (remove-identities1 stx)
     [(~literal car)
-     #'(info #:in (Pairof out Any) #:out out #:∀ ()
-             #:arg-funs () #:funs (car))]
+     #'(info #:in (Pairof out Any) #:in-∀ [] #:out out #:∀ []
+             #:arg-funs [] #:funs [car])]
     [(~literal cdr)
-     #'(info #:in (Pairof Any out) #:out out #:∀ ()
-             #:arg-funs () #:funs (cdr))]
+     #'(info #:in (Pairof Any out) #:in-∀ [] #:out out #:∀ []
+             #:arg-funs [] #:funs [cdr])]
     ;; TODO: should remove `identity` completely, doing (map identity l) is
     ;; useless appart for constraining the type, but it's an ugly way to do so.
     [(~literal identity)
-     #'(info #:in out #:out out #:∀ ()
-             #:arg-funs () #:funs (identity))]
+     #'(info #:in out #:in-∀ [] #:out out #:∀ []
+             #:arg-funs [] #:funs [identity])]
     [((~literal compose) f …)
-     (syntax-parse (:map* #'(f …) #'(&l …) #'out)
+     (syntax-parse (:map* #'(f …) #'(&l …) #'out #'[out-∀ …])
        [(~and (_ … rightmost:map-info) (leftmost:map-info . _) (:map-info …))
         #'(info #:in rightmost.in-type
+                #:in-∀ [rightmost.in-∀ …];; ??
                 #:out leftmost.out-type
-                #:∀ (∀-type … …)
-                #:arg-funs ([arg-fun param-fun fun-in fun-out] … …)
-                #:funs (fun … …))])]
+                #:∀ [∀-type … …]
+                #:arg-funs [(arg-fun param-fun fun-in fun-out) … …]
+                #:funs [fun … …])])]
     [((~literal curry) :mapp f)
-     (syntax-parse (internal-map: #'f #'(&l …) #'out)
+     (syntax-parse (internal-map: #'f #'(&l …) #'out #'[out-∀ …])
        [(i:map-info . code)
-        #'(info #:in (Listof i.in-type)
+        #`(info #:in (Listof i.in-type)
+                #:in-∀ [i.in-∀ …];; ??
                 #:out (Listof out)
                 #:∀ [i.∀-type …]; i.out-type
                 #:arg-funs [(i.arg-fun i.param-fun i.fun-in i.fun-out) …]
-                #:funs [(code i.fun … _)])])]
+                #:funs [#,(syntax/loc #'f (code i.fun … _))])])]
     [(~literal length)
      (define-temp-ids "&~a" f)
      (define-temp-ids "~a/in" f)
-     #'(info #:in f/in #:out out #:∀ (f/in)
-             #:arg-funs ([(λ ([l : (Listof Any)]) (length l))
+     #'(info #:in f/in #:in-∀ [f/in] #:out out #:∀ [f/in] ;;??
+             #:arg-funs [((λ ([l : (Listof Any)]) (length l))
                           &f
                           #:auto-in f/in
-                          out])
-             #:funs (&f))]
+                          out)]
+             #:funs [&f])]
+    [((~literal λget) pat …)
+     #'(info #:in (has-get out pat …)
+             #:in-∀ [out-∀ …]
+             #:out (result-get out pat …)
+             #:∀ []
+             #:arg-funs []
+             #:funs [(get _ pat …)])]
     [f
      (define-temp-ids "&~a" f)
      (define-temp-ids "~a/in" f)
-     #'(info #:in f/in #:out out #:∀ (f/in)
-             #:arg-funs ([f &f #:auto-in f/in out]) #:funs (&f))]))
+     #'(info #:in f/in #:in-∀ [f/in] #:out out #:∀ [f/in] ;;??
+             #:arg-funs [(f &f #:auto-in f/in out)] #:funs [&f])]))
 
 (define-syntax (apply-compose stx)
   (syntax-parse stx
     [(_ [] [a …])
      #'(values a …)]
-    [(_ [f … (f-last x … (~literal _) y …)] [a …])
-     #'(apply-compose [f …] [(f-last x … a … y …)])]
+    [(_ [f … (~and loc (f-last x … (~literal _) y …))] [a …])
+     #`(apply-compose [f …] [#,(syntax/loc #'loc (f-last x … a … y …))])]
     [(_ [f … f-last] [a …])
-     #'(apply-compose [f …] [(f-last a …)])]))
+     #`(apply-compose [f …] [#,(syntax/loc #'f-last (f-last a …))])]))
 
-(define-for-syntax (internal-map: stx-f stx-&ls stx-out)
+(define-for-syntax (internal-map: stx-f stx-&ls stx-out stx-out-∀)
   (define/with-syntax f stx-f)
   (define/with-syntax (&l …) stx-&ls)
   (define/with-syntax out stx-out)
-  (syntax-parse (:map #'f #'(&l …) #'out)
+  (define/with-syntax (out-∀ …) stx-out-∀)
+  (syntax-parse (:map #'f #'(&l …) #'out #'[out-∀ …])
     [(~and i :map-info)
+     (define/with-syntax map1 (generate-temporary #'map))
      (cons #'i
-           #'(let ()
-               (: map1 (∀ [out ∀-type …]
-                          (→ (→ fun-in fun-out) …
-                             (Listof in-type)
-                             (Listof out-type))))
-               (define (map1 param-fun … &l …)
-                 (if (or (null? &l) …)
-                     '()
-                     (cons (apply-compose [fun …] [(car &l) …])
-                           (map1 param-fun … (cdr &l) …))))
-               map1))]));(map1 arg-fun … . ls)
+           (template
+            (let ()
+              (: map1 (∀ [out-∀ … ∀-type …]
+                         (→ (→ fun-in fun-out) …
+                            (Listof in-type)
+                            (Listof out-type))))
+              (define (map1 param-fun … &l …)
+                (if (or (null? &l) …)
+                    '()
+                    (cons (apply-compose [fun …] [(car &l) …])
+                          (map1 param-fun … (cdr &l) …))))
+              map1)))]));(map1 arg-fun … . ls)
 
 ;; TODO: inefficient at compile-time: we run (:map #'f #'Out) twice.
 ;; Plus it could cause some bugs because of differing #'Out.
@@ -165,7 +192,7 @@
   (syntax-parse stx
     [(_ (~optional (~and norun (~literal norun))) f l …)
      (define-temp-ids "&~a" (l …))
-     (syntax-parse (internal-map: #'f #'(&l …) #'Out)
+     (syntax-parse (internal-map: #'f #'(&l …) #'Out #'[Out])
        [(:map-info . code)
         (if (attribute norun)
             #'(ann '(code arg-fun … l …) Any)
@@ -239,54 +266,54 @@
   ;; the map: identifier with a contract, so the identifier seen outside the
   ;; module is not the same as the one used in the syntax-parse ~literal clause.
   
-  #;(begin
-    (check-equal?: (map: (curry map add1) '((1 2 3) (4 5)))
-                   : (Listof (Listof Number))
-                   '((2 3 4) (5 6)))
-    #;(check-equal?: (map: (curry map: add1) '((1 2 3) (4 5)))
+  #|(begin
+      (check-equal?: (map: (curry map add1) '((1 2 3) (4 5)))
                      : (Listof (Listof Number))
                      '((2 3 4) (5 6)))
-    
-    (check-equal?: (map: (curry map (compose number->string add1))
-                         '((1 2 3) (4 5)))
-                   : (Listof (Listof String))
-                   '(("2" "3" "4") ("5" "6")))
-    #;(check-equal?: (map: (curry map: (compose number->string add1))
+      #;(check-equal?: (map: (curry map: add1) '((1 2 3) (4 5)))
+                       : (Listof (Listof Number))
+                       '((2 3 4) (5 6)))
+      
+      (check-equal?: (map: (curry map (compose number->string add1))
                            '((1 2 3) (4 5)))
                      : (Listof (Listof String))
                      '(("2" "3" "4") ("5" "6")))
-    
-    (check-equal?: (map: add1 '(1 2 3))
-                   : (Listof Number)
-                   '(2 3 4))
-    
-    (check-equal?: (map: car '((1 a) (2 b) (3 c)))
-                   : (Listof Number)
-                   '(1 2 3))
-    
-    (check-equal?: (map: (curry map car) '([(1 a) (2 b)] [(3 c)]))
-                   : (Listof Number)
-                   '((1 a) (3 c)))
-    #;(check-equal?: (map: (curry map: car) '([(1 a) (2 b)] [(3 c)]))
+      #;(check-equal?: (map: (curry map: (compose number->string add1))
+                             '((1 2 3) (4 5)))
+                       : (Listof (Listof String))
+                       '(("2" "3" "4") ("5" "6")))
+      
+      (check-equal?: (map: add1 '(1 2 3))
+                     : (Listof Number)
+                     '(2 3 4))
+      
+      (check-equal?: (map: car '((1 a) (2 b) (3 c)))
+                     : (Listof Number)
+                     '(1 2 3))
+      
+      (check-equal?: (map: (curry map car) '([(1 a) (2 b)] [(3 c)]))
                      : (Listof Number)
                      '((1 a) (3 c)))
-    
-    (check-equal?: (map: (curry map (curry map car))
-                         '([((1 a) (2 b)) ((3 c))] [((4))]))
-                   : (Listof (Listof (Listof Number)))
-                   '([(1 2) (3)] [(4)]))
-    #;(check-equal?: (map: (curry map (curry map: car))
+      #;(check-equal?: (map: (curry map: car) '([(1 a) (2 b)] [(3 c)]))
+                       : (Listof Number)
+                       '((1 a) (3 c)))
+      
+      (check-equal?: (map: (curry map (curry map car))
                            '([((1 a) (2 b)) ((3 c))] [((4))]))
                      : (Listof (Listof (Listof Number)))
                      '([(1 2) (3)] [(4)]))
-    #;(check-equal?: (map: (curry map: (curry map car))
-                           '([((1 a) (2 b)) ((3 c))] [((4))]))
-                     : (Listof (Listof (Listof Number)))
-                     '([(1 2) (3)] [(4)]))
-    #;(check-equal?: (map: (curry map: (curry map: car))
-                           '([((1 a) (2 b)) ((3 c))] [((4))]))
-                     : (Listof (Listof (Listof Number)))
-                     '([(1 2) (3)] [(4)])))
+      #;(check-equal?: (map: (curry map (curry map: car))
+                             '([((1 a) (2 b)) ((3 c))] [((4))]))
+                       : (Listof (Listof (Listof Number)))
+                       '([(1 2) (3)] [(4)]))
+      #;(check-equal?: (map: (curry map: (curry map car))
+                             '([((1 a) (2 b)) ((3 c))] [((4))]))
+                       : (Listof (Listof (Listof Number)))
+                       '([(1 2) (3)] [(4)]))
+      #;(check-equal?: (map: (curry map: (curry map: car))
+                             '([((1 a) (2 b)) ((3 c))] [((4))]))
+                       : (Listof (Listof (Listof Number)))
+                       '([(1 2) (3)] [(4)])))|#
   
   (check-equal?: (map: car '((1 b x) (2 c) (3 d)))
                  : (Listof Number)
@@ -427,3 +454,5 @@ EDIT: that's what we did, using the #:auto-in
 
 
 |#
+
+;|#

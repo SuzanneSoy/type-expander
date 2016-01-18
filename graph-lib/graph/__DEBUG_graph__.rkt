@@ -18,15 +18,18 @@
 (define-tagged tabc t [a 1] [b 'b] [c "c"])
 |#
 
-(require (submod "graph3.lp2.rkt" test))
-(require "graph3.lp2.rkt")
-(require "graph4.lp2.rkt")
-(require "map.rkt")
-(require "structure.lp2.rkt")
-(require "variant.lp2.rkt")
-(require "../lib/low.rkt")
-(require "../type-expander/type-expander.lp2.rkt")
+(require "__DEBUG_require.rkt")
 
+;; (map: (compose (curry map identity) (λget houses …)) (get g streets))
+;; (map: (compose (λget houses …) (λ #:∀ (A) ([x : A]) x)) (get g streets))
+;; (map: (compose (λget houses …) (curry map (λget owner))) (get g streets))
+;; => TODO: Crashes ../type-expander/type-expander.lp2.rkt:90:7: syntax-local-bind-syntaxes: contract violation
+;  expected: (listof identifier?)
+;  given: (#<syntax:/home/georges/phc/racket/graph-lib/graph/map.rkt:130:18 (has-get Out houses …)>)
+;  argument position: 1st
+;  other arguments...:
+
+#|
 (get '((1 2) (3)) … …)
 (structure-get (cadr (force g)) people)
 (get g people)
@@ -37,6 +40,7 @@
 ((λget streets … houses … owner name) g)
 (let ([f (λget streets … houses … owner name)]) f)
 ;(map: (λget houses … owner name) (get g streets))
+|#
 
 
 #|

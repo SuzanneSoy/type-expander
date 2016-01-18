@@ -91,7 +91,8 @@ else.
          (let ([def-ctx (syntax-local-make-definition-context)]
                [err-expr #'(λ _ (raise-syntax-error
                                  "Type name used out of context"))])
-           (for ([var (syntax->list type-vars)])
+           (for ([var (syntax-parse type-vars
+                        [(v:id …) (syntax->list #'(v …))])])
              (syntax-local-bind-syntaxes (list var) err-expr def-ctx))
            (internal-definition-context-seal def-ctx)
            (internal-definition-context-introduce def-ctx stx)))]
@@ -121,9 +122,9 @@ else.
            [(((~literal curry) T Arg1 …) . Args2)
             (expand-type #'(T Arg1 … . Args2))]
            ;; TODO: handle the pattern (∀ (TVar ... ooo) T)
-           [(∀:fa (TVar ...) T)
+           [(∀:fa (TVar:id ...) T:expr)
             #`(∀ (TVar ...) #,(expand-type (bind-type-vars #'(TVar ...) #'T)))]
-           [((~literal Rec) R T)
+           [((~literal Rec) R:id T:expr)
             #`(Rec R #,(expand-type (bind-type-vars #'(R) #'T)))]
            [((~literal quote) T) (expand-quasiquote 'quote 1 #'T)]
            [((~literal quasiquote) T) (expand-quasiquote 'quasiquote 1 #'T)]
@@ -309,7 +310,7 @@ variables in the result, we define two template metafunctions:
        (define-template-metafunction (tmpl-expand-type stx)
          (syntax-parse stx
            [(_ () t) (expand-type #'t)]
-           [(_ tvars t) (expand-type (bind-type-vars #'tvars #'t))]))]
+           [(_ (tvar …) t) (expand-type (bind-type-vars #'(tvar …) #'t))]))]
 
 @subsection{@racket[:]}
 
