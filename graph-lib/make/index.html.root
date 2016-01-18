@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Ph.C</title>
+</head>
+<body>
+<a href="https://travis-ci.org/jsmaniac/phc"><img alt="Build Status" src="https://travis-ci.org/jsmaniac/phc.png?branch=master" /></a>
+<a href="https://coveralls.io/github/jsmaniac/cover?branch=master"><img alt="Coverage Status" src="https://coveralls.io/repos/jsmaniac/cover/badge.svg?branch=master&service=github" /></a>
+<ul>
+<li><a href="coverage/">coverage/</a></li>
+<li><a href="docs/">docs/</a></li>
+</ul>
+</body>
+</html>
+

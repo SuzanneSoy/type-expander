@@ -55,7 +55,7 @@ script:
 
 after_script:
 - mv -i coverage docs ~/gh-pages
-- bash make/make-indexes.sh ~/gh-pages
+- mv -i make/index.html.root ~/gh-pages/index.html
 - mkdir -p ~/gh-pages/lib/doc/MathJax
 - echo 'document.write("<script src=\"http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=default\"></script>");' > ~/gh-pages/lib/doc/MathJax/MathJax.js
 - touch ~/gh-pages/.nojekyll
