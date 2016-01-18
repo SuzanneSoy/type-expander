@@ -204,5 +204,12 @@
         "-s" "doc"
         "-s" "test"
         "-f" "html"
-        "-f" "coveralls"
+        ,@(let ([travis (getenv "TRAVIS")])
+            (if (and travis (string=? travis "true"))
+                '("-f" "coveralls")
+                '()))
         ,@(exclude-dirs rkt-files (list "make/"))))
+
+(run! `(,(find-executable-path-or-fail "bash")
+        "make/make-indexes.sh"
+        "docs/"))
