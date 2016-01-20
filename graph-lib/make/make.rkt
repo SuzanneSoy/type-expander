@@ -140,9 +140,15 @@
         "-j" "8"
         ,@rkt-files))
 
+;; Create root MathJax link, must be done before the others
+;; Otherwise make/proc thinks the (broken) link hasn't been created.
+(make-directory* "docs/") ;; docs/ must be created before Depencency graph too
+(make-file-or-directory-link (build-path 'up "lib" "doc" "MathJax")
+                             (build-path "docs" "MathJax"))
+
+
 ;; Dependency graph, must be done before docs.
 (begin
-  (make-directory* "docs/")
   (run! (list (find-executable-path-or-fail "racket")
               "make/dependency-graph.rkt"
               "graph/__DEBUG_graph__.rkt"
@@ -166,33 +172,40 @@
               "-o" "docs/deps.pdf")))
 
 (make/proc
- (rules (list "zo" (append html-files
-                           pdf-files
-                           mathjax-links))
-        (for/rules ([scrbl-or-lp2 doc-sources]
-                    [html html-files])
-          (html)
-          (scrbl-or-lp2)
-          #;(scribble (list scrbl-or-lp2) doc-sources "--html")
-          (scribble-all doc-sources html-files "--html"))
-        (for/rules ([scrbl-or-lp2 doc-sources]
-                    [pdf pdf-files])
-          (pdf)
-          (scrbl-or-lp2)
-          #;(scribble (list scrbl-or-lp2) doc-sources "--pdf")
-          (scribble-all doc-sources pdf-files "--pdf"))
-        (for/rules ([mathjax-link mathjax-links])
-          (mathjax-link)
-          ()
-          (let ([mathjax-dir
-                 (simplify-path
-                  (apply build-path
-                         `(same
-                           ,@(map (λ (x) 'up)
-                                  (explode-path (dirname mathjax-link)))
-                           "lib" "doc" "MathJax"))
-                  #f)])
-            (make-file-or-directory-link mathjax-dir mathjax-link))))
+ (rules
+  (list "zo" (append html-files
+                     pdf-files
+                     mathjax-links))
+  (for/rules ([scrbl-or-lp2 doc-sources]
+              [html html-files])
+    (html)
+    (scrbl-or-lp2)
+    #;(scribble (list scrbl-or-lp2) doc-sources "--html")
+    (scribble-all doc-sources html-files "--html"))
+  (for/rules ([scrbl-or-lp2 doc-sources]
+              [pdf pdf-files])
+    (pdf)
+    (scrbl-or-lp2)
+    #;(scribble (list scrbl-or-lp2) doc-sources "--pdf")
+    (scribble-all doc-sources pdf-files "--pdf"))
+  (for/rules ([mathjax-link mathjax-links])
+    (mathjax-link)
+    ()
+    (let* ([docs-mathjax-dir
+            (simplify-path
+             (apply build-path
+                    `(same
+                      ,@(build-list (sub1 (length (explode-path
+                                                   (dirname mathjax-link))))
+                                    (const 'up))
+                      "MathJax"))
+             #f)]
+           [docs-or-lib-mathjax-dir
+            (if (equal? (build-path "docs" "MathJax") mathjax-link)
+                (build-path 'up "lib" "doc" "MathJax")
+                docs-mathjax-dir)])
+      (make-file-or-directory-link docs-or-lib-mathjax-dir
+                                   mathjax-link))))
  (argv))
 
 (run! `(,(find-executable-path-or-fail "raco")

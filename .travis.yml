@@ -54,12 +54,11 @@ after_script:
 - git config --global user.name "Travis CI"
 - git config --global user.email "travis@nobody.com"
 - if test -e ~/gh-pages; then rm -rf ~/gh-pages; fi
-#- mv -i coverage docs
 - mv -i docs ~/gh-pages
 - git init ~/gh-pages
-#- mv -i make/index.html.root ~/gh-pages/index.html
-- mkdir -p ~/gh-pages/lib/doc/MathJax
-- echo 'document.write("<script src=\"http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=default\"></script>");' > ~/gh-pages/lib/doc/MathJax/MathJax.js
+- rm -f ~/gh-pages/MathJax
+- mkdir ~/gh-pages/MathJax
+- echo 'document.write("<script src=\"http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=default\"></script>");' > ~/gh-pages/MathJax/MathJax.js
 - touch ~/gh-pages/.nojekyll
 - (cd ~/gh-pages && git add -A . && git commit -m "Auto-publish to gh-pages")
 - (cd ~/gh-pages; git push --force --quiet "https://${GH_TOKEN}@github.com/jsmaniac/phc.git" master:gh-pages >/dev/null 2>&1 || true) # redirect to /dev/null to avoid showing credentials.
