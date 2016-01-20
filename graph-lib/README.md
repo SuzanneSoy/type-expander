@@ -1,5 +1,5 @@
 [![Build Status](https://travis-ci.org/jsmaniac/phc.png?branch=master)](https://travis-ci.org/jsmaniac/phc)
-[![Coverage Status](https://coveralls.io/repos/jsmaniac/cover/badge.svg?branch=master&service=github)](https://coveralls.io/github/jsmaniac/cover?branch=master)
+[![Coverage Status](https://coveralls.io/repos/jsmaniac/phc/badge.svg?branch=master&service=github)](https://coveralls.io/github/jsmaniac/phc?branch=master)
 
 How to build this project
 =========================
