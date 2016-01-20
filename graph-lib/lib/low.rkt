@@ -1015,34 +1015,33 @@
                     (stx-cdr l2)
                     (stx-cdr l3)))]))
 
+;; stx-cons
+
 (module m-stx-untyped racket
   (require syntax/stx)
   (provide stx-cons #;stx-drop-last)
   
-  ;(: stx-cons (∀ (A B) (→ A B (Syntaxof (Pairof A B)))))
-  (define (stx-cons a b) #`(#,a . #,b))
-  
-  ;(: stx-drop-last (∀ (A) (→ (Syntaxof (Listof A)) (Syntaxof (Listof A)))))
-  #;(define (stx-drop-last l)
-    (if (and (stx-pair? l) (stx-pair? (stx-cdr l)))
-        (stx-cons (stx-car l) (stx-drop-last (stx-cdr l)))
-        #'())))
+  (define (stx-cons a b) #`(#,a . #,b)))
 
-;; stx-cons
+(typed/untyped-prefix
+ [module m-stx-typed typed/racket
+   (require (only-in typed/racket/unsafe unsafe-require/typed))
+   (unsafe-require/typed (submod ".." m-stx-untyped)
+                         [stx-cons (∀ (A B)
+                                      (→ (Syntaxof A)
+                                         (Syntaxof B)
+                                         (Syntaxof (Pairof (Syntaxof A)
+                                                           (Syntaxof B)))))])
+   (provide stx-cons)]
+ [module m-stx-typed typed/racket/no-check
+   (require (submod ".." m-stx-untyped))
+   (provide stx-cons)])
 
-(module m-stx-typed typed/racket
-  (require typed/racket/unsafe)
-  (unsafe-require/typed (submod ".." m-stx-untyped)
-                        [stx-cons (∀ (A B)
-                                     (→ (Syntaxof A)
-                                        (Syntaxof B)
-                                        (Syntaxof (Pairof (Syntaxof A)
-                                                          (Syntaxof B)))))])
-  (provide stx-cons))
+(require/provide 'm-stx-typed)
 
 (module+ test
   (require ;(submod "..")
-           typed/rackunit)
+    typed/rackunit)
   
   (check-equal? (syntax->datum
                  (ann (stx-cons #'a #'(b c))
@@ -1056,8 +1055,6 @@
                       (Syntaxof (Pairof (Syntaxof 1)
                                         (Syntaxof 2)))))
                 '(1 . 2)))
-
-(require/provide 'm-stx-typed)
 
 ;; stx-pair?
 
