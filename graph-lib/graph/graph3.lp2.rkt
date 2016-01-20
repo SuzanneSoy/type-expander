@@ -611,11 +611,8 @@ are replaced by tagged indices:
                               syntax/stx
                               syntax/parse/experimental/template
                               racket/sequence
-                              racket/pretty; DEBUG
-                              alexis/util/threading; DEBUG
                               "rewrite-type.lp2.rkt"
                               "../lib/low-untyped.rkt")
-                  alexis/util/threading; DEBUG
                   "fold-queues.lp2.rkt"
                   "rewrite-type.lp2.rkt"
                   "../lib/low.rkt"

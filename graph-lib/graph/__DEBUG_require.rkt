@@ -3,7 +3,7 @@
 (require (submod "graph3.lp2.rkt" test))
 (require "graph3.lp2.rkt")
 (require "graph4.lp2.rkt")
-(require "map.rkt")
+(require "map4.rkt")
 (require "structure.lp2.rkt")
 (require "variant.lp2.rkt")
 (require "../lib/low.rkt")
@@ -12,7 +12,7 @@
 (provide (all-from-out (submod "graph3.lp2.rkt" test)
                        "graph3.lp2.rkt"
                        "graph4.lp2.rkt"
-                       "map.rkt"
+                       "map4.rkt"
                        "structure.lp2.rkt"
                        "variant.lp2.rkt"
                        "../lib/low.rkt"

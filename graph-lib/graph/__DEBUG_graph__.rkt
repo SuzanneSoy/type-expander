@@ -23,9 +23,11 @@
 ;; (map: (compose (curry map identity) (λget houses …)) (get g streets))
 ;; (map: (compose (λget houses …) (λ #:∀ (A) ([x : A]) x)) (get g streets))
 ;; (map: (compose (λget houses …) (curry map (λget owner))) (get g streets))
-;; => TODO: Crashes ../type-expander/type-expander.lp2.rkt:90:7: syntax-local-bind-syntaxes: contract violation
+;; => TODO: Crashes ../type-expander/type-expander.lp2.rkt:90:7:
+;;     syntax-local-bind-syntaxes: contract violation
 ;  expected: (listof identifier?)
-;  given: (#<syntax:/home/georges/phc/racket/graph-lib/graph/map.rkt:130:18 (has-get Out houses …)>)
+;  given: (#<syntax:/home/georges/phc/racket/graph-lib/graph/map.rkt:130:18
+;     (has-get Out houses …)>)
 ;  argument position: 1st
 ;  other arguments...:
 
