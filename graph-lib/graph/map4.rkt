@@ -96,8 +96,9 @@
     [(_ (~literal car!) T:expr R) #'(U (Listof T) (Pairof T Any))]
     [(_ (~literal cdr) T:expr R) #'(Pairof Any T)]
     [(_ (~literal list) T:expr R) #'T]
+    [(_ ((~literal λget) f …) T:expr R) #'(has-get T f …)]
     ;; Default case:
-    [(_ f:expr T:expr U) #'T]))
+    [(_ f:expr T:expr R) #'T]))
 
 (define-type-expander (ResultOf stx)
   (syntax-parse stx
@@ -106,6 +107,7 @@
     [(_ (~literal car!) T:expr R) #'T]
     [(_ (~literal cdr) T:expr R) #'T]
     [(_ (~literal list) T:expr R) #'(List T)]
+    [(_ ((~literal λget) f …) T:expr R) #'(result-get T f …)]
     ;; Default case:
     [(_ f:expr T:expr R) #'R]))
 

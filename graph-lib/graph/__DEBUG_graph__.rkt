@@ -20,6 +20,13 @@
 
 (require "__DEBUG_require.rkt")
 
+(map: (λget houses) (get g streets))
+(map: (λget houses … owner name) (get g streets))
+(map: (∘ (curry map (∘ (λget name) (λget owner))) (λget houses))
+        (get g streets))
+(map: (∘ (curry map (∘ string-length (λget name) (λget owner))) (λget houses))
+        (get g streets))
+
 ;; (map: (compose (curry map identity) (λget houses …)) (get g streets))
 ;; (map: (compose (λget houses …) (λ #:∀ (A) ([x : A]) x)) (get g streets))
 ;; (map: (compose (λget houses …) (curry map (λget owner))) (get g streets))
