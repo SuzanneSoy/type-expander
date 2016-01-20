@@ -53,22 +53,24 @@
 (define lp2-files (exclude-dirs (find-files-by-extension ".lp2.rkt")))
 (define rkt-files (exclude-dirs (find-files-by-extension ".rkt")))
 (define doc-sources (append scrbl-files lp2-files))
-(define html-files (map (λ ([scrbl-or-lp2 : Path])
-                          (build-path "docs/"
-                                      (regexp-case (path->string scrbl-or-lp2)
-                                                   [#rx"\\.scrbl"
-                                                    ".html"]
-                                                   [#rx"\\.lp2\\.rkt"
-                                                    ".lp2.html"])))
-                        doc-sources))
-(define pdf-files (map (λ ([scrbl-or-lp2 : Path])
-                         (build-path "docs/"
-                                     (regexp-case (path->string scrbl-or-lp2)
-                                                  [#rx"\\.scrbl"
-                                                   ".pdf"]
-                                                  [#rx"\\.lp2\\.rkt"
-                                                   ".lp2.pdf"])))
-                       doc-sources))
+(define html-files
+  (map (λ ([scrbl-or-lp2 : Path])
+         (build-path "docs/"
+                     (regexp-case (regexp-case (path->string scrbl-or-lp2)
+                                               [#rx"\\.scrbl$" ".html"]
+                                               [#rx"\\.lp2\\.rkt$" ".lp2.html"])
+                                  [#rx"^web/" ""]
+                                  [#rx"^" "docs/"])))
+       doc-sources))
+(define pdf-files
+  (map (λ ([scrbl-or-lp2 : Path])
+         (build-path "docs/"
+                     (regexp-case (regexp-case (path->string scrbl-or-lp2)
+                                               [#rx"\\.scrbl$" ".pdf"]
+                                               [#rx"\\.lp2\\.rkt$" ".lp2.pdf"])
+                                  [#rx"^web/" ""]
+                                  [#rx"^" "docs/"])))
+       doc-sources))
 (define mathjax-links (map (λ ([d : Path])
                              (build-path d "MathJax"))
                            (remove-duplicates (map dirname html-files))))
@@ -77,34 +79,37 @@
   ; TODO: add --html-tree <n> and '(other . "…") to be future-proof.
   (U "--html" "--htmls" "--latex" "--pdf" "--dvipdf" "--latex-section"
      "--text" "--markdown"))
-(: scribble (→ Path (Listof Path) ScribbleRenderers Any))
-(define (scribble file all-files renderer)
+(: scribble (→ Path Path (Listof Path) (Listof Path) ScribbleRenderers Any))
+(define (scribble file dest-file all-files all-dest-files renderer)
+  (define dest-dir (dirname dest-file))
+  (make-directory* dest-dir)
   (run `(,(find-executable-path-or-fail "scribble")
          ,renderer
-         "--dest" ,(build-path "docs/" (dirname file))
+         "--dest" ,dest-dir;,(build-path "docs/" (dirname file))
          "+m"
          "--redirect-main" "http://docs.racket-lang.org/"
-         "--info-out" ,(build-path "docs/" (path-append
-                                            (path-append file renderer)
-                                            ".sxref"))
-         ,@(append-map (λ ([f : Path-String]) : (Listof Path-String)
-                         (let ([sxref (build-path "docs/"
-                                                  (path-append
-                                                   (path-append f renderer)
-                                                   ".sxref"))])
+         "--info-out" ,(path-append
+                        dest-file
+                        ".sxref")
+         ,@(append-map (λ ([f : Path-String] [dst : Path-String])
+                         : (Listof Path-String)
+                         (let ([sxref (path-append dst ".sxref")])
                            (if (file-exists? sxref)
                                (list "++info-in" sxref)
                                (list))))
-                       (remove file all-files))
+                       (remove file all-files)
+                       (remove dest-file all-dest-files))
          ,file)))
 
-(: scribble-all (→ (Listof Path) ScribbleRenderers Any))
-(define (scribble-all files renderer)
+(: scribble-all (→ (Listof Path) (Listof Path) ScribbleRenderers Any))
+(define (scribble-all files dest-files renderer)
   ;; TODO: compile everything twice, so that the cross-references are correct.
-  (for ([f (in-list files)])
-    (scribble f files renderer))
-  (for ([f (in-list files)])
-    (scribble f files renderer)))
+  (for ([f (in-list files)]
+        [dst (in-list dest-files)])
+    (scribble f dst files dest-files renderer))
+  (for ([f (in-list files)]
+        [dst (in-list dest-files)])
+    (scribble f dst files dest-files renderer)))
 
 ;(make-collection "phc" rkt-files (argv))
 ;(make-collection "phc" '("graph/all-fields.rkt") #("zo"))
@@ -135,6 +140,31 @@
         "-j" "8"
         ,@rkt-files))
 
+;; Dependency graph, must be done before docs.
+(begin
+  (make-directory* "docs/")
+  (run! (list (find-executable-path-or-fail "racket")
+              "make/dependency-graph.rkt"
+              "graph/__DEBUG_graph__.rkt"
+              "docs/deps.dot"))
+  
+  (run! (list (find-executable-path-or-fail "dot")
+              "docs/deps.dot"
+              "-Tpng"
+              "-Nfontsize=12"
+              "-o" "docs/deps.png"))
+  
+  (run! (list (find-executable-path-or-fail "dot")
+              "docs/deps.dot"
+              "-Tsvg"
+              "-Nfontsize=12"
+              "-o" "docs/deps.svg"))
+  
+  (run! (list (find-executable-path-or-fail "dot")
+              "docs/deps.dot"
+              "-Tpdf"
+              "-o" "docs/deps.pdf")))
+
 (make/proc
  (rules (list "zo" (append html-files
                            pdf-files
@@ -144,13 +174,13 @@
           (html)
           (scrbl-or-lp2)
           #;(scribble (list scrbl-or-lp2) doc-sources "--html")
-          (scribble-all doc-sources "--html"))
+          (scribble-all doc-sources html-files "--html"))
         (for/rules ([scrbl-or-lp2 doc-sources]
                     [pdf pdf-files])
           (pdf)
           (scrbl-or-lp2)
           #;(scribble (list scrbl-or-lp2) doc-sources "--pdf")
-          (scribble-all doc-sources "--pdf"))
+          (scribble-all doc-sources pdf-files "--pdf"))
         (for/rules ([mathjax-link mathjax-links])
           (mathjax-link)
           ()
@@ -172,6 +202,7 @@
 
 (run! `(,(find-executable-path-or-fail "raco")
         "cover"
+        "-d" "./docs/coverage"
         "-s" "doc"
         "-s" "test"
         "-f" "html"
@@ -215,25 +246,3 @@
 EOF
             ))
 |#
-
-(run! (list (find-executable-path-or-fail "racket")
-            "make/dependency-graph.rkt"
-            "graph/__DEBUG_graph__.rkt"
-            "docs/deps.dot"))
-
-(run! (list (find-executable-path-or-fail "dot")
-            "docs/deps.dot"
-            "-Tpng"
-            "-Nfontsize=12"
-            "-o" "docs/deps.png"))
-
-(run! (list (find-executable-path-or-fail "dot")
-            "docs/deps.dot"
-            "-Tsvg"
-            "-Nfontsize=12"
-            "-o" "docs/deps.svg"))
-
-(run! (list (find-executable-path-or-fail "dot")
-            "docs/deps.dot"
-            "-Tpdf"
-            "-o" "docs/deps.pdf"))

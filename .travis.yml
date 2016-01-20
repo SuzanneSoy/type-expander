@@ -32,11 +32,6 @@ before_install:
 - latex newunicodechar.ins
 - mkdir -p "$latex_home/tex/latex/newunicodechar"
 - mv newunicodechar.sty "$latex_home/tex/latex/newunicodechar"
-- echo "Automatic push to gh-pages"
-- if test -e ~/gh-pages; then rm -rf ~/gh-pages; fi
-- git config --global user.name "Travis CI"
-- git config --global user.email "travis@nobody.com"
-- git init ~/gh-pages
 - echo "Temporary switch to my fork of cover:"
 - git clone https://github.com/jsmaniac/cover.git -b multiple-output-formats ~/cover-tool/cover
 - (cd ~/cover-tool/cover; raco pkg install --deps search-auto --update-deps --skip-installed)
@@ -54,8 +49,14 @@ script:
 - make
 
 after_script:
-- mv -i coverage docs ~/gh-pages
-- mv -i make/index.html.root ~/gh-pages/index.html
+- echo "Automatic push to gh-pages"
+- git config --global user.name "Travis CI"
+- git config --global user.email "travis@nobody.com"
+- if test -e ~/gh-pages; then rm -rf ~/gh-pages; fi
+#- mv -i coverage docs
+- mv -i docs ~/gh-pages
+- git init ~/gh-pages
+#- mv -i make/index.html.root ~/gh-pages/index.html
 - mkdir -p ~/gh-pages/lib/doc/MathJax
 - echo 'document.write("<script src=\"http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=default\"></script>");' > ~/gh-pages/lib/doc/MathJax/MathJax.js
 - touch ~/gh-pages/.nojekyll
