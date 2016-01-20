@@ -19,6 +19,18 @@
 (require (for-label (only-meta-in 0 typed/racket)))
 (provide (for-label (all-from-out typed/racket)))
 
+;; ==== remote images ====
+(provide remote-image)
+(require (only-in scribble/core make-style)
+         (only-in scribble/html-properties alt-tag attributes))
+(define (remote-image src alt)
+  (elem
+   #:style
+   (make-style #f
+               (list (alt-tag "img")
+                     (attributes
+                      `((src . ,src)
+                        (alt . ,alt)))))))
 
 ;; ==== hybrid footnotes/margin-note ====
 (provide note)

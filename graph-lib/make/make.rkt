@@ -3,37 +3,8 @@
 (require "lib.rkt")
 
 (displayln "Make started")
+
 ;(current-directory "..")
-
-; TODO:
-;raco pkg install alexis-util
-;And some other collections too.
-;
-;cat graph/structure.lp2.rkt \
-;| awk '{if (length > 80) print NR "\t" length "\t" $0}' \
-;| sed -e 's/^\([0-9]*\t[0-9]*\t.\{80\}\)\(.*\)$/\1\x1b[0;30;41m\2\x1b[m/'
-;
-;for i in `find \( -path ./lib/doc/bracket -prune -and -false \) \
-;           -or \( -name compiled -prune -and -false \) \
-;           -or -name '*.rkt'`;
-;  do
-;  x=`cat "$i" \
-;     | awk '{if (length > 80) print NR "\t" length "\t" $0}' \
-;     | sed -e 's/^\([0-9]*\t[0-9]*\t.\{80\}\)\(.*\)$/\1\x1b[0;30;41m\2\x1b[m/'`
-;     [ -n "$x" ] && echo -e "\033[1;31m$i:\033[m" && echo $x
-;  done
-
-#|
-"for i in `find \( -path ./lib/doc/bracket -prune -and -false \) \
-           -or \( -name compiled -prune -and -false \) \
-           -or -name '*.rkt'`;
-  do
-  x=`cat "$i" \
-     | awk '{if (length > 80) print NR "\t" length "\t" $0}' \
-     | sed -e 's/^\([0-9]*\t[0-9]*\t.\{80\}\)\(.*\)$/\1\x1b[0;30;41m\2\x1b[m/'`
-     [ -n "$x" ] && echo -e "\033[1;31m$i:\033[m" && echo $x
-  done"
-|#
 
 (run! (list (find-executable-path-or-fail "sh")
             "-c"
@@ -146,7 +117,7 @@
 
 ;; make-collection doesn't handle dependencies due to (require), so if a.rkt
 ;; requires b.rkt, and b.rkt is changed, a.rkt won't be rebuilt.
-;; Yhis re-compiles each-time, even when nothing was changed.
+;; This re-compiles each-time, even when nothing was changed.
 ;((compile-zos #f) rkt-files 'auto)
 
 ;; This does not work, because it tries to create the following directory:
@@ -213,3 +184,56 @@
 (run! `(,(find-executable-path-or-fail "bash")
         "make/make-indexes.sh"
         "docs/"))
+
+;; Old dependency graph
+#|
+(run! (list (find-executable-path-or-fail "bash")
+            "-c"
+            #<<EOF
+(
+  echo "digraph g {";
+  (
+    echo "(";
+    raco show-dependencies \
+      -x typed/racket -x racket/base -x racket \
+      -g graph/__DEBUG_graph__.rkt;
+      echo ")"
+  ) \
+  | racket -e '
+      (require racket/format)
+      (define (p l)
+        (if (null? l)
+          (void)
+          (begin
+            (for ([from (in-list (caddr l))])
+              (displayln (format "\"~a\" -> \"~a\"" from (car l))))
+            (p (cdddr l)))))
+      (p (read))
+    ';
+  echo "}") \
+  | dot -Tpdf -o docs/deps.pdf
+EOF
+            ))
+|#
+
+(run! (list (find-executable-path-or-fail "racket")
+            "make/dependency-graph.rkt"
+            "graph/__DEBUG_graph__.rkt"
+            "docs/deps.dot"))
+
+(run! (list (find-executable-path-or-fail "dot")
+            "docs/deps.dot"
+            "-Tpng"
+            "-Nfontsize=12"
+            "-o" "docs/deps.png"))
+
+(run! (list (find-executable-path-or-fail "dot")
+            "docs/deps.dot"
+            "-Tsvg"
+            "-Nfontsize=12"
+            "-o" "docs/deps.svg"))
+
+(run! (list (find-executable-path-or-fail "dot")
+            "docs/deps.dot"
+            "-Tpdf"
+            "-o" "docs/deps.pdf"))
