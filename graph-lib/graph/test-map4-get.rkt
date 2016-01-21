@@ -2,7 +2,6 @@
 
 (module test typed/racket
   (require (submod "graph3.lp2.rkt" test))
-  (require "graph3.lp2.rkt")
   (require "graph4.lp2.rkt")
   (require "map4.rkt")
   (require "structure.lp2.rkt")
