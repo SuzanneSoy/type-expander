@@ -226,12 +226,12 @@
                                 " "))
         (display "\033[1;34m")
         (flush-output)
-        (let ((result (apply system* arg0 args)))
+        (let ((exit-code (apply system*/exit-code arg0 args)))
           (display "\033[m")
           (flush-output)
-          (unless result
-            (raise "Command failed."))
-          result))))
+          (unless (= exit-code 0)
+            (raise (format "Command failed with exit code ~a." exit-code)))
+          (= exit-code 0)))))
 
 (define-syntax-rule (run! . rest) (let () (run . rest) (values)))
 

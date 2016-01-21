@@ -137,7 +137,7 @@
 
 (run! `(,(find-executable-path-or-fail "raco")
         "make"
-        "-j" "8"
+        "-j" "5"
         ,@rkt-files))
 
 ;; Create root MathJax link, must be done before the others
