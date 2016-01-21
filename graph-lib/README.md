@@ -1,5 +1,5 @@
-[![Build Status,](https://img.shields.io/travis/jsmaniac/phc.svg)](https://travis-ci.org/jsmaniac/phc)
-[![Coverage Status,](https://img.shields.io/coveralls/jsmaniac/phc)](https://coveralls.io/github/jsmaniac/phc)
+[![Build Status,](https://img.shields.io/travis/jsmaniac/phc/master.svg)](https://travis-ci.org/jsmaniac/phc)
+[![Coverage Status,](https://img.shields.io/coveralls/jsmaniac/phc/master.svg)](https://coveralls.io/github/jsmaniac/phc)
 [![Online Documentation.](https://img.shields.io/badge/docs-online-brightgreen.svg)](http://jsmaniac.github.io/phc/)
 
 This project is written in Typed/Racket using Literate Programming. See the
