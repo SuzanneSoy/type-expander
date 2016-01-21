@@ -1,5 +1,10 @@
-[![Build Status](https://travis-ci.org/jsmaniac/phc.png?branch=master)](https://travis-ci.org/jsmaniac/phc)
-[![Coverage Status](https://coveralls.io/repos/jsmaniac/phc/badge.svg?branch=master&service=github)](https://coveralls.io/github/jsmaniac/phc?branch=master)
+[![Build Status](https://img.shields.io/travis/jsmaniac/phc.svg)](https://travis-ci.org/jsmaniac/phc)
+[![Coverage Status](https://img.shields.io/coveralls/jsmaniac/phc)](https://coveralls.io/github/jsmaniac/phc)
+[![Online Documentation](https://img.shields.io/badge/docs-online-brightgreen.svg)](http://jsmaniac.github.io/phc/)
+
+This project is written in Racket using Literate Programming. See the
+[online documentation](http://jsmaniac.github.io/phc/) if you want to dig into
+the source.
 
 How to build this project
 =========================

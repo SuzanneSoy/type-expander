@@ -5,11 +5,10 @@
 @title[#:style manual-doc-style]{Ph.C}
 
 @hyperlink["https://travis-ci.org/jsmaniac/phc"]{
- @remote-image["https://travis-ci.org/jsmaniac/phc.png?branch=master"]{
+ @remote-image["https://img.shields.io/travis/jsmaniac/phc.svg"]{
   Build Status}}
 @hyperlink["https://coveralls.io/github/jsmaniac/phc?branch=master"]{
- @remote-image[(string-append "https://coveralls.io/repos/github/jsmaniac/phc/"
-                              "badge.svg?branch=master")]{
+ @remote-image["https://img.shields.io/coveralls/jsmaniac/phc.svg")]{
   Coverage Status}}
 
 @;@(table-of-contents)
