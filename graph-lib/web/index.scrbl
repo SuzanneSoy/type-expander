@@ -8,7 +8,7 @@
  @remote-image["https://img.shields.io/travis/jsmaniac/phc.svg"]{
   Build Status}}
 @hyperlink["https://coveralls.io/github/jsmaniac/phc?branch=master"]{
- @remote-image["https://img.shields.io/coveralls/jsmaniac/phc.svg")]{
+ @remote-image["https://img.shields.io/coveralls/jsmaniac/phc.svg"]{
   Coverage Status}}
 
 @;@(table-of-contents)

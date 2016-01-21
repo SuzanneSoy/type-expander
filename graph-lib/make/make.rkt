@@ -152,7 +152,7 @@
 (begin
   (run! (list (find-executable-path-or-fail "racket")
               "make/dependency-graph.rkt"
-              "graph/__DEBUG_graph__.rkt"
+              "main.rkt"
               "docs/deps.dot"))
   
   (run! (list (find-executable-path-or-fail "dot")
@@ -241,7 +241,7 @@
     echo "(";
     raco show-dependencies \
       -x typed/racket -x racket/base -x racket \
-      -g graph/__DEBUG_graph__.rkt;
+      -g main.rkt;
       echo ")"
   ) \
   | racket -e '
