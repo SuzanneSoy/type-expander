@@ -1,5 +1,8 @@
 #lang racket
 
+;; TODO: use (or (file-exists? path) (directory-exists? path)
+;; (link-exists? path)), when checking whether the output was created.
+
 (require (for-syntax syntax/parse)
          rackunit)
 

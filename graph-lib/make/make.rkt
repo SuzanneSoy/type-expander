@@ -143,8 +143,9 @@
 ;; Create root MathJax link, must be done before the others
 ;; Otherwise make/proc thinks the (broken) link hasn't been created.
 (make-directory* "docs/") ;; docs/ must be created before Depencency graph too
-(make-file-or-directory-link (build-path 'up "lib" "doc" "MathJax")
-                             (build-path "docs" "MathJax"))
+(unless (link-exists? (build-path "docs" "MathJax"))
+  (make-file-or-directory-link (build-path 'up "lib" "doc" "MathJax")
+                               (build-path "docs" "MathJax")))
 
 
 ;; Dependency graph, must be done before docs.
