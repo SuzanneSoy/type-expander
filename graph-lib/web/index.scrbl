@@ -1,15 +1,19 @@
 #lang scribble/manual
 @(require "../lib/doc.rkt")
+@(require "../lib/doc/fork.rkt")
 @doc-lib-setup
 
 @title[#:style manual-doc-style]{Ph.C}
 
+@forkongithub["https://github.com/jsmaniac/phc/"]{Fork me on GitHub!}
+
 @hyperlink["https://travis-ci.org/jsmaniac/phc"]{
  @remote-image["https://img.shields.io/travis/jsmaniac/phc.svg"]{
-  Build Status}}
+  Build Status,}}
 @hyperlink["https://coveralls.io/github/jsmaniac/phc?branch=master"]{
  @remote-image["https://img.shields.io/coveralls/jsmaniac/phc.svg"]{
-  Coverage Status}}
+  Coverage Status.}}
+
 
 @;@(table-of-contents)
 
