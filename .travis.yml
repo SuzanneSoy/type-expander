@@ -49,7 +49,7 @@ install:
 script:
 - make
 
-after_script:
+after_success:
 - echo "Automatic push to gh-pages"
 - git config --global user.name "Travis CI"
 - git config --global user.email "travis@nobody.com"
@@ -62,3 +62,5 @@ after_script:
 - touch ~/gh-pages/.nojekyll
 - (cd ~/gh-pages && git add -A . && git commit -m "Auto-publish to gh-pages")
 - (cd ~/gh-pages; git push --force --quiet "https://${GH_TOKEN}@github.com/jsmaniac/phc.git" master:gh-pages >/dev/null 2>&1 || true) # redirect to /dev/null to avoid showing credentials.
+
+after_script:
