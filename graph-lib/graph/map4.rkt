@@ -4,7 +4,6 @@
                      racket/function
                      syntax/stx
                      syntax/parse
-                     syntax/parse/experimental/template
                      "../lib/low-untyped.rkt")
          "../lib/low.rkt"
          "graph4.lp2.rkt"
@@ -51,14 +50,23 @@
   (syntax-parse stx
     [(_ {∀-type:id …} A:expr B:expr 0)
      #'(ann (λ (f x) (f x))
-            (∀ (∀-type …) (→ (→ A B) A B)))]
+            (∀ (∀-type …)
+               (→ (→ A B) A B)
+               ;; Use the type below to allow identity functions, but it's more
+               ;; heavy on the typechecker
+               #;(case→ (→ (→ A B) A B)
+                        (→ (→ A A) A A))))]
     [(_ (~and norun #:norun) … {∀-type:id …} A:expr B:expr d:≥0)
      (define/with-syntax local-map (generate-temporary #'map))
      #`(dbg norun …
             (let ()
-              (: local-map (∀ (∀-type …) (→ (→ A B)
-                                            (Deep-Listof d A)
-                                            (Deep-Listof d B))))
+              (: local-map
+                 (∀ (∀-type …)
+                    (→ (→ A B) (Deep-Listof d A) (Deep-Listof d B))
+                    ;; Use the type below to allow identity functions, but it's
+                    ;; more heavy on the typechecker
+                    #;(case→ (→ (→ A B) (Deep-Listof d A) (Deep-Listof d B))
+                             (→ (→ A A) (Deep-Listof d A) (Deep-Listof d A)))))
               (define (local-map f l)
                 (if (null? l)
                     '()
@@ -170,10 +178,12 @@
   (syntax-parse stx
     [((~literal curry) (~literal map) f:expr)
      (transform-map: (add1 depth) #'f)]
-    [((~literal ∘) f:expr …)
+    [((~literal compose) f:expr …)
      (define/syntax-parse (([dd ff] …) …)
        (stx-map (curry transform-map: depth) #'(f …)))
      #`[(dd ff) … …]]
+    [(~literal identity) #'[]]
+    [(~literal values) #'[]]
     [f:expr
      #`[(#,depth f)]]))
 
@@ -195,3 +205,150 @@
                        '([1 2] [3]))
                  : (Listof Number)
                  '(3 2)))
+
+(module+ test
+  ;(require (submod "..")
+  ;         "../lib/low.rkt")
+  
+  (check-equal?: (map: add1 '(1 2 3))
+                 : (Listof Number)
+                 '(2 3 4))
+  (check-equal?: (map: (compose add1) '(1 2 3))
+                 : (Listof Number)
+                 '(2 3 4))
+  (check-equal?: (map: (∘ identity add1) '(1 2 3))
+                 : (Listof Number)
+                 '(2 3 4))
+  (check-equal?: (map: (∘ add1 identity) '(1 2 3))
+                 : (Listof Number)
+                 '(2 3 4))
+  (check-equal?: (map: (∘ number->string add1) '(1 2 9))
+                 : (Listof String)
+                 '("2" "3" "10"))
+  (check-equal?: (map: (∘ string-length number->string add1) '(1 2 9))
+                 : (Listof Number)
+                 '(1 1 2))
+  (check-equal?: (map: car '((1 2) (2) (9 10 11)))
+                 : (Listof Number)
+                 '(1 2 9))
+  (check-equal?: (map: (∘ add1 car) '((1 2) (2) (9 10 11)))
+                 : (Listof Number)
+                 '(2 3 10))
+  (check-equal?: (map: (∘ string-length number->string add1 car cdr)
+                       '((1 2) (2 3) (8 9 10)))
+                 : (Listof Number)
+                 '(1 1 2))
+  (check-equal?: (map: identity '(1 2 3))
+                 : (Listof Number)
+                 '(1 2 3))
+  (check-equal?: (map: values '(1 2 3))
+                 : (Listof Number)
+                 '(1 2 3))
+  (check-equal?: (map: (compose) '(1 2 3))
+                 : (Listof Number)
+                 '(1 2 3))
+  (check-equal?: (map: (compose identity) '(1 2 3))
+                 : (Listof Number)
+                 '(1 2 3))
+  (check-equal?: (map: (∘ identity values identity values) '(1 2 3))
+                 : (Listof Number)
+                 '(1 2 3))
+  (check-equal?: (map: (∘ length (curry map add1)) '((1 2) (3)))
+                 : (Listof Number)
+                 '(2 1))
+  (check-equal?: (map: (curry map add1) '((1 2) (3)))
+                 : (Listof (Listof Number))
+                 '((2 3) (4)))
+  
+  (define (numlist [x : Number]) (list x))
+  (check-equal?: (map: (∘ (curry map add1) numlist) '(1 2 3))
+                 : (Listof (Listof Number))
+                 '((2) (3) (4)))
+  
+  (check-equal?: (map: (∘ (curry map add1) (λ ([x : Number]) (list x)))
+                       '(1 2 3))
+                 : (Listof (Listof Number))
+                 '((2) (3) (4)))
+  
+  (begin
+    ;; Some of the tests below use (curry map: …), and don't work, because
+    ;; typed/racket wraps the map: identifier with a contract, so the identifier
+    ;; seen outside the module is not the same as the one used in the
+    ;; syntax-parse ~literal clause.
+    
+    (check-equal?: (map: (curry map add1) '((1 2 3) (4 5)))
+                   : (Listof (Listof Number))
+                   '((2 3 4) (5 6)))
+    #;(check-equal?: (map: (curry map: add1) '((1 2 3) (4 5)))
+                     : (Listof (Listof Number))
+                     '((2 3 4) (5 6)))
+    
+    (check-equal?: (map: (curry map (compose number->string add1))
+                         '((1 2 3) (4 5)))
+                   : (Listof (Listof String))
+                   '(("2" "3" "4") ("5" "6")))
+    #;(check-equal?: (map: (curry map: (compose number->string add1))
+                           '((1 2 3) (4 5)))
+                     : (Listof (Listof String))
+                     '(("2" "3" "4") ("5" "6")))
+    
+    (check-equal?: (map: add1 '(1 2 3))
+                   : (Listof Number)
+                   '(2 3 4))
+    
+    (check-equal?: (map: car '((1 a) (2 b) (3 c)))
+                   : (Listof Number)
+                   '(1 2 3))
+    
+    (check-equal?: (map: (curry map car) '([{1 a} {2 b}] [{3 c}]))
+                   : (Listof (Listof Number))
+                   '([1 2] [3]))
+    #;(check-equal?: (map: (curry map: car) '([{1 a} {2 b}] [{3 c}]))
+                     : (Listof (Listof Number))
+                     '([1 2] [3]))
+    
+    (check-equal?: (map: (curry map (curry map car))
+                         '([((1 a) (2 b)) ((3 c))] [((4))]))
+                   : (Listof (Listof (Listof Number)))
+                   '([(1 2) (3)] [(4)]))
+    #;(check-equal?: (map: (curry map (curry map: car))
+                           '([((1 a) (2 b)) ((3 c))] [((4))]))
+                     : (Listof (Listof (Listof Number)))
+                     '([(1 2) (3)] [(4)]))
+    #;(check-equal?: (map: (curry map: (curry map car))
+                           '([((1 a) (2 b)) ((3 c))] [((4))]))
+                     : (Listof (Listof (Listof Number)))
+                     '([(1 2) (3)] [(4)]))
+    #;(check-equal?: (map: (curry map: (curry map: car))
+                           '([((1 a) (2 b)) ((3 c))] [((4))]))
+                     : (Listof (Listof (Listof Number)))
+                     '([(1 2) (3)] [(4)])))
+  
+  (check-equal?: (map: car '((1 b x) (2 c) (3 d)))
+                 : (Listof Number)
+                 '(1 2 3))
+  (check-equal?: (map: cdr '((1 b x) (2 c) (3 d)))
+                 : (Listof (Listof Symbol))
+                 '((b x) (c) (d)))
+  (check-equal?: (map: car (map: cdr '((1 b x) (2 c) (3 d))))
+                 : (Listof Symbol)
+                 '(b c d))
+  (check-equal?: (map: (compose) '((1 b x) (2 c) (3 d)))
+                 : (Listof (Listof (U Number Symbol)))
+                 '((1 b x) (2 c) (3 d)))
+  (check-equal?: (map: (compose car) '((1 b x) (2 c) (3 d)))
+                 : (Listof Number)
+                 '(1 2 3))
+  (check-equal?: (map: (compose cdr) '((1 b x) (2 c) (3 d)))
+                 : (Listof (Listof Symbol))
+                 '((b x) (c) (d)))
+  (check-equal?: (map: (compose car cdr) '((1 b x) (2 c) (3 d)))
+                 : (Listof Symbol)
+                 '(b c d))
+  (check-equal?: (map: (compose add1 car) '((1 b x) (2 c) (3 d)))
+                 : (Listof Number)
+                 '(2 3 4))
+  #|
+  (check-equal?: (map: + '(1 2 3) '(4 5 6))
+                 : (Listof Number)
+                 '(5 7 9))|#)

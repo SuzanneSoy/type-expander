@@ -291,12 +291,12 @@
                      : (Listof Number)
                      '(1 2 3))
       
-      (check-equal?: (map: (curry map car) '([(1 a) (2 b)] [(3 c)]))
-                     : (Listof Number)
-                     '((1 a) (3 c)))
-      #;(check-equal?: (map: (curry map: car) '([(1 a) (2 b)] [(3 c)]))
-                       : (Listof Number)
-                       '((1 a) (3 c)))
+      (check-equal?: (map: (curry map car) '([{1 a} {2 b}] [{3 c}]))
+                     : (Listof (Listof Number))
+                     '([1 2] [3]))
+      #;(check-equal?: (map: (curry map: car) '([{1 a} {2 b}] [{3 c}]))
+                       : (Listof (Listof Number))
+                       '([1 2] [3]))
       
       (check-equal?: (map: (curry map (curry map car))
                            '([((1 a) (2 b)) ((3 c))] [((4))]))
