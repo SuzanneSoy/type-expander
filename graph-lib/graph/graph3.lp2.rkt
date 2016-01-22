@@ -602,8 +602,6 @@ are replaced by tagged indices:
                                            (vector-ref root/database 0))])
                   (delay root/with-promises)))))))]
 
-@section{Conclusion}
-
 @chunk[<module-main>
        (module main typed/racket
          (require (for-syntax syntax/parse
@@ -644,6 +642,8 @@ not match the one from @tc[typed/racket]
          
          (provide g)
          <use-example>)]
+
+The whole file, finally:
 
 @chunk[<*>
        (begin

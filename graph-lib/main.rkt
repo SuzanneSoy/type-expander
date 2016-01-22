@@ -1,7 +1,7 @@
 #lang typed/racket
 
 (require (submod "graph/test-map4-get.rkt" test))
-(require "__DEBUG_dotlang.rkt")
+(require (submod "graph/dotlang.rkt" test))
 
 (require "type-expander/type-expander.lp2.rkt")
 (require "type-expander/multi-id.lp2.rkt")
