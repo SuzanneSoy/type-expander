@@ -8,8 +8,9 @@
                        #%module-begin)
            (rename-out #;[new-#%top #%top]
                        [new-#%module-begin #%module-begin]))
+    
   
-  (require "graph4.lp2.rkt"
+  (require "get.lp2.rkt"
            "../lib/low-untyped.rkt"
            (for-syntax racket/string
                        syntax/parse
@@ -46,7 +47,7 @@
   
   (define-syntax (new-#%module-begin stx)
     (syntax-case stx ()
-      [(_  . body)
+      [(_ . body)
        #`(#%module-begin
           . #,(fold-syntax replace-dots
                            #'body))]))
@@ -108,10 +109,10 @@
 (module test (submod ".." dotlang)
   (require typed/rackunit
            "../lib/low.rkt"
-           "graph4.lp2.rkt"
-           (submod "graph3.lp2.rkt" test)
-           "map4.rkt")
-  
+           "get.lp2.rkt"
+           (submod "graph.lp2.rkt" test)
+           "map.rkt")
+
   (let ((foo..bar 42))
     (check-equal?: foo..bar 42))
   
