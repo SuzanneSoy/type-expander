@@ -1,9 +1,9 @@
 .PHONY: all
-all: make/make
-	make/make
+all: make/compiled/make_rkt.zo
+	racket make/make.rkt
 
-make/make: make/make.rkt make/lib.rkt
-	raco exe make/make.rkt
+make/compiled/make_rkt.zo: make/make.rkt make/lib.rkt
+	raco make make/make.rkt
 
 .PHONY: clean
 clean:
