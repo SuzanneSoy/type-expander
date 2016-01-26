@@ -1,10 +1,13 @@
-#lang typed/racket
+#lang s-exp "lib.rkt"
 
-(require (submod "graph/test-map4-get.rkt" test))
+#|
+(require (submod "graph/test-map-get.rkt" test))
+(require (submod "graph/dotlang.rkt" test))
 
 (require "type-expander/type-expander.lp2.rkt")
 (require "type-expander/multi-id.lp2.rkt")
 (require "graph/variant.lp2.rkt")
+|#
 
 (define-type from (List (Pairof Number Boolean)
                         (Listof (U Number (Pairof Number String)))))

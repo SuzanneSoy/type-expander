@@ -6,7 +6,7 @@
                      syntax/parse/experimental/template
                      "../lib/low-untyped.rkt")
          "../lib/low.rkt"
-         "graph4.lp2.rkt"
+         "get.lp2.rkt"
          "../type-expander/type-expander.lp2.rkt")
 
 ;; TODO: DEBUG

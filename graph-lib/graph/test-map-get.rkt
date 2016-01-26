@@ -1,10 +1,9 @@
 #lang typed/racket
 
 (module test typed/racket
-  (require (submod "graph3.lp2.rkt" test))
-  (require "graph3.lp2.rkt")
-  (require "graph4.lp2.rkt")
-  (require "map4.rkt")
+  (require (submod "graph.lp2.rkt" test))
+  (require "get.lp2.rkt")
+  (require "map.rkt")
   (require "structure.lp2.rkt")
   (require "variant.lp2.rkt")
   (require "../lib/low.rkt")
