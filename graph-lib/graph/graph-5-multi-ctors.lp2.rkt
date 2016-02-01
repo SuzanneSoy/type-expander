@@ -57,6 +57,8 @@ And @tc[<mapping-declaration>] is:
            (stx-map (λ (mr) (cdr-assoc-syntax mr #'([node . node/mapping] …)))
                     #'(result-node …)))
          (define/with-syntax all-nodes #'(node …))
+         (define/with-syntax (root-node . _) #'(result-node …))
+         (define/with-syntax (root-mapping . _) #'(mapping …))
          
          ; TODO: we should order the graph's nodes so that the root is
          ; the first one! (or add a #:root)
@@ -72,9 +74,16 @@ And @tc[<mapping-declaration>] is:
                    (λ (stx)
                      (syntax-case stx ()
                        [(_ . rest) #'(name/wrapped . rest)]))
-                   #:else-id name/constructor)
+                   #:call (λ (stx)
+                            (syntax-parse stx
+                              [(_ . rest)
+                               (syntax/loc stx
+                                 (name/constructor . rest))]))
+                   #:id (λ (stx)
+                          (syntax/loc stx name/constructor)))
                  (define (name/constructor [root-param : root-param-type] …)
-                   (list name/wrapped root-param …))
+                   (name/wrapped #:root root-node (list 'root-mapping
+                                                        root-param …)))
                  <define-mappings>)
                 [node [field c field-type] …
                  ((node/mapping [node/arg : <node-arg-type>])

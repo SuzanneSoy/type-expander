@@ -2,8 +2,6 @@
 @(require "../lib/doc.rkt")
 @doc-lib-setup
 
-@(define (comment . _) "")
-
 @title[#:style manual-doc-style]{Graph library}
 
 @(table-of-contents)
@@ -207,7 +205,8 @@ We derive identifiers for these based on the @tc[node] name:
        (define/with-syntax ((root-param …) . _) #'((param …) …))
        (define/with-syntax ((root-param-type …) . _) #'((param-type …) …))
        
-       (define-temp-ids "~a/constructor" name)
+       (define-temp-ids "~a/main-constructor" name)
+       (define-temp-ids "~a/constructor" (node …) #:first-base root)
        (define-temp-ids "~a/make-placeholder" (node …) #:first-base root)
        (define-temp-ids "~a/placeholder-type" (node …))
        (define-temp-ids "~a/placeholder-tag" (node …))
@@ -301,7 +300,8 @@ two values: the result of processing the element, and the latest version of
 @tc[Δ-queues], which stores the new elements to be added to the queue.
 
 @chunk[<fold-queues>
-       (fold-queues <root-placeholder>
+       (fold-queues #:root queue-name
+                    placeholder
                     [(node/placeholder-queue [e : <fold-queue-type-element>]
                                              [Δ-queues : Δ-Queues]
                                              enqueue)
@@ -369,7 +369,6 @@ that node's @tc[with-promises] type.
 @; TODO: use a type-expander here, instead of a template metafunction.
 
 @CHUNK[<define-with-promises>
-       
        (define-type node/with-promises-type
          (tagged node/with-promises-tag
                  [field : <field/with-promises-type>] …))
@@ -544,43 +543,6 @@ are replaced by tagged indices:
 
 @;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-@comment[#|
- @subsection{Converting incomplete nodes to with-promises ones}
-  
- @chunk[<convert-incomplete-to-with-promises>
- [node/incomplete-type
- node/with-promises-type
- (λ (x) (and (pair? x) (eq? (car x) 'node/incomplete-tag)))
- (λ ([x : node/incomplete-type] [acc : Void])
- <convert-incomplete-successor>)]]
- 
- @chunk[<convert-placeholder-to-with-promises>
- [mapping/placeholder-type
- (tmpl-replace-in-type result-type [node node/with-promises-type] …)
- (λ (x) (and (pair? x) (eq? (car x) 'mapping/placeholder-tag)))
- (λ ([x : mapping/placeholder-type] [acc : Void])
- <convert-placeholder-successor>)]]
- 
- @; TODO: this would be much simpler if we forced having only one mapping per
- @; node, and extended that with a macro.
- 
- @chunk[<define-compatible-mappings>
- (define/with-syntax ((node/compatible-mappings ...) ...)
- (for/list ([x (in-syntax #'(node ...))])
- (multiassoc-syntax
- x
- #'([result-type . mapping]
- …))))]
- 
- @chunk[<convert-incomplete-successor>
- (error (~a "Not implemented yet " x))]
- 
- @chunk[<convert-placeholder-successor>
- (% index new-Δ-queues = (enqueue 'mapping/placeholder-tag x Δ-queues)
- (list 'mapping/placeholder-tag index)
- (error (~a "Not implemented yet " x)))]
- |#]
-
 @section{Referencing the type of nodes}
 
 The identifier defined by @tc[define-graph] will both act as a constuctor for
@@ -624,7 +586,21 @@ We will be able to use this type expander in function types, for example:
              
              (define-multi-id name
                #:type-expander <graph-type-expander>
-               #:else-id name/constructor)
+               #:call (λ (stx)
+                        (syntax-parse stx
+                          ;; TODO: move this to a dot expander, so that writing
+                          ;; g.a gives a constructor for the a node of g, and
+                          ;; (g.a foo bar) or (let ((c .g.a)) (c foo bar)) both
+                          ;; call it
+                          [(_ #:λroot (~datum node))
+                           #'node/constructor]
+                          …
+                          [(_ #:root (~datum node) . rest)
+                           (syntax/loc stx (node/constructor . rest))]
+                          …
+                          [(_ . rest)
+                           (syntax/loc stx (root/constructor . rest))]))
+               #:id (λ (stx) #'root/constructor))
              
              (?? (splicing-let ([mapping node/make-placeholder]
                                 …
@@ -633,14 +609,25 @@ We will be able to use this type expander in function types, for example:
                    extra-definition
                    …))
              
-             (: name/constructor (→ root-param-type …
-                                    (Promise root/with-promises-type)))
-             (define (name/constructor root-param …)
-               (match-let ([(list node/database …) <fold-queues>])
-                 (begin <define-with-indices→with-promises>) …
-                 (let ([root/with-promises (root/with-indices→with-promises
-                                            (vector-ref root/database 0))])
-                   (delay root/with-promises))))))))]
+             (: fq (case→ (→ 'node/placeholder-queue node/placeholder-type
+                             (List (Vectorof node/with-indices-type) …))
+                          …))
+             (define (fq queue-name placeholder)
+               <fold-queues>)
+             
+             <constructors>))))]
+
+@chunk[<constructors>
+       (begin
+         (: node/constructor (→ param-type … (Promise node/with-promises-type)))
+         (define (node/constructor param …)
+           (match-let ([(list node/database …)
+                        (fq 'node/placeholder-queue
+                            (node/make-placeholder param …))])
+             (begin <define-with-indices→with-promises>) …
+             (delay (node/with-indices→with-promises
+                     (vector-ref node/database 0))))))
+       …]
 
 @chunk[<module-main>
        (module main typed/racket

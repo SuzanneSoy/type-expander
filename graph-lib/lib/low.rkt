@@ -1424,7 +1424,11 @@
 ;; ==== low/typed-not-implemented-yet.rkt ====
 
 (provide ?)
-(define-syntax-rule (? t . rest) ((λ () : t (error "Not implemented yet")
-                                    . rest)))
+(define-syntax (? stx)
+  (syntax-case stx ()
+    [(q t . rest)
+     (quasisyntax/loc stx
+       ((λ () : t #,(syntax/loc #'q (error "Not implemented yet"))
+          . rest)))]))
 
 ;; ==== end ====

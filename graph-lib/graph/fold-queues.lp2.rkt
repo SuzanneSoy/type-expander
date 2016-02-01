@@ -20,7 +20,7 @@
                      . body]
                     …
                     (~parse (root-name . _)
-                            (template ((?? root-spec) name …))))]
+                            (template ((?? root-spec) 'name …))))]
 
 @chunk[<enqueue-type>
        (case→ (→ 'name
@@ -209,7 +209,7 @@ position in the vector equal to the index associated to it in the hash table:
                  …
                  [else (Δ-results-to-vectors results)])))
        
-       (% index Δ-hash = (Δ-hash2-enqueue 'root-name root-value Δ-hash2-empty)
+       (% index Δ-hash = (Δ-hash2-enqueue root-name root-value Δ-hash2-empty)
           (process-queues Δ-hash Δ-results-empty))]
 
 @chunk[<process-queue>
