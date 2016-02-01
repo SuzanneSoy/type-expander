@@ -1,4 +1,4 @@
-#lang debug scribble/lp2
+#lang scribble/lp2
 @(require "../lib/doc.rkt")
 @doc-lib-setup
 
@@ -11,14 +11,16 @@
 @section{Implementation}
 
 @chunk[<fold-queues-signature>
-       (fold-queues root-value
+       (fold-queues (~maybe #:root root-spec)
+                    root-value
                     [(name [element :colon Element-Type]
                            [Δ-queues :colon Δ-Queues-Type-Name]
                            enqueue)
                      :colon Result-Type
                      . body]
                     …
-                    (~parse (root-name . _) #'(name …)))]
+                    (~parse (root-name . _)
+                            (template ((?? root-spec) name …))))]
 
 @chunk[<enqueue-type>
        (case→ (→ 'name
@@ -46,9 +48,7 @@
 
 @chunk[<fold-queue-multi-sets-immutable-tags>
        (define-syntax/parse <fold-queues-signature>
-         ;<define-queues-type>
          <define-ids>
-         #|((λ (x) (pretty-write (syntax->datum x)) x)|#
          #'(let ()
              (begin
                (: name/process-element <process-element-type>)
@@ -276,8 +276,8 @@ added to the @tc[Δ-Hash] since its creation from a simple @tc[HashTable].
 @chunk[<module-main>
        (module main typed/racket
          (require (for-syntax syntax/parse
+                              syntax/parse/experimental/template
                               racket/syntax
-                              racket/pretty; DEBUG
                               "../lib/low-untyped.rkt")
                   "../lib/low.rkt"
                   "../type-expander/type-expander.lp2.rkt")
@@ -293,7 +293,7 @@ added to the @tc[Δ-Hash] since its creation from a simple @tc[HashTable].
          (require (submod "..")
                   typed/rackunit)
          
-         #| TODO |#)]
+         #| TODO: tests |#)]
 
 @chunk[<*>
        (begin

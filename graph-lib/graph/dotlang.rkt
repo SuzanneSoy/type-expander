@@ -55,7 +55,7 @@
   (define-for-syntax (replace-dots stx)
     (syntax-parse stx
       [x:id
-       #:when (regexp-match #px"^.*\\..*[^.]$"
+       #:when (regexp-match #px"^.*[.…].*[^.…]$"
                             (symbol->string (syntax-e #'x)))
        (let* ([str (symbol->string (syntax-e #'x))]
               [components (regexp-match* #px"([^.…]|\\.\\.+)+|…" str)]
@@ -152,6 +152,9 @@
   (check-equal?: 'aa…bb..cc.d (list 'get 'aa '… (slen 5 "bb.cc") 'd))
   (check-equal?: 'aa.….bb..cc.d (list 'get 'aa '… (slen 5 "bb.cc") 'd))
   (check-equal?: 'aa.….bb.cc.d (list 'get 'aa '… 'bb 'cc 'd))
+
+  (check-equal?: 'aa…bb (list 'get 'aa '… 'bb))
+  (check-equal?: 'aa… (slen 2 "a…"))
   
   (check-equal?: '… (slen 1 "…"))
   

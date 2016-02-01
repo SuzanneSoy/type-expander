@@ -1,4 +1,4 @@
-#lang debug scribble/lp2
+#lang scribble/lp2
 @(require "../lib/doc.rkt")
 @doc-lib-setup
 
@@ -111,9 +111,9 @@ that it first takes the node types and mappings, and produces a lambda taking
 the root arguments as parameters.
 
 @chunk[<use-example>
-       (define-graph make-g <example-variants>)
-       #;(define g (make-g <example-root>))
-       (define g1 (make-g <example-root>))
+       (define-graph gr <example-variants>)
+       #;(define g (gr <example-root>))
+       (define g1 (gr <example-root>))
        (define g g1)]
 
 @subsection{More details on the semantics}
@@ -157,6 +157,8 @@ wrapper macros.
 
 @chunk[<signature>
        (define-graph name
+         (~optional (~and debug #:debug))
+         (~maybe #:definitions (extra-definition:expr …))
          [node <field-signature> … <mapping-declaration>]
          …)]
 
@@ -205,6 +207,7 @@ We derive identifiers for these based on the @tc[node] name:
        (define/with-syntax ((root-param …) . _) #'((param …) …))
        (define/with-syntax ((root-param-type …) . _) #'((param-type …) …))
        
+       (define-temp-ids "~a/constructor" name)
        (define-temp-ids "~a/make-placeholder" (node …) #:first-base root)
        (define-temp-ids "~a/placeholder-type" (node …))
        (define-temp-ids "~a/placeholder-tag" (node …))
@@ -578,29 +581,66 @@ are replaced by tagged indices:
  (error (~a "Not implemented yet " x)))]
  |#]
 
+@section{Referencing the type of nodes}
+
+The identifier defined by @tc[define-graph] will both act as a constuctor for
+graph instances, and as a type-expander, that we will use to reference the node
+types. We will thus be able to refer to the type of Street nodes in our example
+via @tc[(g Street)].
+
+@chunk[<graph-type-expander>
+       (λ (stx)
+         (syntax-parse stx
+           [(_ (~datum node)) #'node/with-promises-type]
+           …
+           [(_ #:incomplete (~datum node)) #'node/incomplete-type]
+           …))]
+
+We will be able to use this type expander in function types, for example:
+
+@chunk[<type-example>
+       (λ ([x : (gr Street)])
+         x)]
+
 @section{Putting it all together}
 
 @chunk[<define-graph>
        (define-syntax/parse <signature>
          <define-ids>
-         #|((λ (x) (pretty-write (syntax->datum x)) x)|#
-         (template
-          ;(let ()
-          (begin
-            (begin <define-placeholder-type>) …
-            (begin <define-make-placeholder>) …
-            (begin <define-with-indices>) …
-            (begin <define-with-promises>) …
-            (begin <define-incomplete>) …
-            (begin <define-mapping-function>) …
-
-            (: name (→ root-param-type … (Promise root/with-promises-type)))
-            (define (name root-param …)
-              (match-let ([(list node/database …) <fold-queues>])
-                (begin <define-with-indices→with-promises>) …
-                (let ([root/with-promises (root/with-indices→with-promises
-                                           (vector-ref root/database 0))])
-                  (delay root/with-promises)))))))]
+         ((λ (x)
+            (when (attribute debug)
+              (pretty-write (syntax->datum x)))
+            x)
+          (template
+           ;(let ()
+           (begin
+             (begin <define-placeholder-type>) …
+             (begin <define-make-placeholder>) …
+             (begin <define-with-indices>) …
+             (begin <define-with-promises>) …
+             (begin <define-incomplete>) …
+             
+             (begin <define-mapping-function>) …
+             
+             (define-multi-id name
+               #:type-expander <graph-type-expander>
+               #:else-id name/constructor)
+             
+             (?? (splicing-let ([mapping node/make-placeholder]
+                                …
+                                [node node/make-incomplete]
+                                …)
+                   extra-definition
+                   …))
+             
+             (: name/constructor (→ root-param-type …
+                                    (Promise root/with-promises-type)))
+             (define (name/constructor root-param …)
+               (match-let ([(list node/database …) <fold-queues>])
+                 (begin <define-with-indices→with-promises>) …
+                 (let ([root/with-promises (root/with-indices→with-promises
+                                            (vector-ref root/database 0))])
+                   (delay root/with-promises))))))))]
 
 @chunk[<module-main>
        (module main typed/racket
@@ -609,14 +649,17 @@ are replaced by tagged indices:
                               syntax/stx
                               syntax/parse/experimental/template
                               racket/sequence
+                              racket/pretty
                               "rewrite-type.lp2.rkt"
                               "../lib/low-untyped.rkt")
+                  racket/splicing
                   "fold-queues.lp2.rkt"
                   "rewrite-type.lp2.rkt"
                   "../lib/low.rkt"
                   "structure.lp2.rkt"
                   "variant.lp2.rkt"
-                  "../type-expander/type-expander.lp2.rkt")
+                  "../type-expander/type-expander.lp2.rkt"
+                  "../type-expander/multi-id.lp2.rkt")
          
          ;(begin-for-syntax
          ;<multiassoc-syntax>)
@@ -632,16 +675,13 @@ not match the one from @tc[typed/racket]
 @chunk[<module-test>
        (module* test typed/racket
          (require (submod "..")
-                  "fold-queues.lp2.rkt"; DEBUG
-                  "rewrite-type.lp2.rkt"; DEBUG
-                  "../lib/low.rkt"; DEBUG
-                  "structure.lp2.rkt"; DEBUG
-                  "variant.lp2.rkt"; DEBUG
+                  (only-in "../lib/low.rkt" cars cdrs)
                   "../type-expander/type-expander.lp2.rkt"
                   typed/rackunit)
          
          (provide g)
-         <use-example>)]
+         <use-example>
+         <type-example>)]
 
 The whole file, finally:
 
