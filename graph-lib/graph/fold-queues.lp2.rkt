@@ -133,7 +133,7 @@ database type opaque, and use an accessor with signature
          (match q
            [(list h (cons e rest-rs) s i)
             (values e
-                    (list h rest-rs s (assert (- i 1) index?)))]
+                    (list h rest-rs s i #;(assert (- i 1) index?)))]
            [(list h '() s i)
             (Δ-hash2-dequeue (list h (reverse s) '() i))]))]
 
@@ -219,58 +219,6 @@ position in the vector equal to the index associated to it in the hash table:
                                                       Δ-hash2-enqueue)
           (process-queues new-Δ-queues (name/Δ-results-add results result)))]
 
-@subsection{Δ-Hash}
-
-@tc[Δ-Hash] is a type encapsulating both a hash, and a set of key-value pairs
-added to the @tc[Δ-Hash] since its creation from a simple @tc[HashTable].
-
-@chunk[<Δ-hash>
-       (module Δ-hash typed/racket
-         (require "../lib/low.rkt")
-         (define-type (Δ-Hash A B)
-           (Pairof (HashTable A B)
-                   (Setof (Pairof A B))))
-         
-         (: empty-Δ-hash (∀ (K V) (→ (Δ-Hash K V))))
-         (define (empty-Δ-hash)
-           (cons ((inst hash K V)) ((inst set (Pairof K V)))))
-         
-         (: Δ-hash (∀ (K V) (→ (HashTable K V) (Δ-Hash K V))))
-         (define (Δ-hash h)
-           (cons h ((inst set (Pairof K V)))))
-         
-         (: Δ-hash-add (∀ (K V Acc) (→ (Δ-Hash K V)
-                                       K
-                                       Acc
-                                       (→ K Acc (values V Acc))
-                                       (values (Δ-Hash K V)
-                                               Acc))))
-         (define (Δ-hash-add Δ-hash k acc make-v)
-           (if (hash-has-key? (car Δ-hash) k)
-               (values Δ-hash acc)
-               (% v new-acc = (make-v k acc)
-                  (values (cons (hash-set (car Δ-hash) k v)
-                                (set-add (cdr Δ-hash) (cons k v)))
-                          new-acc))))
-         
-         (: Δ-hash-get-Δ (∀ (K V) (→ (Δ-Hash K V) (Setof (Pairof K V)))))
-         (define (Δ-hash-get-Δ Δ-hash) (cdr Δ-hash)))]
-
-@section{@racket{cond-let}}
-
-@CHUNK[<cond-let>
-       (define-syntax (cond-let stx)
-         (syntax-parse stx
-           [(_)
-            #'(typecheck-fail #,stx)]
-           [(_ #:let bindings:expr clause …)
-            #'(let bindings (cond-let clause …))]
-           [(_ [condition:expr (~seq #:else-let binding …) … . body] clause …)
-            #'(if condition
-                  (begin . body)
-                  (let (binding … …)
-                    (cond-let clause …)))]))]
-
 @section{Conclusion}
 
 @chunk[<module-main>
@@ -284,8 +232,6 @@ added to the @tc[Δ-Hash] since its creation from a simple @tc[HashTable].
          
          (provide fold-queues)
          
-         <cond-let>
-         <Δ-hash>
          <fold-queue-multi-sets-immutable-tags>)]
 
 @chunk[<module-test>

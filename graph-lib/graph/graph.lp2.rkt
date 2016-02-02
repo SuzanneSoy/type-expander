@@ -553,10 +553,16 @@ via @tc[(g Street)].
 @chunk[<graph-type-expander>
        (λ (stx)
          (syntax-parse stx
-           [(_ (~datum node)) #'node/with-promises-type]
-           …
-           [(_ #:incomplete (~datum node)) #'node/incomplete-type]
-           …))]
+           [(_ (~datum node)) #'node/with-promises-type] …
+           [(_ #:incomplete (~datum node)) #'node/incomplete-type] …
+           [(_ #:make-incomplete (~datum node))
+            #'(→ <field/incomplete-type> … node/incomplete-type)] …
+           [(_ #:incomplete (~datum node) fld)
+            (syntax-parse #'fld
+              [(~datum field) #'<field/incomplete-type>] …)] …
+           [(_ #:make-placeholder (~datum node))
+            #'(→ param-type … node/placeholder-type)] …
+           [(_ #:placeholder (~datum node)) #'node/placeholder-type] …))]
 
 We will be able to use this type expander in function types, for example:
 

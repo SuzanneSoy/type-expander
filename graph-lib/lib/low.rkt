@@ -1423,12 +1423,34 @@
 
 ;; ==== low/typed-not-implemented-yet.rkt ====
 
-(provide ?)
+(provide ? ?*)
+(define-syntax (?* stx)
+  (syntax-case stx ()
+    [(q . rest)
+     (quasisyntax/loc stx
+       ((λ () : (U) #,(syntax/loc #'q (error "Not implemented yet"))
+          . rest)))]))
+
 (define-syntax (? stx)
   (syntax-case stx ()
     [(q t . rest)
      (quasisyntax/loc stx
-       ((λ () : t #,(syntax/loc #'q (error "Not implemented yet"))
-          . rest)))]))
+       ((ann (λ () #,(syntax/loc #'q (error "Not implemented yet"))
+               . rest)
+             (→ t))))]))
+
+;; ==== low/cond-let.rkt ====
+
+(define-syntax (cond-let stx)
+  (syntax-parse stx
+    [(_)
+     #'(typecheck-fail #,stx)]
+    [(_ #:let bindings:expr clause …)
+     #'(let bindings (cond-let clause …))]
+    [(_ [condition:expr (~seq #:else-let binding …) … . body] clause …)
+     #'(if condition
+           (begin . body)
+           (let (binding … …)
+             (cond-let clause …)))]))
 
 ;; ==== end ====

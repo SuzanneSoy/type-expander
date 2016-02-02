@@ -10,7 +10,6 @@
   : (g2 b)
   (error "niy!"))|#
 
-;#|
 #|
 (module mm typed/racket
   (require ;(submod "graph.lp2.rkt" test)
@@ -41,41 +40,36 @@
 (define-graph g2 [a [v : Number] ((ma) (a 1))])
 |#
 
-(require "graph-5-multi-ctors.lp2.rkt")
-(require "../lib/low.rkt"
+(require "graph-5-multi-ctors.lp2.rkt"
+         "../lib/low.rkt"
          "graph.lp2.rkt"
          "get.lp2.rkt"
          "../type-expander/type-expander.lp2.rkt"
-         "../type-expander/multi-id.lp2.rkt")
+         "../type-expander/multi-id.lp2.rkt"
+         (for-syntax syntax/parse))
 
-(define-graph/multi-ctor gm ([a [b1 : b] [b2 : b] [v : Number]]
+(define-graph/multi-ctor gm ([a [b1 : b] [b2 : b] [s : String] [v : Number]]
                              [b [a : a] [s : String] [v : Number]])
-  [(r [v : Number] [w : String])
+  [(r [v : Integer] [w : String])
    : a
-   (a (bx (if (> 0 v) (sub1 v) (+ v (string-length w))))
-      (by (if (> 0 v) (sub1 v) (+ v (string-length w))) "xyz")
+   (printf "r ~a ~a\n" v w)
+   (a (bx (if (> v 0) (sub1 v) (string-length w)))
+      (by (if (> v 0) (sub1 v) (string-length w)) "xyz")
+      w
       v)]
-  [(bx [v : Number])
+  [(bx [v : Integer])
    : b
-   (b (r v) "x" v)]
-  [(by [v : Number] [w : String])
+   (printf "bx ~a\n" v)
+   (b (r v "one") "x" v)]
+  [(by [v : Integer] [w : String])
    : b
-   (b (r v) "y" (+ v (string-length w)))])
+   (printf "by ~a ~a\n" v w)
+   (b (r v "two") "y" (+ v (string-length w)))])
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+(define gmi (gm 3 "b"))
+(check-equal?: (get gmi v) 3)
+(check-equal?: (get gmi b1 v) 2)
+(check-equal?: (get gmi b1 s) "x")
+(check-equal?: (get gmi b1 a v) 2)
+;(check-equal?: (get gmi b1 a b1 a v) 1)
+;(check-equal?: (get gmi b1 a b1 a b1 v) 1)

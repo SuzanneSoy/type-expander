@@ -38,8 +38,11 @@ And @tc[<mapping-declaration>] is:
          (define-temp-ids "~a/mapping" (node …))
          (define-temp-ids "~a/arg" (node …))
          (define-temp-ids "~a/function" (mapping …))
+         (define-temp-ids "~a/placeholder" (mapping …))
          (define-temp-ids "~a/hide" (node …))
          (define-temp-ids "~a/hide" (result-node …))
+         ;(define/with-syntax (result-node/hide …)
+         ;  (cdr-assoc-syntax #'([node . node/hide] …)))
          (define/with-syntax ([(grouped-mapping
                                 grouped-mapping/function
                                 [(grouped-param . grouped-param-type) …]
@@ -53,6 +56,8 @@ And @tc[<mapping-declaration>] is:
                                                result-node
                                                body) …)))
                     #'(node …)))
+         (define/with-syntax ((node/arg↓ …) …)
+           (repeat-stx (node/arg …) ((grouped-mapping …) …)))
          (define/with-syntax (mapping/grouped …)
            (stx-map (λ (mr) (cdr-assoc-syntax mr #'([node . node/mapping] …)))
                     #'(result-node …)))
@@ -65,30 +70,31 @@ And @tc[<mapping-declaration>] is:
          (define/with-syntax ((root-param …) . _) #'((param …) …))
          (define/with-syntax ((root-param-type …) . _) #'((param-type …) …))
          
-         #`(debug
-            (begin
-              (define-graph name/wrapped
-                #:definitions
-                ((define-multi-id name
-                   #:type-expander
-                   (λ (stx)
-                     (syntax-case stx ()
-                       [(_ . rest) #'(name/wrapped . rest)]))
-                   #:call (λ (stx)
-                            (syntax-parse stx
-                              [(_ . rest)
-                               (syntax/loc stx
-                                 (name/constructor . rest))]))
-                   #:id (λ (stx)
-                          (syntax/loc stx name/constructor)))
-                 (define (name/constructor [root-param : root-param-type] …)
-                   (name/wrapped #:root root-node (list 'root-mapping
-                                                        root-param …)))
-                 <define-mappings>)
-                [node [field c field-type] …
-                 ((node/mapping [node/arg : <node-arg-type>])
-                  <mapping-body>)]
-                …))))]
+         (quasitemplate
+          ;(debug
+          (begin
+            (define-graph name/wrapped
+              #:definitions
+              ((define-multi-id name
+                 #:type-expander
+                 (λ (stx)
+                   (syntax-case stx ()
+                     [(_ . rest) #'(name/wrapped . rest)]))
+                 #:call (λ (stx)
+                          (syntax-parse stx
+                            [(_ . rest)
+                             (syntax/loc stx
+                               (name/constructor . rest))]))
+                 #:id (λ (stx)
+                        (syntax/loc stx name/constructor)))
+               (define (name/constructor [root-param : root-param-type] …)
+                 (name/wrapped #:root root-node (list 'root-mapping
+                                                      root-param …)))
+               <define-mappings>)
+              [node [field c field-type] …
+               ((node/mapping [node/arg : <node-arg-type>])
+                <mapping-body>)]
+              …))#|)|#))]
 
 Where the type for the merged mapping is:
 
@@ -96,32 +102,39 @@ Where the type for the merged mapping is:
        (U (List 'grouped-mapping grouped-param-type …) …)]
 
 @chunk[<define-mappings>
-       (define (mapping/function node/hide … ; nodes
-                                 result-node/hide ; self
-                                 [param : param-type] …)
-         : (name result-node)
-         (let ([node node/hide] …)
-           (let ([result-node result-node/hide])
-             (? '<bdy>))))
+       ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+       ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+       (begin
+         (: mapping/placeholder (→ param-type …
+                                   (name/wrapped #:placeholder result-node)))
+         (define (mapping/placeholder param …)
+           ((tmpl-cdr-assoc-syntax result-node [node . node/mapping] …)
+            (list 'mapping param …)))
+         (: mapping/function (→ ;(name/wrapped #:make-placeholder node) …
+                              ;(name/wrapped #:make-incomplete result-node)
+                              param-type …
+                              (name/wrapped #:incomplete result-node)))
+         (define (mapping/function ;node/hide … ; nodes
+                  ;result-node/hide ; self
+                  param …)
+           (let ([result-node/hide result-node])
+             (let ([mapping mapping/placeholder] …)
+               (let ([result-node result-node/hide])
+                 . body)))))
        …]
-
-@chunk[<bdy>
-       (let ([node-names… node_]
-             ;[mapping mapping/grouped] …
-             [node-name_ node_])
-         body)]
 
 We then select in the grouped mapping which one to call.
 
 @chunk[<mapping-body>
-       (let ((a node/arg))
-         (cond
-           [(eq? (car a) 'grouped-mapping)
-            (apply grouped-mapping/function
-                   #,@#'(node …)
-                   grouped-result-node
-                   (cdr a))]
-           …))]
+       ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+       ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+       (cond
+         [(eq? (car node/arg↓) 'grouped-mapping)
+          (apply grouped-mapping/function
+                 ;#,@#'(node …)
+                 ;grouped-result-node
+                 (cdr node/arg↓))]
+         …)]
 
 TODO: At the call site, use a macro and annotate the function (given by its
 name) with the right type, so that the user doesn't see all the types in the
@@ -135,6 +148,7 @@ name) with the right type, so that the user doesn't see all the types in the
 @chunk[<module-main>
        (module main typed/racket
          (require (for-syntax syntax/parse
+                              syntax/parse/experimental/template
                               racket/syntax
                               syntax/stx
                               "../lib/low-untyped.rkt"

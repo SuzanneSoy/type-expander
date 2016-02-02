@@ -154,7 +154,7 @@
   (check-equal?: 'aa.….bb.cc.d (list 'get 'aa '… 'bb 'cc 'd))
 
   (check-equal?: 'aa…bb (list 'get 'aa '… 'bb))
-  (check-equal?: 'aa… (slen 2 "a…"))
+  (check-equal?: 'aa… (slen 3 "aa…"))
   
   (check-equal?: '… (slen 1 "…"))
   
