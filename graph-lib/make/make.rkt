@@ -216,7 +216,7 @@
 
 (run! `(,(find-executable-path-or-fail "raco")
         "cover"
-        "-d" "./docs/coverage"
+        "-d" "docs/coverage"
         "-s" "doc"
         "-s" "test"
         "-f" "html"
