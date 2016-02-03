@@ -85,3 +85,5 @@
 (structure ba v)
 (structure ab v)
 (structure ab v)
+(structure a c)
+(structure a c)

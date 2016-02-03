@@ -114,6 +114,8 @@ else.
          
          (define-syntax-class fa (pattern (~or (~literal ∀) (~literal All))))
          (syntax-parse stx
+           [(~datum :) ;; TODO: This is a hack, we should use ~literal.
+            #':]
            [:type-expander
             (expand-type (apply-type-expander #'expander #'expander))]
            [:type-expander-nested-application
@@ -171,7 +173,10 @@ identifier.
            [(_ t) #'(id (Pairof (id t) t))]))
        
        (test-expander (∀ (A) (→ A (id (double (id A)))))
-                      (∀ (A) (→ A (Pairof A A))))]
+                      (∀ (A) (→ A (Pairof A A))))
+
+       (test-expander (→ Any Boolean : (double (id A)))
+                      (→ Any Boolean : (Pairof A A)))]
 
 Curry expander arguments:
 

@@ -114,9 +114,9 @@ database type opaque, and use an accessor with signature
                         (let* ([new-h (hash-set h elt i)]
                                [new-s (cons elt s)]
                                [new-i (+ i 1)]
-                               [new-i-index (if (index? new-i)
-                                                new-i
-                                                (error "Too many elements"))]
+                               ;; The assert is always true, as this is what
+                               ;; the `length` function would return.
+                               [new-i-index (assert new-i index?)]
                                [name/queue (list new-h rs new-s new-i-index)])
                           (values i
                                   (list name/queue …)))))]

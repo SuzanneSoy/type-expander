@@ -9,7 +9,11 @@
 
 @section{Introduction}
 
-We define a wrapper around the @tc[graph] macro, which 
+We define a wrapper around the @tc[graph] macro, which allows defining sevral
+mappings which return the same node type. In other words, nodes now have named
+constructors.
+
+The new signature separates the mapping declarations from the node definitions:
 
 @chunk[<signature>
        (define-graph/multi-ctor name:id
@@ -18,13 +22,13 @@ We define a wrapper around the @tc[graph] macro, which
          (~commit <mapping-declaration>)
          …)]
 
-Where @tc[<field-signature>] is:
+Where @tc[<field-signature>] hasn't changed:
 
 @chunk[<field-signature>
        (~describe "[field : type]"
                   [field:id c:colon field-type:expr])]
 
-And @tc[<mapping-declaration>] is:
+And @tc[<mapping-declaration>] is now:
 
 @chunk[<mapping-declaration>
        (~describe "[(mapping [param : type] …) : result . body]"
@@ -102,8 +106,6 @@ Where the type for the merged mapping is:
        (U (List 'grouped-mapping grouped-param-type …) …)]
 
 @chunk[<define-mappings>
-       ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-       ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
        (begin
          (: mapping/placeholder (→ param-type …
                                    (name/wrapped #:placeholder result-node)))
@@ -126,8 +128,6 @@ Where the type for the merged mapping is:
 We then select in the grouped mapping which one to call.
 
 @chunk[<mapping-body>
-       ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-       ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
        (cond
          [(eq? (car node/arg↓) 'grouped-mapping)
           (apply grouped-mapping/function

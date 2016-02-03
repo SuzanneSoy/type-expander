@@ -437,7 +437,7 @@ library. We replace all occurrences of a @tc[node] name with its
                                       Δ-Queues
                                       <placeholder→with-indices-clause> …)])
            (let-values ([(r new-Δ-queues) (f (cdr mapping-result) Δ-queues)])
-             (values (cons 'node/with-indices-tag r)
+             (values (apply node/make-with-indices r)
                      new-Δ-queues))))]
 
 Where @tc[<field-incomplete-type>] is the @tc[field-type] in which node types
@@ -567,8 +567,15 @@ via @tc[(g Street)].
 We will be able to use this type expander in function types, for example:
 
 @chunk[<type-example>
-       (λ ([x : (gr Street)])
-         x)]
+       (define (type-example [x : (gr Street)])
+         : (gr Street)
+         x)
+       (check-equal?: (let* ([v1 (car (structure-get (cadr (force g)) streets))]
+                             [v2 (ann (type-example (force v1)) (gr Street))]
+                             [v3 (structure-get (cadr v2) sname)])
+                        v3)
+                      : String
+                      "Ada Street")]
 
 @section{Putting it all together}
 
@@ -668,7 +675,8 @@ not match the one from @tc[typed/racket]
 @chunk[<module-test>
        (module* test typed/racket
          (require (submod "..")
-                  (only-in "../lib/low.rkt" cars cdrs)
+                  (only-in "../lib/low.rkt" cars cdrs check-equal?:)
+                  (only-in "structure.lp2.rkt" structure-get)
                   "../type-expander/type-expander.lp2.rkt"
                   typed/rackunit)
          

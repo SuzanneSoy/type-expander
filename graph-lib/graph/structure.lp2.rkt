@@ -121,7 +121,7 @@ handle the empty structure as a special case.
                  (if (not (stx-null? #'(type …)))
                      #'(inst (make-structure-constructor field ...) type ...)
                      #'(make-structure-constructor field ...)))
-               (: (?? name? default-name?) (→ Any Any))
+               (: (?? name? default-name?) (→ Any Boolean))
                (define ((?? name? default-name?) x)
                  (match x
                    [(structure [field _] …) #t]
@@ -131,7 +131,8 @@ handle the empty structure as a special case.
 @chunk[<test-define-structure>
        (define-structure empty-st)
        (define-structure st [a Number] [b String])
-       (define-structure st2 [b String] [a Number])]
+       (define-structure st2 [b String] [a Number] #:? custom-is-st2?)
+       (define-structure st3 [c String] [a Number] #:? custom-is-st3?)]
 
 Test constructor:
 
@@ -168,6 +169,30 @@ Test equality:
        (check-equal? (ann (st 1 "i") st) (st 1 "i"))
        (check-equal? (ann (st2 "j" 2) st2) (st2 "j" 2))
        (check-equal? (ann (st 1 "k") st) (st2 "k" 1))]
+
+Test predicate:
+
+@chunk[<test-define-structure>
+       (check-equal? (st? (ann (st 1 "i") (U st st2))) #t)
+       (check-equal? (custom-is-st2? (ann (st 1 "i") (U st st2))) #t)
+       (check-equal? (custom-is-st3? (ann (st 1 "i") (U st st2))) #f)
+       (check-equal? (st? (ann (st 1 "i") (U Number st st2))) #t)
+       (check-equal? (st? (ann 1 (U Number st st2))) #f)
+       ;; Occurrence typing won't work well, if only because fields could be of
+       ;; a type for which TR doesn't know how to make-predicate.
+       #|(define (check-occurrence-typing [x : (U Number st st3)])
+         (if (st? x)
+             (match (ann x st) [(st the-a the-b) (cons the-b the-a)])
+             'other))
+       (check-equal?
+        (check-occurrence-typing (ann (st 1 "i") (U Number st st3)))
+        '("i" . 1))
+       (check-equal?
+        (check-occurrence-typing (ann (st2 "j" 2) (U Number st st3)))
+        'other)
+       (check-equal?
+        (check-occurrence-typing (ann 9 (U Number st st3)))
+        'other)|#]
 
 @section{Pre-declaring structs}
 
@@ -644,7 +669,7 @@ chances that we could write a definition for that identifier.
                     "../lib/low.rkt"
                     "../type-expander/type-expander.lp2.rkt"
                     typed/rackunit)
-           
+
            <test-make-structure-constructor>
            <test-get-field>
            <test-match-expander>

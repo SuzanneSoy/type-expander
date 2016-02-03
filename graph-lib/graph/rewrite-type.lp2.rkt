@@ -487,13 +487,11 @@ functions is undefined.
                   #,@(stx-map (λ (ta) <replace-fold-union>)
                               #'(a ...))
                   [else
-                   (begin
-                     val
-                     (typecheck-fail #,type
-                                     #,(~a "Unhandled union case in "
-                                           (syntax->datum #'(U a …))
-                                           ", whole type was:"
-                                           (syntax->datum whole-type))))]))]
+                   (typecheck-fail #,type
+                                   #,(~a "Unhandled union case in "
+                                         (syntax->datum #'(U a …))
+                                         ", whole type was:"
+                                         (syntax->datum whole-type)))]))]
            [((~literal quote) a)
             #'(inst values 'a acc-type)]
            [x:id
