@@ -6,6 +6,8 @@
                      racket/match
                      syntax/stx))
 
+(provide define-logn-ids)
+
 (begin-for-syntax
   (define (insert make-node v ts)
     (match ts
@@ -60,6 +62,16 @@
                    #'(let ([v-cache v])
                        #,(make-btd bt))])))]))
 
-(define-logn-ids match-x [a A] [b B] [c C] [d D] [e E])
-
-(match-x b [a 1] [b 2] [c 3] [d 4] [e 5])
+(module* test typed/racket
+  (require (submod "..")
+           typed/rackunit)
+  
+  (define-logn-ids match-x [a A] [b B] [c C] [d D] [e E])
+  
+  (check-equal? (match-x (ann b (U A B C D E))
+                         [a 1]
+                         [b 2]
+                         [c 3]
+                         [d 4]
+                         [e 5])
+                2))
