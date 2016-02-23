@@ -208,12 +208,14 @@ We derive identifiers for these based on the @tc[node] name:
        (define-temp-ids "~a/main-constructor" name)
        (define-temp-ids "~a/constructor" (node …) #:first-base root)
        (define-temp-ids "~a/make-placeholder" (node …) #:first-base root)
+       (define-temp-ids "~a/make-placeholder-type" (node …))
        (define-temp-ids "~a/placeholder-struct" (node …))
        (define-temp-ids "~a/placeholder-type" (node …))
        (define-temp-ids "~a/placeholder-queue" (node …))
        
        (define-temp-ids "~a/incomplete-type" (node …))
        (define-temp-ids "~a/make-incomplete" (node …))
+       (define-temp-ids "~a/make-incomplete-type" (node …))
        (define-temp-ids "~a/incomplete-tag" (node …))
        
        (define-temp-ids "~a/with-indices-type" (node …))
@@ -228,6 +230,7 @@ We derive identifiers for these based on the @tc[node] name:
        (define-temp-ids "~a/with-promises-tag" (node …))
        
        (define-temp-ids "~a/mapping-function" (node …))
+       (define-temp-ids "~a/mapping-function-type" (node …))
        
        (define-temp-ids "~a/database" (node …) #:first-base root)
        
@@ -330,10 +333,13 @@ arguments, tagged with the @tc[node]'s name):
 
 Then we define the @tc[node/make-placeholder] function:
 
+@chunk[<define-make-placeholder-type>
+       (define-type node/make-placeholder-type
+         (→ param-type … node/placeholder-type))]
 @chunk[<define-make-placeholder>
-       (: node/make-placeholder (→ param-type … node/placeholder-type))
+       (: node/make-placeholder node/make-placeholder-type)
        (define (node/make-placeholder param …)
-         ((inst node/placeholder-struct (List param-type …)) (list param …)))]
+         (node/placeholder-struct (list param …)))]
 
 @subsection{Making with-indices nodes}
 
@@ -392,16 +398,18 @@ library. We replace all occurrences of a @tc[node] name with its
 
 @; TODO: use a type-expander here, instead of a template metafunction.
 
-@CHUNK[<define-incomplete>
+@chunk[<define-incomplete-type>
        (define-type node/incomplete-type
          (List 'node/incomplete-tag <field/incomplete-type> …))
        
-       (: node/make-incomplete (→ <field/incomplete-type> …
-                                  node/incomplete-type))
+       (define-type node/make-incomplete-type
+         (→ <field/incomplete-type> … node/incomplete-type))]
+@chunk[<define-incomplete>
+       (: node/make-incomplete node/make-incomplete-type)
        (define (node/make-incomplete field …)
          (list 'node/incomplete-tag field …))]
 
-@CHUNK[<field/incomplete-type>
+@chunk[<field/incomplete-type>
        (tmpl-replace-in-type field-type
                              [node node/placeholder-type] …)]
 
@@ -454,14 +462,14 @@ important change: Instead of returning an @emph{ideal} node type, we expect them
 to return an @emph{incomplete} node type.
 
 @chunk[<define-mapping-function>
-       (: node/mapping-function (→ param-type … node/incomplete-type))
+       (: node/mapping-function node/mapping-function-type)
        (define node/mapping-function
-         (let ([mapping node/make-placeholder]
-               …
-               [node node/make-incomplete]
-               …)
-           (λ ([param : param-type] …) : node/incomplete-type
-             . mapping-body)))]
+         (ann (λ (param …) . mapping-body)
+              node/mapping-function-type))]
+
+@chunk[<define-mapping-function-type>
+       (define-type node/mapping-function-type
+         (→ param-type … node/incomplete-type))]
 
 @subsection{Returning a with-promises nodes}
 
@@ -606,21 +614,21 @@ We will be able to use this type expander in function types, for example:
                           [(_ . rest)
                            (syntax/loc stx (root/constructor . rest))]))
                #:id (λ (stx) #'root/constructor))
-             
-             (?? (splicing-let ([mapping node/make-placeholder]
-                                …
-                                [node node/make-incomplete]
-                                …)
-                   extra-definition
-                   …))
-             
-             (begin <define-placeholder-type>) …
+
              (begin <define-make-placeholder>) …
+             (begin <define-incomplete>) …
+             (splicing-let ([mapping node/make-placeholder] …
+                            [node node/make-incomplete] …)
+               (?? (begin extra-definition …))
+               (begin <define-mapping-function>) …)
+
+             (begin <define-placeholder-type>) …
+             (begin <define-make-placeholder-type>) …
              (begin <define-with-indices>) …
              (begin <define-with-promises>) …
-             (begin <define-incomplete>) …
+             (begin <define-incomplete-type>) …
              
-             (begin <define-mapping-function>) …
+             (begin <define-mapping-function-type>) …
              
              (: fq (case→ (→ 'node/placeholder-queue node/placeholder-type
                              (List (Vectorof node/with-indices-type) …))

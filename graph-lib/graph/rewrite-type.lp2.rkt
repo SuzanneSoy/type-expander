@@ -584,9 +584,14 @@ one for @tc[replace-in-type]:
 @CHUNK[<template-metafunctions>
        (define-template-metafunction (tmpl-replace-in-type stx)
          (syntax-parse stx
-           [(_ type:expr [from to] …)
-            #`#,(replace-in-type #'type
-                                 #'([from to] …))]))]
+           [(_ (~optional (~and debug? #:debug)) type:expr [from to] …)
+            (when (attribute debug?)
+              (displayln (format "~a" stx)))
+            (let ([res #`#,(replace-in-type #'type
+                                            #'([from to] …))])
+              (when (attribute debug?)
+                (displayln (format "=> ~a" res)))
+              res)]))]
 
 And one each for @tc[fold-instance] and @tc[replace-in-instance2]:
 

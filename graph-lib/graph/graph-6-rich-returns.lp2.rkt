@@ -106,8 +106,8 @@ plain list.
          (template
           (debug
            (begin
-             <first-pass-type-expander>
              (define-graph first-step
+               #:definitions [<first-pass-type-expander>]
                [node [field c field-type] …
                 [(node/simple-mapping [field c field-type] …);<first-pass-field-type>] …)
                  (node field …)]] …
@@ -124,8 +124,14 @@ encapsulating the result types of mappings.
 
 @chunk[<first-pass-type-expander>
        (define-type-expander (~> stx)
-         (syntax-case stx ()
-           [(_ mapping) #'(U mapping/node result-type)] …))]
+         (syntax-parse stx
+           [(_ (~literal mapping))
+            (template
+             (U (first-step #:placeholder mapping/node)
+                (tmpl-replace-in-type result-type
+                                      [node (first-step #:placeholder node)]
+                                      …)))]
+           …))]
 
 @; TODO: replace-in-type doesn't work well here, we need to define a
 @; type-expander.
@@ -142,7 +148,9 @@ encapsulating the result types of mappings.
                               racket/syntax
                               syntax/stx
                               "../lib/low-untyped.rkt"
-                              "../lib/low/multiassoc-syntax.rkt")
+                              "../lib/low/multiassoc-syntax.rkt"
+                              "rewrite-type.lp2.rkt"; debug
+                              )
                   "../lib/low.rkt"
                   "graph.lp2.rkt"
                   "get.lp2.rkt"
@@ -168,16 +176,40 @@ encapsulating the result types of mappings.
          
          
          
-         (begin
-           (define-type-expander (~> stx)
-             (displayln stx)
-             (displayln #'m-streets)
-             (syntax-parse stx
-               ((_ (~datum m-cities)) #'(U m-cities3/node (Listof City)))
-               ((_ (~datum m-streets)) #'(U (first-step #:placeholder m-streets4/node)
-                                            (Listof (first-step #:placeholder Street))))))
+         #|(begin
            (define-graph
              first-step
+             #:definitions [
+ #;(define-type-expander (~> stx)
+   (displayln stx)
+   (displayln #'m-streets)
+   (syntax-parse stx
+     ((_ (~datum m-cities)) #'(U m-cities3/node (Listof City)))
+     ((_ (~datum m-streets)) #'(U (first-step #:placeholder m-streets4/node)
+                                  (Listof (first-step #:placeholder Street))))))
+
+
+ 
+
+ (define-type-expander
+      (~> stx)
+      (syntax-parse stx
+        ((_ (~literal m-cities))
+         (template (U
+            (first-step #:placeholder m-cities3/node)
+            (tmpl-replace-in-type
+             (Listof City)
+             (City (first-step #:placeholder City))
+             (Street (first-step #:placeholder Street))))))
+        ((_ (~literal m-streets))
+         (template (U
+            (first-step #:placeholder m-streets4/node)
+            (tmpl-replace-in-type
+             (Listof Street)
+             (City (first-step #:placeholder City))
+             (Street (first-step #:placeholder Street))))))))
+
+ ]
              (City
               (streets : (U m-streets4/node (Listof Street)))
               ((City1/simple-mapping (streets : (~> m-streets)
@@ -200,7 +232,59 @@ encapsulating the result types of mappings.
               ((m-streets (snames : (Listof String)))
                (m-streets4/node
                 (let ((City City1/simple-mapping) (Street Street2/simple-mapping))
-                  (map Street snames)))))))
+                  (map Street snames)))))))|#
+
+(begin
+   (define-graph
+    first-step
+    #:definitions
+    ((define-type-expander
+      (~> stx)
+      (syntax-parse stx
+        ((_ (~literal m-cities))
+         (template (U
+            (first-step #:placeholder m-cities3/node)
+            (tmpl-replace-in-type
+             (Listof City)
+             (City (first-step #:placeholder City))
+             (Street (first-step #:placeholder Street))))))
+        ((_ (~literal m-streets))
+         (template (U
+            (first-step #:placeholder m-streets4/node)
+            (tmpl-replace-in-type
+             (Listof Street)
+             (City (first-step #:placeholder City))
+             (Street (first-step #:placeholder Street)))))))))
+     #|
+     (City [foo : Number] ((m1) (City 1)))
+     (Street [foo : Number] ((m2) (Street 2)))
+     (m-cities3/node [foo : Number] ((m3) (m-cities3/node 3)))
+     (m-streets4/node [foo : Number] ((m4) (m-streets4/node 4)))
+     |#
+
+     ;; TODO: have a let-expander.
+    (City
+     (streets : (U m-streets4/node (Listof Street)))
+     ((City1/simple-mapping (streets : #|(~> m-streets)|#
+                                     (U (first-step #:placeholder m-streets4/node)
+                                        (Listof (first-step #:placeholder Street)))
+                                     )) (City streets)))
+    (Street
+     (sname : String)
+     ((Street2/simple-mapping (sname : String)) (Street sname)))
+    (m-cities3/node
+     (returned : (Listof City))
+     ((m-cities (cnames : (Listof (Listof String))))
+      (m-cities3/node
+       (let ((City City1/simple-mapping) (Street Street2/simple-mapping))
+         (define (strings→city (s : (Listof String))) (City (m-streets s))) ;;
+         (map strings→city cnames)))))
+    (m-streets4/node
+     (returned : (Listof Street))
+     ((m-streets (snames : (Listof String)))
+      (m-streets4/node
+       (let ((City City1/simple-mapping) (Street Street2/simple-mapping))
+         (map Street snames)))))))
          
          
          
@@ -249,7 +333,8 @@ encapsulating the result types of mappings.
          (require (submod "..")
                   typed/rackunit)
          
-         #;<test-graph-rich-return>)]
+         ;<test-graph-rich-return>
+         )]
 
 @chunk[<*>
        (begin
