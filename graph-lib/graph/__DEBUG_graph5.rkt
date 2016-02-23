@@ -49,7 +49,7 @@
          (for-syntax syntax/parse))
 
 (define-graph/multi-ctor gm ([a [b1 : b] [b2 : b] [s : String] [v : Number]]
-                             [b [a : a] [s : String] [v : Number]])
+                             [b [a1 : a] [s : String] [v : Number]])
   [(r [v : Integer] [w : String])
    : a
    (printf "r ~a ~a\n" v w)
@@ -70,6 +70,6 @@
 (check-equal?: (get gmi v) 3)
 (check-equal?: (get gmi b1 v) 2)
 (check-equal?: (get gmi b1 s) "x")
-(check-equal?: (get gmi b1 a v) 2)
-;(check-equal?: (get gmi b1 a b1 a v) 1)
-;(check-equal?: (get gmi b1 a b1 a b1 v) 1)
+(check-equal?: (get gmi b1 a1 v) 2)
+;(check-equal?: (get gmi b1 a1 b1 a1 v) 1)
+;(check-equal?: (get gmi b1 a1 b1 a1 b1 v) 1)

@@ -324,7 +324,9 @@
          replace-first
          Syntax-Listof
          check-duplicate-identifiers
-         generate-temporary)
+         generate-temporary
+         sequence-length>=
+         in-last?)
 
 (require (only-in racket
                   [compose ∘]
@@ -600,6 +602,24 @@
   (my-in-syntax #'(a . (b c d e)))
   ; (ann '() (Listof (Syntaxof Nothing)))
   (my-in-syntax #'()))
+
+(: sequence-length>= (→ (Sequenceof Any) Index Boolean))
+(define (sequence-length>= s l)
+  (let-values ([(more? next) (sequence-generate s)])
+    (define (rec [remaining : Index]) : Boolean
+      (if (= remaining 0)
+          #t
+          (and (more?)
+               (begin (next)
+                      (rec (sub1 remaining))))))
+    (rec l)))
+
+(: in-last? (→ (Sequenceof Any) (Sequenceof (U #f 'last))))
+(define (in-last? s)
+  (if (sequence-length>= s 1)
+      (sequence-append (sequence-map (λ _ #f) (sequence-tail s 1))
+                       (in-value 'last))
+      empty-sequence))
 
 
 (: check-duplicate-identifiers (→ (Syntaxof (Listof (Syntaxof Symbol)))

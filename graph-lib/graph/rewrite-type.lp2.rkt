@@ -87,7 +87,7 @@ calls itself on the components of the type.
        (define-for-syntax (replace-in-type t r)
          (define (recursive-replace new-t) (replace-in-type new-t r))
          (define/with-syntax ([from to] ...) r)
-         (syntax-parse t
+         (syntax-parse (expand-type t)
            <replace-in-type-substitute>
            <replace-in-type-other-cases>))]
 
@@ -206,7 +206,8 @@ The other cases are similarly defined:
            [((~literal U) a ...)
             #`(let ([v-cache val])
                 (cond
-                  #,@(stx-map (λ (ta) (replace-in-union #'v-cache ta r))
+                  #,@(stx-map (λ (ta)
+                                (replace-in-union #'v-cache ta r))
                               #'(a ...))))]
            [((~literal quote) a)
             #'val]
@@ -221,9 +222,17 @@ TODO: we currently don't check that each @tc[tag] is distinct.
        (define (replace-in-union stx-v-cache t r)
          (define/with-syntax v-cache stx-v-cache)
          (syntax-parse t
-           [(List ((~literal quote) tag:id) b ...)
+           [((~literal List) ((~literal quote) tag:id) b ...)
             <replace-in-tagged-union-instance>]
-           [_ (error "Type-replace on untagged Unions isn't supported yet!")]))]
+           [_ (raise-syntax-error
+               'replace-in-type
+               (format "Type-replace on untagged Unions isn't supported yet: ~a"
+                       t)
+               t)]
+           [s:id
+            #:when (begin (printf "~a ~a\n" (meta-struct? #'s) #'s)
+                          (meta-struct? #'s))
+            (error "Type-replace on struct unions: WIP.")]))]
 
 For cases of the union which are a tagged list, we use a simple guard, and call
 @tc[recursive-replace] on the whole @tc[(List 'tag b ...)] type.
@@ -481,11 +490,13 @@ functions is undefined.
                           (cdr f))))]
            [((~literal U) a ...)
             (define/with-syntax (new-a-type …) (stx-map new-type-for #'(a …)))
+            (printf "<replace-fold-union>: ~a\n" type)
             #`(λ ([val : (U a ...)] [acc : acc-type])
                 : (values (U new-a-type …) acc-type)
                 (cond
-                  #,@(stx-map (λ (ta) <replace-fold-union>)
-                              #'(a ...))
+                  #,@(for/list ([ta (in-syntax #'(a ...))]
+                                [last? (in-last? (in-syntax #'(a ...)))])
+                       <replace-fold-union>)
                   [else
                    (typecheck-fail #,type
                                    #,(~a "Unhandled union case in "
@@ -501,16 +512,28 @@ functions is undefined.
 
 @CHUNK[<replace-fold-union>
        (syntax-parse ta
-         [(List ((~literal quote) tag:id) b ...)
+         [((~literal List) ((~literal quote) tag:id) b ...)
           <replace-fold-union-tagged-list>]
-         [(Pairof ((~literal quote) tag:id) b)
+         [((~literal Pairof) ((~literal quote) tag:id) b)
           <replace-fold-union-tagged-list>]
          [x:id
           #:attr assoc-result (stx-assoc #'x #'((from to pred? fun) ...))
           #:when (attribute assoc-result)
           #:with (x-from x-to x-pred? x-fun) #'assoc-result
           <replace-fold-union-predicate>]
-         [_ (error "Type-replace on untagged Unions isn't supported yet!")])]
+         [_
+          #:when last?
+          #`[#t ;; Hope type occurrence will manage here.
+             (#,(recursive-replace ta) val acc)]]
+         [s:id
+          #:when (begin (printf "~a ~a\n" (meta-struct? #'s) #'s)
+                        (meta-struct? #'s))
+          (error "Type-replace on struct unions: WIP.")]
+         [_ (raise-syntax-error
+             'replace-in-type
+             (format "Type-replace on untagged Unions isn't supported yet: ~a"
+                     ta)
+             ta)])]
 
 For cases of the union which are a tagged list, we use a simple guard, and call
 @tc[recursive-replace] on the whole @tc[(List 'tag b ...)] type.
@@ -589,17 +612,22 @@ These metafunctions just extract the arguments for @tc[replace-in-type] and
 @chunk[<*>
        (begin
          (module main typed/racket
-           (require (for-syntax syntax/parse
-                                racket/syntax
-                                syntax/stx
-                                racket/format
-                                syntax/parse/experimental/template
-                                "../lib/low-untyped.rkt")
-                    "structure.lp2.rkt"
-                    "variant.lp2.rkt"
-                    "../type-expander/multi-id.lp2.rkt"
-                    "../type-expander/type-expander.lp2.rkt"
-                    "../lib/low.rkt")
+           (require
+             (for-syntax syntax/parse
+                         racket/syntax
+                         syntax/stx
+                         racket/format
+                         syntax/parse/experimental/template
+                         racket/sequence
+                         "../lib/low-untyped.rkt"
+                         (only-in "../type-expander/type-expander.lp2.rkt"
+                                  expand-type)
+                         "meta-struct.rkt")
+             "structure.lp2.rkt"
+             "variant.lp2.rkt"
+             "../type-expander/multi-id.lp2.rkt"
+             "../type-expander/type-expander.lp2.rkt"
+             "../lib/low.rkt")
            (begin-for-syntax (provide replace-in-type
                                       ;replace-in-instance
                                       fold-instance

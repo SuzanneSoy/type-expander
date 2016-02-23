@@ -414,10 +414,10 @@ The fields in @tc[fields→stx-name-alist] are already sorted.
              (structure-get v field)))]
 
 @chunk[<get-predicate>
-       (my-st-type-info-predicate (get-struct-info stx (cdr s)))]
+       (meta-struct-predicate (cdr s) #:srcloc stx)]
 
 @CHUNK[<get-field-accessor>
-       (list-ref (my-st-type-info-accessors (get-struct-info stx (cdr s)))
+       (list-ref (meta-struct-accessors (cdr s) #:srcloc stx)
                  (indexof (syntax->datum #'field) (reverse (car s))))]
 
 @chunk[<test-get-field>
@@ -484,30 +484,6 @@ instead of needing an extra recompilation.
          (check-equal? (test-match 'bad) 'other))]
 
 @subsection{Anonymous type}
-
-@subsection{Accessing information about racket's structs at compile-time}
-@chunk[<my-st-type-info>
-       (begin-for-syntax
-         (struct my-st-type-info
-           (type-descriptor
-            constructor
-            predicate
-            accessors
-            mutators
-            super-type)
-           #:transparent))]
-
-@CHUNK[<struct-info>
-       (define-for-syntax (get-struct-info stx s)
-         (let* ([fail (λ () (raise-syntax-error 'get-struct-info
-                                                "not a structure definition"
-                                                stx
-                                                s))]
-                [v (if (identifier? s)
-                       (syntax-local-value s fail)
-                       (fail))]
-                [i (if (not (struct-info? v)) (fail) (extract-struct-info v))])
-           (apply my-st-type-info i)))]
 
 @subsection{Type-expander}
 
@@ -620,7 +596,8 @@ chances that we could write a definition for that identifier.
                                 ;; in-syntax on older versions:
                                 ;;;unstable/sequence
                                 "../lib/low-untyped.rkt"
-                                "../lib/low/multiassoc-syntax.rkt")
+                                "../lib/low/multiassoc-syntax.rkt"
+                                "meta-struct.rkt")
                     "../lib/low.rkt"
                     "../type-expander/type-expander.lp2.rkt"
                     "../type-expander/multi-id.lp2.rkt")
@@ -647,8 +624,6 @@ chances that we could write a definition for that identifier.
            <make-structure-constructor>
            <delayed-error-please-recompile>
            
-           <my-st-type-info>
-           <struct-info>
            <fields→supertypes>
            <get-field>
            
