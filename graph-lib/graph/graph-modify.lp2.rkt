@@ -226,7 +226,7 @@ We derive identifiers for these based on the @tc[node] name:
        
        (define-temp-ids "~a/with-promises-type" (node …) #:first-base root)
        (define-temp-ids "~a/make-with-promises" (node …))
-       (define-temp-ids "~a/with-promises-tag" (node …))
+       (define-temp-ids "~a/with-promises-struct" (node …))
        
        (define-temp-ids "~a/mapping-function" (node …))
        
@@ -369,9 +369,11 @@ that node's @tc[with-promises] type.
 @; TODO: use a type-expander here, instead of a template metafunction.
 
 @CHUNK[<define-with-promises>
+       (struct (A) node/with-promises-struct ([f : A]))
        (define-type node/with-promises-type
-         (tagged node/with-promises-tag
-                 [field : <field/with-promises-type>] …))
+         (node/with-promises-struct (List [field : <field/with-promises-type>] …))
+         #;(tagged node/with-promises-tag
+                 ))
        
        (: node/make-with-promises (→ <field/with-promises-type> …
                                      node/with-promises-type))
