@@ -188,8 +188,8 @@ A single node name can refer to several types:
  @item{The @emph{with-indices} type, in which references to other node types
   must be replaced by an index into the results list for the target node's
   @racket[with-promises] type. For example,
-  @racket[[City (Listof (List 'Street/with-indices-tag2 Index))
-           (Listof (List 'Person/with-indices-tag2 Index))]].}
+  @racket[[City (Listof Street/index-type)
+           (Listof Person/index-type)]].}
  @item{The @emph{with-promises} type, in which references to other node types
   must be replaced by a @racket[Promise] for the target node's
   @racket[with-promises] type. For example,
@@ -219,7 +219,6 @@ We derive identifiers for these based on the @tc[node] name:
        (define-temp-ids "~a/with-indices-type" (node …))
        (define-temp-ids "~a/make-with-indices" (node …))
        (define-temp-ids "~a/with-indices-tag" (node …))
-       (define-temp-ids "~a/with-indices-tag2" (node …))
        (define-temp-ids "~a/index-type" (node …))
        (define-temp-ids "~a/with-indices→with-promises" (node …)
          #:first-base root)
@@ -346,7 +345,7 @@ indicates at which index in the queue's results the successor can be found.
 @; TODO: use a type-expander here, instead of a template metafunction.
 
 @CHUNK[<define-with-indices>
-       (define-type node/index-type (List 'node/with-indices-tag2 Index))
+       (struct node/index-type ([i : Index]))
        
        (define-type node/with-indices-type
          (List 'node/with-indices-tag <field/with-indices-type> …))
@@ -411,14 +410,14 @@ library. We replace all occurrences of a @tc[node] name with its
 @; TODO: we don't need that many annotations
 @chunk[<placeholder→with-indices-function>
        (λ ([p : node/placeholder-type] [Δ-acc : Δ-Queues])
-         : (values (List 'node/with-indices-tag2 Index) Δ-Queues)
+         : (values node/index-type Δ-Queues)
          (% index new-Δ-acc = (enqueue 'node/placeholder-queue p Δ-acc)
-            (values (list 'node/with-indices-tag2 index)
+            (values (node/index-type index)
                     new-Δ-acc)))]
 
 @chunk[<placeholder→with-indices-clause>
        [node/placeholder-type
-        (List 'node/with-indices-tag2 Index)
+        node/index-type
         (struct-predicate node/placeholder-struct)
         <placeholder→with-indices-function>]]
 
@@ -511,8 +510,7 @@ because @hyperlink["https://github.com/racket/typed-racket/issues/159"]{it
 @chunk[<index→promise-clause>
        [node/index-type
         (Promise node/with-promises-type)
-        (λ (x) (and (pair? x)
-                    (eq? (car x) 'node/with-indices-tag2)))
+        (struct-predicate node/index-type)
         (λ ([tagged-index : node/index-type] [acc : Void])
           : (values (Promise node/with-promises-type) Void)
           (values <index→promise> acc))]]
@@ -523,8 +521,9 @@ database), as well as everything that the with-indices→with-promises function
 closes over.
 
 @chunk[<index→promise>
-       (let ([successor-with-index (vector-ref node/database
-                                               (cadr tagged-index))])
+       (let ([successor-with-index
+              (vector-ref node/database ((struct-accessor node/index-type 0)
+                                         tagged-index))])
          (delay (node/with-indices→with-promises successor-with-index)))]
 
 @chunk[<define-with-indices→with-promises>
