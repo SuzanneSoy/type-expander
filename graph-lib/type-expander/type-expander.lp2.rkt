@@ -87,36 +87,49 @@ else.
            (((get-prop:type-expander-value type-expander) type-expander) stx)))]
 
 @CHUNK[<bind-type-vars>
-       (define (bind-type-vars type-vars stx)
-         (let ([def-ctx (syntax-local-make-definition-context)]
-               [err-expr #'(λ _ (raise-syntax-error
-                                 "Type name used out of context"))])
-           (for ([var (syntax-parse type-vars
-                        [(v:id …) (syntax->list #'(v …))])])
-             (syntax-local-bind-syntaxes (list var) err-expr def-ctx))
-           (internal-definition-context-seal def-ctx)
-           (internal-definition-context-introduce def-ctx stx 'add)))]
+       (define (bind-type-vars type-vars [env (make-immutable-free-id-table)])
+         (foldl (λ (v acc) (free-id-table-set acc v #f))
+                env
+                (syntax->list type-vars))
+         #;(let ([def-ctx (syntax-local-make-definition-context)]
+                 [err-expr #'(λ _ (raise-syntax-error
+                                   "Type name used out of context"))])
+             (for ([var (syntax-parse type-vars
+                          [(v:id …) (syntax->list #'(v …))])])
+               (syntax-local-bind-syntaxes (list var) err-expr def-ctx))
+             (internal-definition-context-seal def-ctx)
+             (internal-definition-context-introduce def-ctx stx 'add)))]
 
 @CHUNK[<let-type-todo>
-       (define (let-type-todo id expr stx)
-         (let ([def-ctx (syntax-local-make-definition-context)])
-           (syntax-local-bind-syntaxes (list id)
-                                       #'(lambda _ (displayln 'expr) (error "errr"))
-                                       def-ctx)
-           (internal-definition-context-seal def-ctx)
-           (internal-definition-context-introduce def-ctx stx)))]
+       (define (let-type-todo id expr env)
+         (free-id-table-set env id expr)
+         #;(let ([def-ctx (syntax-local-make-definition-context)])
+             (syntax-local-bind-syntaxes (list id)
+                                         #'(lambda _
+                                             (displayln 'expr)
+                                             (error "errr"))
+                                         def-ctx)
+             (internal-definition-context-seal def-ctx)
+             (internal-definition-context-introduce def-ctx stx)))]
 
 @CHUNK[<expand-type>
-       (define (expand-type stx)
-         (define-syntax-class type-expander
+       (define (expand-type stx [env (make-immutable-free-id-table)])
+         (define-syntax-class (type-expander env)
            (pattern (~var expander
-                          (static has-prop:type-expander? "a type expander"))))
-         (define-syntax-class type-expander-nested-application
+                          (static has-prop:type-expander? "a type expander"))
+                    #:when (not (dict-has-key? env #'expander))
+                    #:with code #'expander)
+           (pattern expander:id
+                    #:attr code (free-id-table-ref env #'expander (λ () #f))
+                    #:when (attribute code)))
+         (define-syntax-class (type-expander-nested-application env)
            #:attributes (expanded-once)
-           (pattern (~and expander-call-stx (:type-expander . args))
+           (pattern (~and expander-call-stx
+                          ((~var expander (type-expander env)) . args))
                     #:with expanded-once
-                    (apply-type-expander #'expander #'expander-call-stx))
-           (pattern (nested-application:type-expander-nested-application
+                    (apply-type-expander #'expander.code #'expander-call-stx))
+           (pattern ((~var nested-application
+                           (type-expander-nested-application env))
                      . args) ;; TODO: test
                     #:with expanded-once
                     #'(nested-application.expanded-once . args)))
@@ -125,34 +138,33 @@ else.
          (syntax-parse stx
            [(~datum :) ;; TODO: This is a hack, we should use ~literal.
             #':]
-           [:type-expander
-            (expand-type (apply-type-expander #'expander #'expander))]
-           [:type-expander-nested-application
-            (expand-type #'expanded-once)]
+           [(~var expander (type-expander env))
+            (expand-type (apply-type-expander #'expander.code #'expander) env)]
+           [(~var nested-application (type-expander-nested-application env))
+            (expand-type #'nested-application.expanded-once env)]
            ;; TODO: find a more elegant way to write anonymous type expanders
            [(((~literal curry) T Arg1 …) . Args2)
-            (expand-type #'(T Arg1 … . Args2))]
+            (expand-type #'(T Arg1 … . Args2) env)]
            ;; TODO: handle the pattern (∀ (TVar ... ooo) T)
            [(∀:fa (TVar:id ...) T:expr)
-            #`(∀ (TVar ...) #,(expand-type (bind-type-vars #'(TVar ...) #'T)))]
+            #`(∀ (TVar ...)
+                 #,(expand-type #'T (bind-type-vars #'(TVar ...) env)))]
            [((~literal Rec) R:id T:expr)
-            #`(Rec R #,(expand-type (bind-type-vars #'(R) #'T)))]
+            #`(Rec R #,(expand-type #'T (bind-type-vars #'(R) env)))]
            [((~literal Let) [V:id E:id] T:expr)
             ;; TODO : for now we only allow aliasing (which means E is an id),
             ;; not on-the-fly declaration of type expanders. This would require
             ;; us to (expand) them.
-            #`#,(expand-type (let-type-todo #'V #'E #'T))]
-           [((~literal quote) T) (expand-quasiquote 'quote 1 #'T)]
-           [((~literal quasiquote) T) (expand-quasiquote 'quasiquote 1 #'T)]
-           [((~literal syntax) T) (expand-quasiquote 'syntax 1 #'T)]
-           [((~literal quasisyntax) T) (expand-quasiquote 'quasisyntax 1 #'T)]
+            #`#,(expand-type #'T (let-type-todo #'V #'E env))]
+           [((~literal quote) T) (expand-quasiquote 'quote 1 env #'T)]
+           [((~literal quasiquote) T) (expand-quasiquote 'quasiquote 1 env #'T)]
+           [((~literal syntax) T) (expand-quasiquote 'syntax 1 env #'T)]
+           [((~literal quasisyntax) T) (expand-quasiquote 'quasisyntax 1 env
+                                                          #'T)]
            [((~literal Struct) T)
-            #`(Struct #,(expand-type #'T))]
+            #`(Struct #,(expand-type #'T env))]
            [(T TArg ...)
-            #`(T #,@(stx-map expand-type #'(TArg ...)))]
-           [(~and T (~datum e)) ;; DEBUG
-            (syntax-local-lift-expression #`(browse-syntax #'T))
-            #'Number]
+            #`(T #,@(stx-map (λ (a) (expand-type a env)) #'(TArg ...)))]
            [T #'T]))]
 
 @CHUNK[<define-type-expander>
@@ -217,7 +229,7 @@ Curry expander arguments:
                            (Pairof Number String))
                       '(1 . "c"))]
 
-Shadowing and @tc[∀] variables:
+Shadowing with @tc[∀] variables:
 
 @CHUNK[<test-expand-type>
        (test-expander (∀ (id) (→ id))
@@ -244,10 +256,44 @@ Shadowing and @tc[∀] variables:
        (check-equal?: (ann (count-five-more 15) (Repeat Number 5))
                       '(16 17 18 19 20))]
 
+Shadowing with @tc[Rec] variables:
+
+@CHUNK[<test-expand-type>
+       (: repeat-shadow (→ Number (Rec Repeat (U Null (List Number Repeat)))))
+       (define (repeat-shadow n)
+         (if (= n 0)
+             '()
+             (list n (repeat-shadow (sub1 n)))))
+       (check-equal?: (repeat-shadow 5)
+                      '(5 (4 (3 (2 (1 ()))))))
+       (test-expander (→ Number (Rec Repeat (U Null (List Number Repeat))))
+                      (→ Number (Rec Repeat (U Null (List Number Repeat)))))]
+
+Shadowing with @tc[Let]:
+
+@chunk[<test-expand-type>
+       (let ()
+         (define-type-expander (exp stx)
+           #'(List 1 2 3))
+         
+         (define-type e String)
+         (: x (List e (Let [e exp] e)))
+         (define x (list "e1" (list 1 2 3)))
+         (check-equal?: x '("e1" (1 2 3)))
+         (test-expander (List e (Let [e exp] e))
+                        (List e (List 1 2 3)))
+         
+         (: y (List e))
+         (define y (list "e2"))
+         (check-equal?: y '("e2"))
+         (test-expander (List e)
+                        (List e))
+         (void))]
+
 @section{Example type-expanders: quasiquote and quasisyntax}
 
 @CHUNK[<expand-quasiquote>
-       (define (expand-quasiquote mode depth stx)
+       (define (expand-quasiquote mode depth env stx)
          (define (wrap t)
            (if (or (eq? mode 'syntax) (eq? mode 'quasisyntax))
                #`(Syntaxof #,t)
@@ -256,7 +302,7 @@ Shadowing and @tc[∀] variables:
            (if (or (eq? mode 'syntax) (eq? mode 'quasisyntax))
                #`(Syntaxof (quote #,t))
                #`(quote #,t)))
-         (define expand-quasiquote-rec (curry expand-quasiquote mode depth))
+         (define expand-quasiquote-rec (curry expand-quasiquote mode depth env))
          (syntax-parse stx
            [((~literal quote) T)
             (wrap #`(List #,(wrap-quote #'quote)
@@ -264,14 +310,15 @@ Shadowing and @tc[∀] variables:
            [((~literal quasiquote) T)
             (wrap #`(List #,(wrap-quote #'quasiquote)
                           #,(if (eq? mode 'quasiquote)
-                                (expand-quasiquote mode (+ depth 1) #'T)
+                                (expand-quasiquote mode (+ depth 1) env #'T)
                                 (expand-quasiquote-rec #'T))))]
            [((~literal unquote) T)
             (if (eq? mode 'quasiquote)
                 (if (= depth 1)
-                    (expand-type #'T)
+                    (expand-type #'T env)
                     (wrap #`(List #,(wrap-quote #'unquote)
-                                  #,(expand-quasiquote mode (- depth 1) #'T))))
+                                  #,(expand-quasiquote mode (- depth 1) env
+                                                       #'T))))
                 (wrap #`(List #,(wrap-quote #'unquote)
                               #,(expand-quasiquote-rec #'T))))]
            [((~literal syntax) T)
@@ -280,14 +327,15 @@ Shadowing and @tc[∀] variables:
            [((~literal quasisyntax) T)
             (wrap #`(List #,(wrap-quote #'quasisyntax)
                           #,(if (eq? mode 'quasisyntax)
-                                (expand-quasiquote mode (+ depth 1) #'T)
+                                (expand-quasiquote mode (+ depth 1) env #'T)
                                 (expand-quasiquote-rec #'T))))]
            [((~literal unsyntax) T)
             (if (eq? mode 'quasisyntax)
                 (if (= depth 1)
-                    (expand-type #'T)
+                    (expand-type #'T env)
                     (wrap #`(List #,(wrap-quote #'unsyntax)
-                                  #,(expand-quasiquote mode (- depth 1) #'T))))
+                                  #,(expand-quasiquote mode (- depth 1) env
+                                                       #'T))))
                 (wrap #`(List #,(wrap-quote #'unsyntax)
                               #,(expand-quasiquote-rec #'T))))]
            ;; TODO For lists, we should consider the cases where syntax-e gives
@@ -313,7 +361,7 @@ Shadowing and @tc[∀] variables:
            [#t (wrap #'True)]
            [#t (wrap #'False)]
            [_ (raise-syntax-error 'expand-quasiquote
-                                  "Unknown quasiquote contents"
+                                  (format "Unknown quasiquote contents: ~a" stx)
                                   stx)]))]
 
 @section{Overloading @racket[typed/racket] forms}
@@ -332,7 +380,7 @@ variables in the result, we define two template metafunctions:
        (define-template-metafunction (tmpl-expand-type stx)
          (syntax-parse stx
            [(_ () t) (expand-type #'t)]
-           [(_ (tvar …) t) (expand-type (bind-type-vars #'(tvar …) #'t))]))]
+           [(_ (tvar …) t) (expand-type #'t (bind-type-vars #'(tvar …)))]))]
 
 @subsection{@racket[:]}
 
@@ -1017,12 +1065,10 @@ in a separate module (that will be used only by macros, so it will be written in
                   syntax/parse
                   syntax/stx
                   racket/format
+                  syntax/id-table
                   "../lib/low-untyped.rkt")
          
          (require (for-template typed/racket))
-
-         ;; DEBUG:
-         (require (for-template "../lib/debug-syntax.rkt"))
          
          (provide prop:type-expander
                   type-expander
