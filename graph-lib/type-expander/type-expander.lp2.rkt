@@ -95,6 +95,15 @@ else.
                         [(v:id …) (syntax->list #'(v …))])])
              (syntax-local-bind-syntaxes (list var) err-expr def-ctx))
            (internal-definition-context-seal def-ctx)
+           (internal-definition-context-introduce def-ctx stx 'add)))]
+
+@CHUNK[<let-type-todo>
+       (define (let-type-todo id expr stx)
+         (let ([def-ctx (syntax-local-make-definition-context)])
+           (syntax-local-bind-syntaxes (list id)
+                                       #'(lambda _ (displayln 'expr) (error "errr"))
+                                       def-ctx)
+           (internal-definition-context-seal def-ctx)
            (internal-definition-context-introduce def-ctx stx)))]
 
 @CHUNK[<expand-type>
@@ -128,6 +137,11 @@ else.
             #`(∀ (TVar ...) #,(expand-type (bind-type-vars #'(TVar ...) #'T)))]
            [((~literal Rec) R:id T:expr)
             #`(Rec R #,(expand-type (bind-type-vars #'(R) #'T)))]
+           [((~literal Let) [V:id E:id] T:expr)
+            ;; TODO : for now we only allow aliasing (which means E is an id),
+            ;; not on-the-fly declaration of type expanders. This would require
+            ;; us to (expand) them.
+            #`#,(expand-type (let-type-todo #'V #'E #'T))]
            [((~literal quote) T) (expand-quasiquote 'quote 1 #'T)]
            [((~literal quasiquote) T) (expand-quasiquote 'quasiquote 1 #'T)]
            [((~literal syntax) T) (expand-quasiquote 'syntax 1 #'T)]
@@ -136,6 +150,9 @@ else.
             #`(Struct #,(expand-type #'T))]
            [(T TArg ...)
             #`(T #,@(stx-map expand-type #'(TArg ...)))]
+           [(~and T (~datum e)) ;; DEBUG
+            (syntax-local-lift-expression #`(browse-syntax #'T))
+            #'Number]
            [T #'T]))]
 
 @CHUNK[<define-type-expander>
@@ -174,7 +191,7 @@ identifier.
        
        (test-expander (∀ (A) (→ A (id (double (id A)))))
                       (∀ (A) (→ A (Pairof A A))))
-
+       
        (test-expander (→ Any Boolean : (double (id A)))
                       (→ Any Boolean : (Pairof A A)))]
 
@@ -1003,6 +1020,9 @@ in a separate module (that will be used only by macros, so it will be written in
                   "../lib/low-untyped.rkt")
          
          (require (for-template typed/racket))
+
+         ;; DEBUG:
+         (require (for-template "../lib/debug-syntax.rkt"))
          
          (provide prop:type-expander
                   type-expander
@@ -1017,6 +1037,7 @@ in a separate module (that will be used only by macros, so it will be written in
          <apply-type-expander>
          <expand-quasiquote>
          <bind-type-vars>
+         <let-type-todo>
          <expand-type>)]
 
 We can finally define the overloaded forms, as well as the extra
