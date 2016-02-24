@@ -109,7 +109,8 @@ plain list.
              (define-graph first-step
                #:definitions [<first-pass-type-expander>]
                [node [field c field-type] …
-                [(node/simple-mapping [field c field-type] …);<first-pass-field-type>] …)
+                [(node/simple-mapping [field c field-type] …)
+                 ;<first-pass-field-type>] …)
                  (node field …)]] …
                [mapping/node [returned cm result-type]
                 [(mapping [param cp param-type] …)
@@ -213,8 +214,8 @@ encapsulating the result types of mappings.
              (City
               (streets : (U m-streets4/node (Listof Street)))
               ((City1/simple-mapping (streets : (~> m-streets)
-                                              #;(U (first-step #:placeholder m-streets4/node)
-                                                   (Listof (first-step #:placeholder Street)))))
+                              #;(U (first-step #:placeholder m-streets4/node)
+                                   (Listof (first-step #:placeholder Street)))))
                (City streets)))
              (Street
               (sname : String)
@@ -223,7 +224,8 @@ encapsulating the result types of mappings.
               (returned : (Listof City))
               ((m-cities (cnames : (Listof (Listof String))))
                (m-cities3/node
-                (let ((City City1/simple-mapping) (Street Street2/simple-mapping))
+                (let ((City City1/simple-mapping)
+                      (Street Street2/simple-mapping))
                   (define (strings→city (s : (Listof String)))
                     (City (m-streets s)))
                   (map strings→city cnames)))))
@@ -231,7 +233,8 @@ encapsulating the result types of mappings.
               (returned : (Listof Street))
               ((m-streets (snames : (Listof String)))
                (m-streets4/node
-                (let ((City City1/simple-mapping) (Street Street2/simple-mapping))
+                (let ((City City1/simple-mapping)
+                      (Street Street2/simple-mapping))
                   (map Street snames)))))))|#
 
 (begin
@@ -265,10 +268,12 @@ encapsulating the result types of mappings.
      ;; TODO: have a let-expander.
     (City
      (streets : (U m-streets4/node (Listof Street)))
-     ((City1/simple-mapping (streets : #|(~> m-streets)|#
-                                     (U (first-step #:placeholder m-streets4/node)
-                                        (Listof (first-step #:placeholder Street)))
-                                     )) (City streets)))
+     ((City1/simple-mapping
+       (streets : #|(~> m-streets)|#
+                (U (first-step #:placeholder m-streets4/node)
+                   (Listof (first-step #:placeholder Street)))
+                ))
+      (City streets)))
     (Street
      (sname : String)
      ((Street2/simple-mapping (sname : String)) (Street sname)))
