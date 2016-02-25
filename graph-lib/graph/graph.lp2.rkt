@@ -324,8 +324,9 @@ arguments, tagged with the @tc[node]'s name):
 
 @; TODO: maybe replace node types with placeholder types
 
+@chunk[<define-placeholder-struct>
+       (struct (A) node/placeholder-struct ([f : A]) #:transparent)]
 @chunk[<define-placeholder-type>
-       (struct (A) node/placeholder-struct ([f : A]) #:transparent)
        (define-type node/placeholder-type
          (node/placeholder-struct (List param-type …)))]
 
@@ -350,9 +351,10 @@ indicates at which index in the queue's results the successor can be found.
 
 @; TODO: use a type-expander here, instead of a template metafunction.
 
-@CHUNK[<define-with-indices>
-       (struct node/index-type ([i : Index]) #:transparent)
+@chunk[<define-index-struct>
+       (struct node/index-type ([i : Index]) #:transparent)]
        
+@chunk[<define-with-indices>
        (define-type node/with-indices-type
          (List 'node/with-indices-tag <field/with-indices-type> …))
        
@@ -361,7 +363,7 @@ indicates at which index in the queue's results the successor can be found.
        (define (node/make-with-indices field …)
          (list 'node/with-indices-tag field …))]
 
-@CHUNK[<field/with-indices-type>
+@chunk[<field/with-indices-type>
        (tmpl-replace-in-type field-type [node node/index-type] …)]
 
 @subsection{Making with-promises nodes}
@@ -617,26 +619,32 @@ We will be able to use this type expander in function types, for example:
 
              (begin <define-make-placeholder>) …
              (begin <define-incomplete>) …
+             ;; TODO: Struct definitions have to be outside due to TR bug #192
+             ;; https://github.com/racket/typed-racket/issues/192
+             (begin <define-placeholder-struct>) …
+             (begin <define-index-struct>) …
              (splicing-let ([mapping node/make-placeholder] …
                             [node node/make-incomplete] …)
-               (?? (begin extra-definition …))
-               (begin <define-mapping-function>) …)
 
-             (begin <define-placeholder-type>) …
-             (begin <define-make-placeholder-type>) …
-             (begin <define-with-indices>) …
-             (begin <define-with-promises>) …
-             (begin <define-incomplete-type>) …
-             
-             (begin <define-mapping-function-type>) …
-             
-             (: fq (case→ (→ 'node/placeholder-queue node/placeholder-type
-                             (List (Vectorof node/with-indices-type) …))
-                          …))
-             (define (fq queue-name placeholder)
-               <fold-queues>)
-             
-             <constructors>))))]
+               (?? (begin extra-definition …))
+               
+               (begin <define-mapping-function>) …
+               
+               (begin <define-placeholder-type>) …
+               (begin <define-make-placeholder-type>) …
+               (begin <define-with-indices>) …
+               (begin <define-with-promises>) …
+               (begin <define-incomplete-type>) …
+               
+               (begin <define-mapping-function-type>) …
+               
+               (: fq (case→ (→ 'node/placeholder-queue node/placeholder-type
+                               (List (Vectorof node/with-indices-type) …))
+                            …))
+               (define (fq queue-name placeholder)
+                 <fold-queues>)
+               
+               <constructors>)))))]
 
 @chunk[<constructors>
        (begin
