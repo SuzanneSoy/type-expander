@@ -104,13 +104,13 @@ plain list.
          (define-temp-ids "first-step-expander2" name)
          (define-temp-ids "~a/simple-mapping" (node …))
          (define-temp-ids "~a/node" (mapping …))
-         (define/with-syntax ~>-id (datum->syntax stx #'~> stx))
+         (define/with-syntax ~>-id (datum->syntax #'name '~>))
          (template
-          (debug
+          ;(debug
            (begin
              (define-graph first-step
                #:definitions [<first-pass-type-expander>]
-               [node [field c (Let [~> first-step-expander2] (U (Pairof '~>-id (U)) field-type))] …
+               [node [field c (Let [~>-id first-step-expander2] field-type)] …
                 [(node/simple-mapping [field c field-type] …)
                  ;<first-pass-field-type>] …)
                  (node field …)]] …
@@ -119,14 +119,16 @@ plain list.
                  (mapping/node
                   (let ([node node/simple-mapping] …)
                     . body))]]
-               …)))))]
+               …))))]
 
 As explained above, during the first pass, the field types
 of nodes will allow placeholders for the temporary nodes
 encapsulating the result types of mappings.
 
 @chunk[<first-pass-type-expander>
-       (define-type-expander (~> stx)
+       ;; TODO: to avoid conflicting definitions of ~>, we should either use
+       ;; syntax-parameterize, or make a #:local-definitions
+       (define-type-expander (~>-id stx)
          (syntax-parse stx
            [(_ (~datum mapping)) ;; TODO: should be ~literal
             (template
@@ -165,7 +167,7 @@ encapsulating the result types of mappings.
                               "../lib/low/multiassoc-syntax.rkt"
                               "rewrite-type.lp2.rkt"; debug
                               )
-                  "../lib/low.rkt"
+                  (rename-in "../lib/low.rkt" [~> threading:~>])
                   "graph.lp2.rkt"
                   "get.lp2.rkt"
                   "../type-expander/type-expander.lp2.rkt"
@@ -175,8 +177,11 @@ encapsulating the result types of mappings.
                   "fold-queues.lp2.rkt"; debug
                   "rewrite-type.lp2.rkt"; debug
                   "meta-struct.rkt"; debug
-                  )
-         (provide define-graph/rich-return)
+                  racket/stxparam
+                  racket/splicing)
+         (provide define-graph/rich-return); ~>)
+
+         ;(define-syntax-parameter ~> (make-rename-transformer #'threading:~>))
          
          (require (for-syntax racket/pretty))
          (define-syntax (debug stx)
@@ -246,7 +251,7 @@ encapsulating the result types of mappings.
 
 
 
-(begin
+#;(begin
    (define-graph
     first-step
     #:definitions

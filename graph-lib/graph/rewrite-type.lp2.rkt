@@ -87,7 +87,11 @@ calls itself on the components of the type.
        (define-for-syntax (replace-in-type t r)
          (define (recursive-replace new-t) (replace-in-type new-t r))
          (define/with-syntax ([from to] ...) r)
+         #;(displayln (format "~a\n=> ~a"
+                            (syntax->datum t)
+                            (syntax->datum (expand-type t))))
          (syntax-parse (expand-type t)
+           #:context #'(replace-in-type t r)
            <replace-in-type-substitute>
            <replace-in-type-other-cases>))]
 
@@ -169,6 +173,7 @@ The other cases are similarly defined:
          (define/with-syntax val stx-val)
          (define/with-syntax (v-cache) (generate-temporaries #'(val-cache)))
          (syntax-parse type
+           #:context 'recursive-replace-2
            [x:id
             #:attr assoc-from-to (cdr-stx-assoc #'x #'((from . (to . fun)) ...))
             #:when (attribute assoc-from-to)
@@ -222,6 +227,7 @@ TODO: we currently don't check that each @tc[tag] is distinct.
        (define (replace-in-union stx-v-cache t r)
          (define/with-syntax v-cache stx-v-cache)
          (syntax-parse t
+           #:context 'replace-in-union-3
            [((~literal List) ((~literal quote) tag:id) b ...)
             <replace-in-tagged-union-instance>]
            [_ (raise-syntax-error
@@ -399,6 +405,7 @@ functions is undefined.
        (define (recursive-replace type)
          (define/with-syntax (v-cache) (generate-temporaries #'(val-cache)))
          (syntax-parse type
+           #:context 'recursive-replace-4
            [x:id
             #:attr assoc-from-to-fun (stx-assoc #'x #'((from to fun) ...))
             #:when (attribute assoc-from-to-fun)
@@ -511,6 +518,7 @@ functions is undefined.
 
 @CHUNK[<replace-fold-union>
        (syntax-parse ta
+         #:context 'replace-fold-union-5
          [((~literal List) ((~literal quote) tag:id) b ...)
           <replace-fold-union-tagged-list>]
          [((~literal Pairof) ((~literal quote) tag:id) b)
@@ -583,6 +591,7 @@ one for @tc[replace-in-type]:
 @CHUNK[<template-metafunctions>
        (define-template-metafunction (tmpl-replace-in-type stx)
          (syntax-parse stx
+           #:context 'tmple-replace-in-type-6
            [(_ (~optional (~and debug? #:debug)) type:expr [from to] …)
             (when (attribute debug?)
               (displayln (format "~a" stx)))
@@ -597,6 +606,7 @@ And one each for @tc[fold-instance] and @tc[replace-in-instance2]:
 @CHUNK[<template-metafunctions>
        (define-template-metafunction (tmpl-fold-instance stx)
          (syntax-parse stx
+           #:context 'tmpl-fold-instance-7
            [(_ type:expr acc-type:expr [from to pred? fun] …)
             #`(begin
                 "fold-instance expanded code below. Initially called with:"
@@ -607,6 +617,7 @@ And one each for @tc[fold-instance] and @tc[replace-in-instance2]:
        
        (define-template-metafunction (tmpl-replace-in-instance stx)
          (syntax-parse stx
+           #:context 'tmpl-replace-in-instance-8
            [(_ type:expr [from to fun] …)
             #`#,(replace-in-instance2 #'type #'([from to fun] …))]))]
 

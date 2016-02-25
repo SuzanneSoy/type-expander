@@ -132,7 +132,11 @@ else.
                            (type-expander-nested-application env))
                      . args) ;; TODO: test
                     #:with expanded-once
-                    #'(nested-application.expanded-once . args)))
+                    #'(nested-application.expanded-once . args))
+           (pattern (~datum ~>)
+                    #:with expanded-once #'()
+                    #:when (displayln (format "dict = ~a" (dict->list env)))
+                    #:when #f))
          
          (define-syntax-class fa (pattern (~or (~literal ∀) (~literal All))))
          (syntax-parse stx

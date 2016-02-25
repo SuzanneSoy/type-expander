@@ -213,9 +213,9 @@ We derive identifiers for these based on the @tc[node] name:
        (define-temp-ids "~a/make-incomplete-type" (node …))
        (define-temp-ids "~a/incomplete-tag" (node …))
        (define-temp-ids "~a/incomplete-type" ((field …) …))
-
+       
        (define-temp-ids "~a/with-promises-type" (node …) #:first-base root)
-
+       
        (define-temp-ids "~a/index-type" (node …))]
 
 @chunk[<pass-to-second-step>
@@ -226,7 +226,7 @@ We derive identifiers for these based on the @tc[node] name:
        (node/make-placeholder-type …)
        (node/placeholder-struct …)
        (node/placeholder-type …)
-
+       
        (node/incomplete-type …)
        (node/make-incomplete …)
        (node/make-incomplete-type …)
@@ -354,9 +354,11 @@ The first step macro is defined as follows:
        (define-syntax/parse <signature>
          <define-ids/first-step>
          (debug-template debug
-          (begin ; Can't use (let () …) because of TR bug #192
-            <first-step-definitions>
-            <first-step-bindings>)))]
+           ;; Can't use (let () …) because of TR bug #262
+           ;; https://github.com/racket/typed-racket/issues/262
+           (begin
+             <first-step-definitions>
+             <first-step-bindings>)))]
 
 @subsubsection{Second step}
 
@@ -376,7 +378,7 @@ It will be called from the first step with the following syntax:
 @chunk[<second-step>
        (define-syntax/parse <signature-second-step>
          <define-ids/second-step>
-         (template ;debug-template debug
+         (debug-template debug
           (begin
             (begin <define-mapping-function>) …
             
@@ -737,7 +739,7 @@ via @tc[(g Street)].
             (syntax-parse #'fld
               [(~datum field) #'field/incomplete-type] …)] …
            [(_ #:make-placeholder (~datum node))
-            #'(→ param-type … node/placeholder-type)] …
+            #'node/make-placeholder-type] …
            [(_ #:placeholder (~datum node)) #'node/placeholder-type] …))]
 
 We will be able to use this type expander in function types, for example:

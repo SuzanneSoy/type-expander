@@ -18,23 +18,25 @@
 
 (define-syntax (d-exp stx)
   (syntax-case stx ()
-    [(_ T)
-     (displayln (expand-type #'T))
-     #'(begin (: x T)
-              (define x 1))]))
+    [(_ a) #'(begin (define x a) x)]))
 
 (define-syntax (frozen stx)
   (syntax-parse stx
-    [(_ def a)
-     #'(begin
-         (splicing-let ()
-           def
-           (d-exp a)))]))
+    [(_ def val a)
+     #`(begin (let ((#,(datum->syntax #'a (syntax->datum #'def)) val))
+                (d-exp a)))]))
 
 (define-syntax (goo stx)
   (syntax-case stx ()
-    [(_ T)
-     #`(frozen (define-type-expander (#,(datum->syntax #'T #'te) stx) #'Number)
-               T)]))
+    [(_ a)
+     #`(frozen #,(datum->syntax #'a #'te) 9
+               a)]))
 
 (goo te)
+
+(define-syntax (lake stx)
+  (syntax-parse stx
+    [(_ val a)
+     #`(let ((#,(datum->syntax stx 'te) val)) a)]))
+
+(lake 3 te)
