@@ -35,7 +35,7 @@ these constructors:
 Notice the cycle in the type: a street contains houses, which are located on the
 same street.
 
-@subsubsection{A seed from which to unravel the graph: the root parameters}
+@subsubsection{A seed from which to grow the graph: the root parameters}
 
 In order to build a graph with that type, we start from the root parameters.
 Here, we will take a representation of the city as a list of
@@ -110,7 +110,6 @@ the root arguments as parameters.
 
 @chunk[<use-example>
        (define-graph gr <example-variants>)
-       #;(define g (gr <example-root>))
        (define g1 (gr <example-root>))
        (define g g1)]
 
@@ -150,15 +149,16 @@ implemented.
 
 @subsection{The macro's syntax}
 
-We use a simple syntax for @tc[define-graph], and make it more flexible through
-wrapper macros.
+We use a simple syntax for @tc[define-graph], and will later make it more
+flexible through wrapper macros.
 
 @chunk[<signature>
-       (define-graph name
-         (~optional (~and debug #:debug))
-         (~maybe #:definitions (extra-definition:expr …))
-         [node <field-signature> … <mapping-declaration>]
-         …)]
+       (define-graph . (~and main-args <main-macro-arguments>))]
+@chunk[<main-macro-arguments>
+       (name (~optional (~and debug #:debug))
+             (~maybe #:definitions (extra-definition:expr …))
+             [node <field-signature> … <mapping-declaration>]
+             …)]
 
 Where @tc[<field-signature>] is:
 
@@ -200,32 +200,57 @@ A single node name can refer to several types:
 
 We derive identifiers for these based on the @tc[node] name:
 
-@;;;;
-@chunk[<define-ids>
-       (define/with-syntax ((root-param …) . _) #'((param …) …))
-       (define/with-syntax ((root-param-type …) . _) #'((param-type …) …))
-       
-       (define-temp-ids "~a/main-constructor" name)
+@chunk[<define-ids/first-step>
        (define-temp-ids "~a/constructor" (node …) #:first-base root)
-       (define-temp-ids "~a/make-placeholder" (node …) #:first-base root)
+       
+       (define-temp-ids "~a/make-placeholder" (node …))
        (define-temp-ids "~a/make-placeholder-type" (node …))
        (define-temp-ids "~a/placeholder-struct" (node …))
        (define-temp-ids "~a/placeholder-type" (node …))
-       (define-temp-ids "~a/placeholder-queue" (node …))
        
        (define-temp-ids "~a/incomplete-type" (node …))
        (define-temp-ids "~a/make-incomplete" (node …))
        (define-temp-ids "~a/make-incomplete-type" (node …))
        (define-temp-ids "~a/incomplete-tag" (node …))
+       (define-temp-ids "~a/incomplete-type" ((field …) …))
+
+       (define-temp-ids "~a/with-promises-type" (node …) #:first-base root)
+
+       (define-temp-ids "~a/index-type" (node …))]
+
+@chunk[<pass-to-second-step>
+       (node/constructor …)
+       root/constructor
+       
+       (node/make-placeholder …)
+       (node/make-placeholder-type …)
+       (node/placeholder-struct …)
+       (node/placeholder-type …)
+
+       (node/incomplete-type …)
+       (node/make-incomplete …)
+       (node/make-incomplete-type …)
+       (node/incomplete-tag …)
+       ((field/incomplete-type …) …)
+       
+       (node/with-promises-type …)
+       root/with-promises-type
+       
+       (node/index-type …)]
+
+@chunk[<define-ids/second-step>
+       (define/with-syntax ((root-param …) . _) #'((param …) …))
+       (define/with-syntax ((root-param-type …) . _) #'((param-type …) …))
+       (define-temp-ids "~a/main-constructor" name)
+       
+       (define-temp-ids "~a/placeholder-queue" (node …))
        
        (define-temp-ids "~a/with-indices-type" (node …))
        (define-temp-ids "~a/make-with-indices" (node …))
        (define-temp-ids "~a/with-indices-tag" (node …))
-       (define-temp-ids "~a/index-type" (node …))
        (define-temp-ids "~a/with-indices→with-promises" (node …)
          #:first-base root)
        
-       (define-temp-ids "~a/with-promises-type" (node …) #:first-base root)
        (define-temp-ids "~a/make-with-promises" (node …))
        (define-temp-ids "~a/with-promises-tag" (node …))
        
@@ -236,6 +261,43 @@ We derive identifiers for these based on the @tc[node] name:
        
        (define-temp-ids "~a/value" ((field …) …))]
 
+@subsection{A versatile identifier: the graph's name}
+
+@; TODO: only accept the syntax #:λroot, and provide the rest in wrapper macros.
+
+The graph name will be used in several ways:
+
+@itemlist[
+ @item{As the constructor for the root node, or another node. We allow both
+  invoking the constructor directly, or get the first-class procedure. Wrapper
+  macros will allow the syntax @racket[g.node] (and @racket[.g.node]) to refer
+  to the constructor for @racket[node].}
+ @item{As a type expander, to refer to the type of the nodes when outside the
+  @; TODO: secref
+  graph declaration. Wrapper macros will allow the syntax @racket[g.node] to
+  refer to @racket[node]'s type.}
+ @; TODO: @item{As a match expander}
+ ]
+
+@chunk[<define-multi-id>
+       (define-multi-id name
+         #:type-expander <graph-type-expander>
+         #:call (λ (stx)
+                  (syntax-parse stx
+                    ;; TODO: move this to a dot expander, so that writing
+                    ;; g.a gives a constructor for the a node of g, and
+                    ;; (g.a foo bar) or (let ((c .g.a)) (c foo bar)) both
+                    ;; call it
+                    [(_ #:λroot (~datum node))
+                     #'node/constructor]
+                    …
+                    [(_ #:root (~datum node) . rest)
+                     (syntax/loc stx (node/constructor . rest))]
+                    …
+                    [(_ . rest)
+                     (syntax/loc stx (root/constructor . rest))]))
+         #:id (λ (stx) #'root/constructor))]
+
 @subsection{Overview}
 
 The macro relies heavily on two sidekick modules: @tc[rewrite-type], and
@@ -245,6 +307,114 @@ search inside instances of incomplete nodes, in order to extract the
 placehoders, and replace these parts with promises. The latter, @tc[fold-queue],
 will be used to process all the pending placeholders, with the possibility to
 enqueue more as new placeholders are discovered inside incomplete nodes.
+
+Our macro allows extra user-provided definitions (provided using the
+@tc[#:definitions] keyword). These definitons should have access to the
+identifiers for node constructors and mapping functions. However, these
+definitions may introduce macros (such as type-expanders) which must be made
+available to the mapping and node declarations. More specifically, our macro
+will run @tc[expand-type] on the fields' types, and should expand any
+type-expanders introduced by the extra user-provided definitions.
+
+To solve this chicken-and-egg problem, we use two steps: first we generate just
+enough code so that we can inject the extra user definitions. Then we call a
+second macro, which does the real work. When expanded, the second macro will
+have the extra user-provided definitions in its scope.
+
+@subsubsection{First step}
+
+The first step first introduce a few stubs using generated names, which won't be
+available outside the graph definition:
+
+@chunk[<first-step-definitions>
+       <define-multi-id>
+       
+       (begin <define-make-placeholder/first-step>) …
+       (begin <define-make-incomplete/first-step>) …
+       ;; TODO: Struct definitions have to be outside due to TR bug #192
+       ;; https://github.com/racket/typed-racket/issues/192
+       (begin <define-placeholder-struct/first-step>) …
+       (begin <define-index-struct/first-step>) …]
+
+It will then bind these generated names to identifiers which can be used in the
+scope of the graph declaration. There, we will first inject the user-supplied
+extra definitions, and a call to the second step macro:
+
+@chunk[<first-step-bindings>
+       (splicing-let ([mapping node/make-placeholder]
+                      …
+                      [node node/make-incomplete]
+                      …)
+         (?? (begin extra-definition …))
+         <call-second-step>)]
+
+The first step macro is defined as follows:
+
+@chunk[<first-step>
+       (define-syntax/parse <signature>
+         <define-ids/first-step>
+         (debug-template debug
+          (begin ; Can't use (let () …) because of TR bug #192
+            <first-step-definitions>
+            <first-step-bindings>)))]
+
+@subsubsection{Second step}
+
+The second step will take a few extra arguments, to keep knowledge of the
+identifiers defined in the first step:
+
+@chunk[<signature-second-step>
+       (define-graph-second-step [<pass-to-second-step>]
+         <main-macro-arguments>)]
+
+It will be called from the first step with the following syntax:
+
+@chunk[<call-second-step>
+       (define-graph-second-step [<pass-to-second-step>]
+         main-args)]
+
+@chunk[<second-step>
+       (define-syntax/parse <signature-second-step>
+         <define-ids/second-step>
+         (template ;debug-template debug
+          (begin
+            (begin <define-mapping-function>) …
+            
+            (begin <define-placeholder-type>) …
+            (begin <define-make-placeholder-type>) …
+            (begin <define-with-indices>) …
+            (begin <define-with-promises>) …
+            (begin (begin <define-field/incomplete-type>) …) …
+            (begin <define-incomplete-type>) …
+            
+            (begin <define-mapping-function-type>) …
+            
+            (: fq (case→ (→ 'node/placeholder-queue node/placeholder-type
+                            (List (Vectorof node/with-indices-type) …))
+                         …))
+            (define (fq queue-name placeholder)
+              <fold-queues>)
+            
+            <constructors>)))]
+
+We shall define a graph constructor for each node type, which accepts the
+arguments for that node's mapping, and generates a graph rooted in the resulting
+node.
+
+@chunk[<constructors>
+       (begin
+         (: node/constructor (→ param-type … (Promise node/with-promises-type)))
+         (define (node/constructor param …)
+           (match-let ([(list node/database …)
+                        (fq 'node/placeholder-queue
+                            (node/make-placeholder param …))])
+             (begin <define-with-indices→with-promises>) …
+             (delay (node/with-indices→with-promises
+                     (vector-ref node/database 0))))))
+       …]
+
+
+@section{Injecting the first placeholder in the queue}
 
 When the graph constructor is called with the arguments for the root parameters,
 it is equivalent to make and then resolve an initial placeholder. We will use a
@@ -315,8 +485,9 @@ two values: the result of processing the element, and the latest version of
 
 We start creating the root placeholder which we provide to @tc[fold-queues].
 
+@; TODO: this is wrong, since we now have a constructor for each node type.
 @chunk[<root-placeholder>
-       (root/make-placeholder root-param …)]
+       (node/make-placeholder root-param …)]
 
 To make the placeholder, we will need a @tc[node/make-placeholder] function for
 each @tc[node]. We first define the type of each placeholder (a list of
@@ -324,7 +495,7 @@ arguments, tagged with the @tc[node]'s name):
 
 @; TODO: maybe replace node types with placeholder types
 
-@chunk[<define-placeholder-struct>
+@chunk[<define-placeholder-struct/first-step>
        (struct (A) node/placeholder-struct ([f : A]) #:transparent)]
 @chunk[<define-placeholder-type>
        (define-type node/placeholder-type
@@ -337,7 +508,7 @@ Then we define the @tc[node/make-placeholder] function:
 @chunk[<define-make-placeholder-type>
        (define-type node/make-placeholder-type
          (→ param-type … node/placeholder-type))]
-@chunk[<define-make-placeholder>
+@chunk[<define-make-placeholder/first-step>
        (: node/make-placeholder node/make-placeholder-type)
        (define (node/make-placeholder param …)
          (node/placeholder-struct (list param …)))]
@@ -351,9 +522,9 @@ indicates at which index in the queue's results the successor can be found.
 
 @; TODO: use a type-expander here, instead of a template metafunction.
 
-@chunk[<define-index-struct>
+@chunk[<define-index-struct/first-step>
        (struct node/index-type ([i : Index]) #:transparent)]
-       
+
 @chunk[<define-with-indices>
        (define-type node/with-indices-type
          (List 'node/with-indices-tag <field/with-indices-type> …))
@@ -402,15 +573,17 @@ library. We replace all occurrences of a @tc[node] name with its
 
 @chunk[<define-incomplete-type>
        (define-type node/incomplete-type
-         (List 'node/incomplete-tag <field/incomplete-type> …))
+         (List 'node/incomplete-tag field/incomplete-type …))
        
        (define-type node/make-incomplete-type
-         (→ <field/incomplete-type> … node/incomplete-type))]
-@chunk[<define-incomplete>
+         (→ field/incomplete-type … node/incomplete-type))]
+@chunk[<define-make-incomplete/first-step>
        (: node/make-incomplete node/make-incomplete-type)
        (define (node/make-incomplete field …)
          (list 'node/incomplete-tag field …))]
 
+@chunk[<define-field/incomplete-type>
+       (define-type field/incomplete-type <field/incomplete-type>)]
 @chunk[<field/incomplete-type>
        (tmpl-replace-in-type field-type
                              [node node/placeholder-type] …)]
@@ -443,7 +616,7 @@ library. We replace all occurrences of a @tc[node] name with its
        (let ([mapping-result
               (apply node/mapping-function
                      ((struct-accessor node/placeholder-struct 0) e))]
-             [f (tmpl-fold-instance (List <field-incomplete-type> …)
+             [f (tmpl-fold-instance (List <field/incomplete-type> …)
                                     Δ-Queues
                                     <placeholder→with-indices-clause> …)])
          (let-values ([(r new-Δ-queues) (f (cdr mapping-result) Δ-queues)])
@@ -451,11 +624,7 @@ library. We replace all occurrences of a @tc[node] name with its
                    new-Δ-queues)))]
 
 Where @tc[<field-incomplete-type>] is the @tc[field-type] in which node types
-are replaced by placeholder types:
-
-@chunk[<field-incomplete-type>
-       (tmpl-replace-in-type field-type
-                             [node node/placeholder-type] …)]
+are replaced by placeholder types, as defined earlier.
 
 @subsection{The mapping functions}
 
@@ -540,16 +709,13 @@ closes over.
        (: node/with-indices→with-promises (→ node/with-indices-type
                                              node/with-promises-type))
        (define (node/with-indices→with-promises n)
-         (define f (tmpl-fold-instance (List <field-with-indices-type> …)
+         (define f (tmpl-fold-instance (List <field/with-indices-type> …)
                                        Void
                                        <index→promise-clause> …))
          (apply node/make-with-promises (first-value (f (cdr n) (void)))))]
 
 Where @tc[<field-with-indices-type>] is the @tc[field-type] in which node types
-are replaced by tagged indices:
-
-@chunk[<field-with-indices-type>
-       (tmpl-replace-in-type field-type [node node/index-type] …)]
+are replaced by tagged indices, as defined earlier.
 
 @;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -566,10 +732,10 @@ via @tc[(g Street)].
            [(_ (~datum node)) #'node/with-promises-type] …
            [(_ #:incomplete (~datum node)) #'node/incomplete-type] …
            [(_ #:make-incomplete (~datum node))
-            #'(→ <field/incomplete-type> … node/incomplete-type)] …
+            #'(→ field/incomplete-type … node/incomplete-type)] …
            [(_ #:incomplete (~datum node) fld)
             (syntax-parse #'fld
-              [(~datum field) #'<field/incomplete-type>] …)] …
+              [(~datum field) #'field/incomplete-type] …)] …
            [(_ #:make-placeholder (~datum node))
             #'(→ param-type … node/placeholder-type)] …
            [(_ #:placeholder (~datum node)) #'node/placeholder-type] …))]
@@ -588,75 +754,6 @@ We will be able to use this type expander in function types, for example:
                       "Ada Street")]
 
 @section{Putting it all together}
-
-@chunk[<define-graph>
-       (define-syntax/parse <signature>
-         <define-ids>
-         ((λ (x)
-            (when (attribute debug)
-              (pretty-write (syntax->datum x)))
-            x)
-          (template
-           ;(let ()
-           (begin
-             (define-multi-id name
-               #:type-expander <graph-type-expander>
-               #:call (λ (stx)
-                        (syntax-parse stx
-                          ;; TODO: move this to a dot expander, so that writing
-                          ;; g.a gives a constructor for the a node of g, and
-                          ;; (g.a foo bar) or (let ((c .g.a)) (c foo bar)) both
-                          ;; call it
-                          [(_ #:λroot (~datum node))
-                           #'node/constructor]
-                          …
-                          [(_ #:root (~datum node) . rest)
-                           (syntax/loc stx (node/constructor . rest))]
-                          …
-                          [(_ . rest)
-                           (syntax/loc stx (root/constructor . rest))]))
-               #:id (λ (stx) #'root/constructor))
-
-             (begin <define-make-placeholder>) …
-             (begin <define-incomplete>) …
-             ;; TODO: Struct definitions have to be outside due to TR bug #192
-             ;; https://github.com/racket/typed-racket/issues/192
-             (begin <define-placeholder-struct>) …
-             (begin <define-index-struct>) …
-             (splicing-let ([mapping node/make-placeholder] …
-                            [node node/make-incomplete] …)
-
-               (?? (begin extra-definition …))
-               
-               (begin <define-mapping-function>) …
-               
-               (begin <define-placeholder-type>) …
-               (begin <define-make-placeholder-type>) …
-               (begin <define-with-indices>) …
-               (begin <define-with-promises>) …
-               (begin <define-incomplete-type>) …
-               
-               (begin <define-mapping-function-type>) …
-               
-               (: fq (case→ (→ 'node/placeholder-queue node/placeholder-type
-                               (List (Vectorof node/with-indices-type) …))
-                            …))
-               (define (fq queue-name placeholder)
-                 <fold-queues>)
-               
-               <constructors>)))))]
-
-@chunk[<constructors>
-       (begin
-         (: node/constructor (→ param-type … (Promise node/with-promises-type)))
-         (define (node/constructor param …)
-           (match-let ([(list node/database …)
-                        (fq 'node/placeholder-queue
-                            (node/make-placeholder param …))])
-             (begin <define-with-indices→with-promises>) …
-             (delay (node/with-indices→with-promises
-                     (vector-ref node/database 0))))))
-       …]
 
 @chunk[<module-main>
        (module main typed/racket
@@ -683,7 +780,8 @@ We will be able to use this type expander in function types, for example:
          ;<multiassoc-syntax>)
          
          (provide define-graph)
-         <define-graph>)]
+         <first-step>
+         <second-step>)]
 
 In @tc[module-test], we have to require @tc[type-expander] because it provides a
 @tc[:] macro which is a different identifier than the one from typed/racket,

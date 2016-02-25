@@ -310,6 +310,7 @@
          stx-list
          stx-e
          stx-pair
+         debug-template
          ;string-set!
          ;string-copy!
          ;string-fill!
@@ -460,6 +461,16 @@
   (check-equal? (match #'(x y z) [(stx-pair a b) (cons (map syntax->datum b)
                                                        (syntax->datum a))])
                 '((y z) . x)))
+
+(require syntax/parse/experimental/template)
+(define-syntax (debug-template stx)
+  (syntax-parse stx
+    [(_ debug-attribute:id . rest)
+     #'((λ (x)
+          (when (attribute debug-attribute)
+            (pretty-write (syntax->datum x)))
+          x)
+        (template . rest))]))
 
 (define-syntax (string-set! stx)
   (raise-syntax-error 'string-set! "Do not mutate strings." stx))
