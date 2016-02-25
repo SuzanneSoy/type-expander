@@ -151,7 +151,9 @@ else.
                  #,(expand-type #'T (bind-type-vars #'(TVar ...) env)))]
            [((~literal Rec) R:id T:expr)
             #`(Rec R #,(expand-type #'T (bind-type-vars #'(R) env)))]
-           [((~literal Let) [V:id E:id] T:expr)
+           [((~datum Let) [V:id E:id] T:expr);; TODO: ~literal instead of ~datum
+            ;; TODO: ~commit  when we find Let, so that syntax errors are not
+            ;; interpreted as an arbitrary call.
             ;; TODO : for now we only allow aliasing (which means E is an id),
             ;; not on-the-fly declaration of type expanders. This would require
             ;; us to (expand) them.

@@ -325,7 +325,7 @@ arguments, tagged with the @tc[node]'s name):
 @; TODO: maybe replace node types with placeholder types
 
 @chunk[<define-placeholder-type>
-       (struct (A) node/placeholder-struct ([f : A]))
+       (struct (A) node/placeholder-struct ([f : A]) #:transparent)
        (define-type node/placeholder-type
          (node/placeholder-struct (List param-type …)))]
 
@@ -351,7 +351,7 @@ indicates at which index in the queue's results the successor can be found.
 @; TODO: use a type-expander here, instead of a template metafunction.
 
 @CHUNK[<define-with-indices>
-       (struct node/index-type ([i : Index]))
+       (struct node/index-type ([i : Index]) #:transparent)
        
        (define-type node/with-indices-type
          (List 'node/with-indices-tag <field/with-indices-type> …))
