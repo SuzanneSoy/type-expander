@@ -227,7 +227,7 @@ TODO: we currently don't check that each @tc[tag] is distinct.
            [_ (raise-syntax-error
                'replace-in-type
                (format "Type-replace on untagged Unions isn't supported yet: ~a"
-                       t)
+                       (syntax->datum t))
                t)]
            [s:id
             #:when (begin (printf "~a ~a\n" (meta-struct? #'s) #'s)
@@ -490,7 +490,6 @@ functions is undefined.
                           (cdr f))))]
            [((~literal U) a ...)
             (define/with-syntax (new-a-type …) (stx-map new-type-for #'(a …)))
-            (printf "<replace-fold-union>: ~a\n" type)
             #`(λ ([val : (U a ...)] [acc : acc-type])
                 : (values (U new-a-type …) acc-type)
                 (cond
@@ -532,7 +531,7 @@ functions is undefined.
          [_ (raise-syntax-error
              'replace-in-type
              (format "Type-replace on untagged Unions isn't supported yet: ~a"
-                     ta)
+                     (syntax->datum ta))
              ta)])]
 
 For cases of the union which are a tagged list, we use a simple guard, and call
