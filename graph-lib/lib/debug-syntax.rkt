@@ -18,3 +18,8 @@
 (provide browse-syntax
          browse-syntaxes
          debug-syntax)
+
+;; Avoid problems with raco test on headless machines (GTK tries to open
+;; display :0 otherwise)
+(module main racket)
+(module test racket)
