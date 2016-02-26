@@ -1,5 +1,0 @@
-Attempts:
-* (datum->syntax) Commit 876c4d2: works, but introduces ~> into the global scope
-* (syntax-local-introduce) Does not work at all
-* ((make-delta-introducer) (syntax-local-introduce)), see identifiers.ods and __DEBUG_graph6F.rkt: Works on normal identifiers (not sure?) but not for the graph (why?)
-* splicing-syntax-parameterize Commit 56fdfae: splicing-syntax-parameterize messes up the scopes of its body
