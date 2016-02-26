@@ -355,13 +355,17 @@ When the user gave @tc[#:wrapping-definitions] instead of @tc[#:definitions], we
 use syntax-parameterize to enable the @tc[(define-graph-rest)] form.
 
 @chunk[<wrapping-first-step>
-       (splicing-syntax-parameterize
-           ([define-graph-rest
-             (syntax-rules () ;; TODO: indentation bug here in v 6.4.0.8
-               [(_) #';(splicing-syntax-parameterize
+       (begin
+         (define-syntax (call-second-step stx)
+           (syntax-local-introduce
+            #'<call-second-step>))
+         (splicing-syntax-parameterize
+             ([define-graph-rest
+               (syntax-rules () ;; TODO: indentation bug here in v 6.4.0.8
+                 [(_) call-second-step])]);(splicing-syntax-parameterize
                        ;   ([define-graph-rest default-define-graph-rest])
-                        <call-second-step>])]);)])])
-         wrapping-extra-definitions)]
+                       ;<call-second-step>;)])])
+           wrapping-extra-definitions))]
 
 The first step macro is defined as follows:
 

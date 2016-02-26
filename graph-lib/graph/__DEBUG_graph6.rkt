@@ -50,8 +50,8 @@
     (begin
       (define-type-expander
         (first-step-expander1 stx)
-        #'Number
-        #;(syntax-parse
+        #;#'Number
+        (syntax-parse
               stx
             ((_ (~datum m-cities))
              (template
@@ -65,13 +65,17 @@
                (Listof (first-step #:placeholder Street)))))))
       (define-type-expander
         (first-step-expander2 stx)
-        #'Number
-        #;(syntax-parse
+        #;#'Number
+        (syntax-parse
               stx
             ((_ (~datum m-cities)) #'(U m-cities3/node (Listof City)))
             ((_ (~datum m-streets)) #'(U m-streets4/node (Listof Street)))))
-      (splicing-syntax-parameterize
-          ((~> (make-rename-transformer #'first-step-expander1)))))
+      (splicing-let-syntax
+          ([~> (make-rename-transformer #'first-step-expander1)])
+        (define-graph-rest))
+      #;(splicing-syntax-parameterize
+          ((~> (make-rename-transformer #'first-step-expander1)))
+        (define-graph-rest)))
     (City
      (streets : (Let (~> first-step-expander2) (~> m-streets)))
      ((City1/simple-mapping (streets : (~> m-streets))) (City streets)))
