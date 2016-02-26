@@ -156,7 +156,9 @@ flexible through wrapper macros.
        (define-graph . (~and main-args <main-macro-arguments>))]
 @chunk[<main-macro-arguments>
        (name (~optional (~and debug #:debug))
-             (~maybe #:definitions (extra-definition:expr …))
+             (~or (~seq #:definitions extra-definitions)
+                  (~seq #:wrapping-definitions wrapping-extra-definitions)
+                  (~seq))
              [node <field-signature> … <mapping-declaration>]
              …)]
 
@@ -345,12 +347,31 @@ extra definitions, and a call to the second step macro:
                       …
                       [node node/make-incomplete]
                       …)
-         (?? (begin extra-definition …))
-         <call-second-step>)]
+         (?? <wrapping-first-step>
+             (?@ (?? extra-definitions)
+                 <call-second-step>)))]
+
+When the user gave @tc[#:wrapping-definitions] instead of @tc[#:definitions], we
+use syntax-parameterize to enable the @tc[(define-graph-rest)] form.
+
+@chunk[<wrapping-first-step>
+       (splicing-syntax-parameterize
+           ([define-graph-rest
+             (syntax-rules () ;; TODO: indentation bug here in v 6.4.0.8
+               [(_) #';(splicing-syntax-parameterize
+                       ;   ([define-graph-rest default-define-graph-rest])
+                        <call-second-step>])]);)])])
+         wrapping-extra-definitions)]
 
 The first step macro is defined as follows:
 
 @chunk[<first-step>
+       (define-for-syntax (default-define-graph-rest stx)
+         (raise-syntax-error 'define-graph-rest
+                             "can only be used inside define-graph"
+                             stx))
+       (define-syntax-parameter define-graph-rest default-define-graph-rest)
+       
        (define-syntax/parse <signature>
          <define-ids/first-step>
          (debug-template debug
@@ -769,6 +790,7 @@ We will be able to use this type expander in function types, for example:
                               "../lib/low-untyped.rkt"
                               "meta-struct.rkt")
                   racket/splicing
+                  racket/stxparam
                   "fold-queues.lp2.rkt"
                   "rewrite-type.lp2.rkt"
                   "../lib/low.rkt"
@@ -778,10 +800,7 @@ We will be able to use this type expander in function types, for example:
                   "../type-expander/multi-id.lp2.rkt"
                   "meta-struct.rkt")
          
-         ;(begin-for-syntax
-         ;<multiassoc-syntax>)
-         
-         (provide define-graph)
+         (provide define-graph define-graph-rest)
          <first-step>
          <second-step>)]
 
