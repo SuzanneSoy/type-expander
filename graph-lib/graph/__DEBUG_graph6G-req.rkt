@@ -1,7 +1,7 @@
 #lang typed/racket
 
 (require "graph-6-rich-returns.lp2.rkt"
-         (except-in "../lib/low.rkt" ~>)
+         "../lib/low.rkt"
          "graph.lp2.rkt"
          "get.lp2.rkt"
          "../type-expander/type-expander.lp2.rkt"
