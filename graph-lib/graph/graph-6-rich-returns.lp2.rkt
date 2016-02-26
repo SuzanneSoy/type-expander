@@ -54,7 +54,7 @@ return the same node, the new signature separates the
 mapping declarations from the node definitions:
 
 @chunk[<signature>
-       (define-graph/rich-return name:id
+       (define-graph/rich-return name:id id-~>
          ((~commit [node:id <field-signature> …])
           …)
          (~commit <mapping-declaration>)
@@ -104,13 +104,13 @@ plain list.
          (define-temp-ids "first-step-expander2" name)
          (define-temp-ids "~a/simple-mapping" (node …))
          (define-temp-ids "~a/node" (mapping …))
-         (define/with-syntax ~>-id (datum->syntax #'name '~>))
+         ;(define/with-syntax id-~> (datum->syntax #'name '~>))
          (template
           ;(debug
            (begin
              (define-graph first-step
                #:definitions [<first-pass-type-expander>]
-               [node [field c (Let [~>-id first-step-expander2] field-type)] …
+               [node [field c (Let [id-~> first-step-expander2] field-type)] …
                 [(node/simple-mapping [field c field-type] …)
                  ;<first-pass-field-type>] …)
                  (node field …)]] …
@@ -128,7 +128,7 @@ encapsulating the result types of mappings.
 @chunk[<first-pass-type-expander>
        ;; TODO: to avoid conflicting definitions of ~>, we should either use
        ;; syntax-parameterize, or make a #:local-definitions
-       (define-type-expander (~>-id stx)
+       (define-type-expander (id-~> stx)
          (syntax-parse stx
            [(_ (~datum mapping)) ;; TODO: should be ~literal
             (template
