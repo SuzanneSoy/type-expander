@@ -10,4 +10,3 @@ Not tried yet:
 * datum->syntax (or replace-context or …) in define-graph, so that it "gobbles" its parameters?
 * #:defined-please-bind-dammit (~>), so that a rename-transformer is introduced by define-graph
 * defining ~> directly inside define-graph
-* Make the simplest possible example that has the same structure (type-expander + several levels of macros).
