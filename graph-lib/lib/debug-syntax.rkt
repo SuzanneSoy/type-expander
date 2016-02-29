@@ -23,3 +23,4 @@
 ;; display :0 otherwise)
 (module main racket)
 (module test racket)
+(module doc racket)
