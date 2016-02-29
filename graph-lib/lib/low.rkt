@@ -310,7 +310,8 @@
          stx-list
          stx-e
          stx-pair
-         debug-template
+         template/debug
+         quasitemplate/debug
          ;string-set!
          ;string-copy!
          ;string-fill!
@@ -463,7 +464,7 @@
                 '((y z) . x)))
 
 (require syntax/parse/experimental/template)
-(define-syntax (debug-template stx)
+(define-syntax (template/debug stx)
   (syntax-parse stx
     [(_ debug-attribute:id . rest)
      #'((λ (x)
@@ -471,6 +472,35 @@
             (pretty-write (syntax->datum x)))
           x)
         (template . rest))]))
+
+(define-syntax (quasitemplate/debug stx)
+  (syntax-parse stx
+    [(_ debug-attribute:id . rest)
+     #'((λ (x)
+          (when (attribute debug-attribute)
+            (pretty-write (syntax->datum x)))
+          x)
+        (quasitemplate . rest))]))
+
+;; TODO: this is kind of a hack, as we have to write:
+#;(with-syntax ([(x …) #'(a bb ccc)])
+    (let ([y 70])
+      (quasitemplate
+       ([x (meta-eval (+ #,y (string-length
+                              (symbol->string
+                               (syntax-e #'x)))))]
+        …))))
+;; Where we need #,y instead of using:
+;; (+ y (string-length etc.)).
+(module m-meta-eval racket
+  (provide meta-eval)
+  (require syntax/parse/experimental/template)
+  
+  (define-template-metafunction (meta-eval stx)
+    (syntax-case stx ()
+      [(_ . body)
+       #`#,(eval #'(begin . body))])))
+(require/provide 'm-meta-eval)
 
 (define-syntax (string-set! stx)
   (raise-syntax-error 'string-set! "Do not mutate strings." stx))

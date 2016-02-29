@@ -353,7 +353,7 @@ The first step macro is defined as follows:
 @chunk[<first-step>
        (define-syntax/parse <signature>
          <define-ids/first-step>
-         (debug-template debug
+         (template/debug debug
            ;; Can't use (let () …) because of TR bug #262
            ;; https://github.com/racket/typed-racket/issues/262
            (begin
@@ -378,7 +378,7 @@ It will be called from the first step with the following syntax:
 @chunk[<second-step>
        (define-syntax/parse <signature-second-step>
          <define-ids/second-step>
-         (debug-template debug
+         (template/debug debug
           (begin
             (begin <define-mapping-function>) …
             
