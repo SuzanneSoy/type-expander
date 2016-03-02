@@ -62,6 +62,7 @@
 
 (define excluded
   '(typed/racket
+    typed/racket/no-check
     racket/base
     racket
     scribble/lp/lang/lang2))
