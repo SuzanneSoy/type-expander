@@ -226,7 +226,7 @@ position in the vector equal to the index associated to it in the hash table:
          (require (for-syntax syntax/parse
                               syntax/parse/experimental/template
                               racket/syntax
-                              "../lib/low-untyped.rkt")
+                              (submod "../lib/low.rkt" untyped))
                   "../lib/low.rkt"
                   "../type-expander/type-expander.lp2.rkt")
          

@@ -137,6 +137,7 @@
 
 (run! `(,(find-executable-path-or-fail "raco")
         "make"
+        "-v"
         "-j" "5"
         ,@rkt-files))
 

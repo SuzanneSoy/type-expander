@@ -47,6 +47,7 @@ install:
 - make build-dep
 
 script:
+- racket --version
 - make
 
 after_success:

@@ -630,11 +630,10 @@ These metafunctions just extract the arguments for @tc[replace-in-type] and
            (require
              (for-syntax syntax/parse
                          racket/syntax
-                         syntax/stx
                          racket/format
                          syntax/parse/experimental/template
                          racket/sequence
-                         "../lib/low-untyped.rkt"
+                         (submod "../lib/low.rkt" untyped)
                          (only-in "../type-expander/type-expander.lp2.rkt"
                                   expand-type)
                          "meta-struct.rkt")

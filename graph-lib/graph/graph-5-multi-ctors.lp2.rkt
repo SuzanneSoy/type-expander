@@ -150,9 +150,7 @@ name) with the right type, so that the user doesn't see all the types in the
          (require (for-syntax syntax/parse
                               syntax/parse/experimental/template
                               racket/syntax
-                              syntax/stx
-                              "../lib/low-untyped.rkt"
-                              "../lib/low/multiassoc-syntax.rkt")
+                              (submod "../lib/low.rkt" untyped))
                   "../lib/low.rkt"
                   "graph.lp2.rkt"
                   "get.lp2.rkt"

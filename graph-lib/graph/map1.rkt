@@ -1,7 +1,7 @@
 #lang typed/racket
 
 (require (for-syntax syntax/parse
-                     "../lib/low-untyped.rkt")
+                     (submod "../lib/low.rkt" untyped))
          "../type-expander/type-expander.lp2.rkt")
 
 (provide curry-map)

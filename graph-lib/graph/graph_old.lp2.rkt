@@ -840,9 +840,8 @@ checker, unless it is absorbed by a larger type, like in
                                 syntax/parse/experimental/template
                                 racket/syntax
                                 racket/function
-                                syntax/stx
                                 racket/pretty
-                                "../lib/low-untyped.rkt"
+                                (submod "../lib/low.rkt" untyped)
                                 "../lib/untyped.rkt")
                     (prefix-in DEBUG-tr: typed/racket)
                     syntax/parse

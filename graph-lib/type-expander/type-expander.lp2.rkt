@@ -1069,10 +1069,9 @@ in a separate module (that will be used only by macros, so it will be written in
        (module expander racket
          (require racket
                   syntax/parse
-                  syntax/stx
                   racket/format
                   syntax/id-table
-                  "../lib/low-untyped.rkt")
+                  (submod "../lib/low.rkt" untyped))
          
          (require (for-template typed/racket))
          
@@ -1101,7 +1100,7 @@ We can finally define the overloaded forms, as well as the extra
                               racket/syntax
                               syntax/parse
                               syntax/parse/experimental/template
-                              "../lib/low-untyped.rkt")
+                              (submod "../lib/low.rkt" untyped))
                   "../lib/low.rkt")
          
          (require (submod ".." expander))
@@ -1159,7 +1158,7 @@ And, last but not least, we will add a @tc[test] module.
                   "../lib/low.rkt"
                   (for-syntax (submod ".." expander)
                               racket/list
-                              "../lib/low-untyped.rkt"))
+                              (submod "../lib/low.rkt" untyped)))
          
          <test-expand-type>
          

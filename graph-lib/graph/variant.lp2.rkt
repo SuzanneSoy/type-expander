@@ -281,7 +281,7 @@ number of name collisions.
            (require (for-syntax syntax/parse
                                 syntax/parse/experimental/template
                                 racket/syntax
-                                "../lib/low-untyped.rkt")
+                                (submod "../lib/low.rkt" untyped))
                     "../lib/low.rkt"
                     "../type-expander/multi-id.lp2.rkt"
                     "../type-expander/type-expander.lp2.rkt"

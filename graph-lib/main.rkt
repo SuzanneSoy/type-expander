@@ -9,50 +9,6 @@
 (require "graph/variant.lp2.rkt")
 |#
 
-(define-type from (List (Pairof Number Boolean)
-                        (Listof (U Number (Pairof Number String)))))
-(define-type to (List (Pairof String Boolean)
-                      (Listof (U String (Pairof String String)))))
-
-(: convert1 (→ from to))
-(define (convert1 v)
-  (match v [(list a b) (list (convert2 a) (convert3 b))]))
-
-(: convert2 (→ (Pairof Number Boolean) (Pairof String Boolean)))
-(define (convert2 v)
-  (match v [(cons a b) (cons (convert4 a) (convert5 b))]))
-
-(: convert3 (→ (Listof (U Number (Pairof Number String)))
-               (Listof (U String (Pairof String String)))))
-(define (convert3 v)
-  (match v [(? list?) (map convert6 v)]))
-
-(: convert4 (→ Number String))
-(define (convert4 v)
-  (match v [(? number?) (format "~a" v)]))
-
-(: convert5 (→ Boolean Boolean))
-(define (convert5 v)
-  (match v [(? boolean?) v]))
-
-(: convert6 (→ (U Number (Pairof Number String))
-               (U String (Pairof String String))))
-(define (convert6 v)
-  (match v
-    [(? number?) (format "~a" v)]
-    [(? pair?) (cons (convert4 (car v)) (convert7 (cdr v)))]))
-
-(: convert7 (→ String String))
-(define (convert7 v)
-  (match v [(? string?) v]))
-
-(require typed/rackunit)
-(check-equal? (convert1 '((123 . #t) (1 2 (3 . "b") 4 (5 . "x") 6)))
-              '(("123" . #t) ("1" "2" ("3" . "b") "4" ("5" . "x") "6")))
-
-
-
-
 #|
 (define-type from (List (Pairof Number Boolean) (Listof Number)))
 (define-type to (List (Pairof String Boolean) (Listof String)))

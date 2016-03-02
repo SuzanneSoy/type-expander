@@ -1,5 +1,5 @@
 #lang racket
-(require "low-untyped.rkt")
+(require (submod "low.rkt" untyped))
 
 (with-syntax ([((foo ...) ...) #'((aa bb cc) (x1 x2))])
   (define-temp-ids "___~a.truc" ((foo ...) ...) #:first-base fst)

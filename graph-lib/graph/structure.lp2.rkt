@@ -591,12 +591,10 @@ chances that we could write a definition for that identifier.
                                 syntax/parse/experimental/template
                                 mzlib/etc
                                 racket/struct-info
-                                syntax/stx
                                 racket/sequence
                                 ;; in-syntax on older versions:
                                 ;;;unstable/sequence
-                                "../lib/low-untyped.rkt"
-                                "../lib/low/multiassoc-syntax.rkt"
+                                (submod "../lib/low.rkt" untyped)
                                 "meta-struct.rkt")
                     "../lib/low.rkt"
                     "../type-expander/type-expander.lp2.rkt"
