@@ -1,4 +1,4 @@
 #lang typed/racket
 
-(require "low-untyped.rkt")
+(require "low.rkt")
 (require/provide "untyped/for-star-list-star.rkt")

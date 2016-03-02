@@ -761,12 +761,11 @@ We will be able to use this type expander in function types, for example:
        (module main typed/racket
          (require (for-syntax syntax/parse
                               racket/syntax
-                              syntax/stx
                               syntax/parse/experimental/template
                               racket/sequence
                               racket/pretty
                               "rewrite-type.lp2.rkt"
-                              "../lib/low-untyped.rkt"
+                              (submod "../lib/low.rkt" untyped)
                               "meta-struct.rkt")
                   racket/splicing
                   "fold-queues.lp2.rkt"

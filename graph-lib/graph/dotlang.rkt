@@ -11,16 +11,15 @@
     
   
   (require "get.lp2.rkt"
-           "../lib/low-untyped.rkt"
+           (submod "../lib/low.rkt" untyped)
            (for-syntax racket/string
                        syntax/parse
                        racket/syntax
-                       syntax/stx
                        syntax/strip-context
                        racket/struct
                        racket/function
                        syntax/srcloc
-                       "../lib/low-untyped.rkt"))
+                       (submod "../lib/low.rkt" untyped)))
   
   #|
   (define-syntax/parse (dot x:id)

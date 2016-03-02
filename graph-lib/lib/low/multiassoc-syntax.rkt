@@ -1,13 +1,13 @@
 #lang typed/racket
-(require "../low2/typed-untyped.rkt")
+(require "typed-untyped.rkt")
 (define-typed/untyped-modules #:no-test
   (provide multiassoc-syntax
            cdr-assoc-syntax
            assoc-syntax)
   
-  (require "../low2/typed-untyped.rkt")
-  (require-typed/untyped "../low2/aliases.rkt"
-                         "../low2/stx.rkt")
+  (require "typed-untyped.rkt")
+  (require-typed/untyped "aliases.rkt"
+                         "stx.rkt")
   
   ;; TODO: cdr-stx-assoc is already defined in lib/low.rkt
   

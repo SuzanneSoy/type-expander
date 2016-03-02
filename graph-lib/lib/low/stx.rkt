@@ -31,10 +31,13 @@
            
            check-duplicate-identifiers
            
-           nameof)
+           nameof
+           (all-from-out syntax/stx))
   
   (require "typed-untyped.rkt")
   (require-typed/untyped "sequence.rkt")
+  
+  (require syntax/stx)
   
   ;; match-expanders:
   ;;   stx-list
@@ -150,14 +153,26 @@
     
     (: stx-null? (→ Any Boolean : (U (Syntaxof Null) Null)))
     (define (stx-null? v)
-      ((make-predicate (U (Syntaxof Null) Null)) v))
+      (if-typed
+       ((make-predicate (U (Syntaxof Null) Null)) v)
+       (or (null? v) (and (syntax? v) (null? (syntax-e v))))))
+    
+    (module+ test
+      (check-equal? (stx-null? #f) #f)
+      (check-equal? (stx-null? 'a) #f)
+      (check-equal? (stx-null? '()) #t)
+      (check-equal? (stx-null? #'()) #t)
+      (check-equal? (stx-null? #''()) #f)
+      (check-equal? (stx-null? #'a) #f))
     
     (: stx-pair? (→ Any Boolean : (U (Pairof Any Any)
                                      (Syntaxof (Pairof Any Any)))))
     (define (stx-pair? v)
-      ((make-predicate (U (Pairof Any Any)
-                          (Syntaxof (Pairof Any Any))))
-       v)))
+      (if-typed
+       ((make-predicate (U (Pairof Any Any)
+                           (Syntaxof (Pairof Any Any))))
+        v)
+       (or (pair? v) (and (syntax? v) (pair? (syntax-e v)))))))
   
   ;; constructors:
   ;;   stx-cons
@@ -267,7 +282,7 @@
             [else
              (stx-drop-last (syntax-e l))])
       
-      #;(if ((make-predicate (Syntaxof Any)) l)
+      #;(if (if-typed ((make-predicate (Syntaxof Any)) l) (syntax? l))
           (stx-drop-last (syntax-e l))
           (if (null? l)
               #'()

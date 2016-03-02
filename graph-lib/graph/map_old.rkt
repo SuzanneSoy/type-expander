@@ -1,10 +1,9 @@
 #lang debug typed/racket
 
 (require (for-syntax racket/syntax
-                     syntax/stx
                      syntax/parse
                      syntax/parse/experimental/template
-                     "../lib/low-untyped.rkt")
+                     (submod "../lib/low.rkt" untyped))
          (for-meta 2
                    racket/base
                    racket/syntax)

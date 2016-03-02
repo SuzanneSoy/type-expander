@@ -1,13 +1,14 @@
 #lang typed/racket
-(require "../low2/typed-untyped.rkt")
+(require "typed-untyped.rkt")
 (define-typed/untyped-modules #:no-test
+  (provide define-logn-ids)
+  
   (require (for-syntax syntax/parse
                        racket/syntax
                        racket/function
                        racket/match
-                       syntax/stx))
-  
-  (provide define-logn-ids)
+                       syntax/stx)
+           "typed-untyped.rkt")
   
   (begin-for-syntax
     (define (insert make-node v ts)
@@ -53,7 +54,8 @@
        (define (make-btd bt)
          (match bt
            [`(node ,s ,(and a `(,_ ,sa . ,_)) ,b)
-            #`(if ((make-predicate #,sa) v-cache)
+            #`(if (if-typed ((make-predicate #,sa) v-cache)
+                            #,(format-id sa "~a?" sa))
                   #,(make-btd a)
                   #,(make-btd b))]
            [`(leaf ,s ,a ,t ,tmp)

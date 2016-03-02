@@ -1,6 +1,6 @@
 #lang typed/racket
 (require "typed-untyped.rkt")
-(define-typed/untyped-modules
+(define-typed/untyped-modules #:no-test
   (provide hash-set**
            ;string-set!
            ;string-copy!

@@ -2,9 +2,8 @@
 
 (require (for-syntax racket/syntax
                      racket/function
-                     syntax/stx
                      syntax/parse
-                     "../lib/low-untyped.rkt")
+                     (submod "../lib/low.rkt" untyped))
          "../lib/low.rkt"
          "get.lp2.rkt"
          "../type-expander/type-expander.lp2.rkt")

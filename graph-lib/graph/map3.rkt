@@ -1,10 +1,9 @@
 #lang typed/racket
 
 (require (for-syntax racket/syntax
-                     syntax/stx
                      syntax/parse
                      syntax/parse/experimental/template
-                     "../lib/low-untyped.rkt")
+                     (submod "../lib/low.rkt" untyped))
          "../lib/low.rkt"
          "get.lp2.rkt"
          "../type-expander/type-expander.lp2.rkt")

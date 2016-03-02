@@ -119,7 +119,6 @@
   
   (define (tag-pair dep)
     (append (if (equal? (cdr dep) "lib/low.rkt") '(lib/low) '())
-            (if (equal? (cdr dep) "lib/low-untyped.rkt") '(lib/low) '())
             (if (equal? (categorize-main-module (car dep))
                         (categorize-main-module (cdr dep))) '(submodule) '())
             (if (lib? (cdr dep)) '(lib) '())))

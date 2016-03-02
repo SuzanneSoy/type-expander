@@ -10,9 +10,10 @@
            define-temp-ids)
   
   (require "typed-untyped.rkt")
-  (require-typed/untyped "sequence.rkt")
-  
-  
+  (require-typed/untyped "sequence.rkt"
+                         "aliases.rkt")
+  (begin-for-syntax (require "typed-untyped.rkt")
+                    (require-typed/untyped "aliases.rkt"))
   
   (module m-!temp racket
     (provide !temp)
@@ -34,8 +35,7 @@
   
   (require/typed racket/syntax
                  [format-id (→ Syntax String (U String Identifier) *
-                               Identifier)]
-                 [(generate-temporary generate-temporary2) (→ Any Identifier)])
+                               Identifier)])
   (require (only-in racket/syntax define/with-syntax)
            (only-in syntax/stx stx-map)
            (for-syntax racket/base
@@ -293,7 +293,7 @@
            #'(let1 d1 (let ((foo-b 2) (foo-c 'b)) (cons foo-x foo-y))))]))
     
     (check-equal?: (test1 (let ((foo-b 1) (foo-c 'a))) b c)
-                  '(1 . b))
+                   '(1 . b))
     
     (define-syntax (fubar stx)
       (define/with-syntax (v1 ...) #'(1 2 3))

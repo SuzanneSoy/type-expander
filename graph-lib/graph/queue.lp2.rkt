@@ -375,7 +375,7 @@ was a tag requested.
          (module main typed/racket
            (require (for-syntax syntax/parse
                                 racket/syntax
-                                "../lib/low-untyped.rkt")
+                                (submod "../lib/low.rkt" untyped))
                     "../lib/low.rkt"
                     racket/set
                     racket/format)

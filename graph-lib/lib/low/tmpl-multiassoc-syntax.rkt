@@ -1,18 +1,17 @@
 #lang typed/racket
-(require "../low2/typed-untyped.rkt")
+(require "typed-untyped.rkt")
 (define-typed/untyped-modules #:no-test
   (provide tmpl-cdr-assoc-syntax
            (rename-out [tmpl-cdr-assoc-syntax !cdr-assoc]))
-  
-  (require "../low2/typed-untyped.rkt")
   
   (module m-tmpl-cdr-assoc-syntax racket
     (provide tmpl-cdr-assoc-syntax)
     
     (require syntax/parse
              syntax/parse/experimental/template
-             (submod "../low2/stx.rkt" untyped)
-             (submod "multiassoc-syntax.rkt" untyped))
+             (submod "stx.rkt" untyped)
+             (submod "multiassoc-syntax.rkt" untyped)
+             (submod "aliases.rkt" untyped))
     
     (define-template-metafunction (tmpl-cdr-assoc-syntax stx)
       (syntax-parse stx

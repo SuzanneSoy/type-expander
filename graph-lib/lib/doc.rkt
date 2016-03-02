@@ -10,7 +10,7 @@
 
 (require scriblib/render-cond)
 
-;(require "low-untyped.rkt")
+;(require "(submod low.rkt untyped)")
 ;(#lang reader "scribble-custom/lp2.rkt" #:lang typed/racket)
 
 ;; http://lists.racket-lang.org/users/archive/2015-January/065752.html

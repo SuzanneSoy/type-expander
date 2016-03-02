@@ -162,11 +162,8 @@ encapsulating the result types of mappings.
          (require (for-syntax syntax/parse
                               syntax/parse/experimental/template
                               racket/syntax
-                              syntax/stx
-                              "../lib/low-untyped.rkt"
-                              "../lib/low/multiassoc-syntax.rkt"
-                              "rewrite-type.lp2.rkt"; debug
-                              )
+                              (submod "../lib/low.rkt" untyped)
+                              "rewrite-type.lp2.rkt" #|debug|#)
                   (rename-in "../lib/low.rkt" [~> threading:~>])
                   "graph.lp2.rkt"
                   "get.lp2.rkt"
