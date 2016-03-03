@@ -52,7 +52,7 @@
   : (Listof Street)
   (map Street snames)])
 
-(super-define-graph/rich-return
+#;(super-define-graph/rich-return
  grr3
  ([City [streets : (~> m-streets)]]
   [Street [sname : String]])

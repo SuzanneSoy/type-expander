@@ -202,6 +202,7 @@ We derive identifiers for these based on the @tc[node] name:
 
 @chunk[<define-ids/first-step>
        (define-temp-ids "~a/constructor" (node …) #:first-base root)
+       (define-temp-ids "~a?" (node …))
        
        (define-temp-ids "~a/make-placeholder" (node …))
        (define-temp-ids "~a/make-placeholder-type" (node …))
@@ -221,6 +222,7 @@ We derive identifiers for these based on the @tc[node] name:
 @chunk[<pass-to-second-step>
        (node/constructor …)
        root/constructor
+       (node? …)
        
        (node/make-placeholder …)
        (node/make-placeholder-type …)
@@ -294,6 +296,8 @@ The graph name will be used in several ways:
                     [(_ #:root (~datum node) . rest)
                      (syntax/loc stx (node/constructor . rest))]
                     …
+                    [(_ #:? (~datum node))
+                     (syntax/loc stx node?)]
                     [(_ . rest)
                      (syntax/loc stx (root/constructor . rest))]))
          #:id (λ (stx) #'root/constructor))]

@@ -55,6 +55,7 @@ mapping declarations from the node definitions:
 
 @chunk[<signature>
        (define-graph/rich-return name:id id-~>
+         (~optional (~and #:debug debug))
          ((~commit [node:id <field-signature> …])
           …)
          (~commit <mapping-declaration>)
@@ -98,15 +99,19 @@ for the temporary node type which encapsulates the result
 of @tc[m-streets], while the latter would normally expect a
 plain list.
 
-@chunk[<graph-rich-return>
+@CHUNK[<graph-rich-return>
        (define-syntax/parse <signature>
          (define-temp-ids "first-step" name)
          (define-temp-ids "first-step-expander2" name)
          (define-temp-ids "~a/simple-mapping" (node …))
          (define-temp-ids "~a/node" (mapping …))
+         (define-temp-ids "~a/extract/mapping" (node …))
+         (define-temp-ids "~a/extract" (node …) #:first-base root)
+         (define-temp-ids "~a/node-marker" (mapping …))
+         (define-temp-ids "~a/from-first-pass" (node …))
          ;(define/with-syntax id-~> (datum->syntax #'name '~>))
-         (template
-          ;(debug
+         <inline-temp-nodes>
+         (quasitemplate/debug debug
            (begin
              (define-graph first-step
                #:definitions [<first-pass-type-expander>]
@@ -119,7 +124,108 @@ plain list.
                  (mapping/node
                   (let ([node node/simple-mapping] …)
                     . body))]]
-               …))))]
+               …)
+             ;; TODO: how to return something else than a node??
+             ;; Possibility 1: add a #:main function to define-graph, which can
+             ;; call (make-root).
+             ;; Possibility 2: use the "(name node)" type outside as the return
+             ;; type of functions
+             (define-graph name
+               #:definitions [<second-pass-type-expander>]
+               [node [field c field-type] …
+                [(node/extract/mapping [from : (first-step node)])
+                 (node (<replace-in-instance> (get from field))
+                       …)
+                 …]]
+               …)
+             (begin
+               (: node/extract (→ (first-step node) root))
+               (define (node/extract from)
+                 (meta-eval
+                  (#,inline-temp-nodes/instance mapping/result-type
+                                                #,(immutable-free-id-set)))))
+             …
+             (root/extract (first-step ???)) ;; choice based on #:root argument
+             )))]
+
+@chunk[<replace-in-instance>
+       (tmpl-replace-in-instance
+        (Let ~> second-step-marker-expander field-type)
+        <second-pass-replace>)]
+
+@chunk[<second-pass-type-expander>
+       (define-type-expander (id-~> stx)
+         (syntax-parse stx
+           ;; TODO: should be ~literal
+           [(_ (~datum mapping)) #'result-type] …
+           ;; TODO: should fall-back to outer definition of ~>, if any?
+           ))
+       (define-type-expander (second-step-marker-expander stx)
+         (syntax-parse stx
+           ;; TODO: should be ~literal
+           [(_ (~datum mapping)) #'mapping/node-marker] …
+           ;; TODO: should fall-back to outer definition of ~>, if any?
+           ))]
+
+@chunk[<second-pass-replace>
+       [mapping/node-marker
+        <fully-replaced-mapping/result-type>
+        (graph #:? mapping/node)
+        (λ ([m : (first-graph mapping/node)])
+          (get m val))]
+       …]
+
+The result of recursively inlining the temporary mapping nodes may be a
+recursive type:
+
+@chunk[<example-recursive-inlining>
+       ;; TODO
+       (m-a : (Listof (~> m-b)) …)
+       (m-b : (Listof (~> m-a)) …)]
+
+Since we prefer to not deal with infinite recursive structures (they could be
+built using @tc[make-reader-graph], but this would not fit well with the rest of
+our framework), we do not allow type cycles unless they go through a
+user-defined node like @tc[a] or @tc[b] (by opposition to first-pass mapping
+nodes like @tc[ma/node] or @tc[mb/node]).
+
+The result type of inlining the temporary mapping nodes can be obtained by
+inlining the types in the same way:
+
+@CHUNK[<inline-temp-nodes>
+       (define (inline-temp-nodes/type t seen)
+         (quasitemplate
+          (tmpl-replace-in-type (Let ~> second-step-marker-expander t)
+            [mapping/node-marker
+             (meta-eval
+              (if (free-id-set-member? #,t #,seen)
+                  (raise-syntax-error "Cycle in types!")
+                  (#,inline-temp-nodes/type result-type
+                                            #,(free-id-set-add t seen))))]
+            …)))
+       
+       (define (inline-temp-nodes/instance t seen)
+         (quasitemplate
+          (tmpl-fold-instance (Let ~> second-step-marker-expander t)
+            [mapping/node-marker
+             (meta-eval
+              (#,inline-temp-nodes/type result-type
+                                        (free-id-set-add #,t #,seen)))
+             (first-pass #:? mapping/node)
+             (if (free-id-set-member? t seen)
+                 (raise-syntax-error "Cycle in types!")
+                 (inline-temp-nodes/instance result-type
+                                             (free-id-set-add t seen)))]
+            …
+            [node/from-first-pass
+             (name #:placeholder node) ; new type
+             (first-pass #:? node)
+             node] ;; call constructor
+            …)))]
+
+
+----------------------
+
 
 As explained above, during the first pass, the field types
 of nodes will allow placeholders for the temporary nodes
@@ -134,8 +240,8 @@ encapsulating the result types of mappings.
             (template
              (U (first-step #:placeholder mapping/node)
                 (tmpl-replace-in-type result-type
-                                      [node (first-step #:placeholder node)]
-                                      …)))]
+                  [node (first-step #:placeholder node)]
+                  …)))]
            …
            ;; TODO: should fall-back to outer definition of ~>, if any.
            ))
@@ -147,13 +253,13 @@ encapsulating the result types of mappings.
            ;; TODO: should fall-back to outer definition of ~>, if any.
            )
          #;(U (first-step #:placeholder m-streets4/node)
-            (Listof (first-step #:placeholder Street))))]
+              (Listof (first-step #:placeholder Street))))]
 
 @; TODO: replace-in-type doesn't work wfell here, we need to define a
 @; type-expander.
 @chunk[<first-pass-field-type>
        (tmpl-replace-in-type field-type
-                             [(~> mapping) (U mapping/node result-type)] …)]
+         [(~> mapping) (U mapping/node result-type)] …)]
 
 @section{Conclusion}
 
@@ -163,7 +269,8 @@ encapsulating the result types of mappings.
                               syntax/parse/experimental/template
                               racket/syntax
                               (submod "../lib/low.rkt" untyped)
-                              "rewrite-type.lp2.rkt" #|debug|#)
+                              "rewrite-type.lp2.rkt" #|debug|#
+                              syntax/id-set)
                   (rename-in "../lib/low.rkt" [~> threading:~>])
                   "graph.lp2.rkt"
                   "get.lp2.rkt"
@@ -177,126 +284,10 @@ encapsulating the result types of mappings.
                   racket/stxparam
                   racket/splicing)
          (provide define-graph/rich-return); ~>)
-
+         
          ;(define-syntax-parameter ~> (make-rename-transformer #'threading:~>))
          
          (require (for-syntax racket/pretty))
-         (define-syntax (debug stx)
-           (syntax-case stx ()
-             [(_ body)
-              ;; syntax->string
-              (pretty-print (syntax->datum #'body))
-              #'body]))
-
-
-
-
-
-
-#;(begin
-   (define-graph
-    first-step
-    #:definitions
-    ((define-type-expander
-      (~> stx)
-      (syntax-parse
-       stx
-       ((_ (~datum m-cities))
-        (template
-         (U
-          (first-step #:placeholder m-cities3/node)
-          (Listof (first-step #:placeholder City)))))
-       ((_ (~datum m-streets))
-        (template
-         (U
-          (first-step #:placeholder m-streets4/node)
-          (Listof (first-step #:placeholder Street)))))))
-     (define-type-expander
-      (first-step-expander2 stx)
-      (syntax-parse
-       stx
-       ((_ (~literal m-cities))
-        (template
-         (U m-streets4/node (Listof Street))))
-       ((_ (~literal m-streets))
-        (template
-         (U m-streets4/node (Listof Street)))))))
-    (City
-     (streets : (Let [~> first-step-expander2] (~> m-streets))#;(~> m-streets))
-     ((City1/simple-mapping (streets : (~> m-streets))) (City streets)))
-    (Street
-     (sname : String)
-     ((Street2/simple-mapping (sname : String)) (Street sname)))
-    (m-cities3/node
-     (returned : (Listof City))
-     ((m-cities (cnames : (Listof (Listof String))))
-      (m-cities3/node
-       (let ((City City1/simple-mapping) (Street Street2/simple-mapping))
-         (define (strings→city (s : (Listof String))) (City (m-streets s)))
-         (map strings→city cnames)))))
-    (m-streets4/node
-     (returned : (Listof Street))
-     ((m-streets (snames : (Listof String)))
-      (m-streets4/node
-       (let ((City City1/simple-mapping) (Street Street2/simple-mapping))
-         (map Street snames)))))))
-
-
-
-         
-
-
-
-
-#;(begin
-   (define-graph
-    first-step
-    #:definitions
-    ((define-type-expander
-      (~> stx)
-      (syntax-parse
-       stx
-       ((_ (~datum m-cities))
-        (template
-         (U
-          (first-step #:placeholder m-cities3/node)
-          (Listof (first-step #:placeholder City)))))
-       ((_ (~datum m-streets))
-        (template
-         (U
-          (first-step #:placeholder m-streets4/node)
-          (Listof (first-step #:placeholder Street)))))))
-     (define-type-expander
-      (first-step-expander2 stx)
-      (syntax-parse
-       stx
-       ((_ (~datum m-cities)) #'(U m-cities3/node (Listof City)))
-       ((_ (~datum m-streets)) #'(U m-streets4/node (Listof Street))))))
-    (City
-     (streets : (Let (~> first-step-expander2) (~> m-streets)))
-     ((City1/simple-mapping (streets : (~> m-streets))) (City streets)))
-    (Street
-     (sname : (Let (~> first-step-expander2) String))
-     ((Street2/simple-mapping (sname : String)) (Street sname)))
-    (m-cities3/node
-     (returned : (Listof City))
-     ((m-cities (cnames : (Listof (Listof String))))
-      (m-cities3/node
-       (let ((City City1/simple-mapping) (Street Street2/simple-mapping))
-         (define (strings→city (s : (Listof String))) (City (m-streets s)))
-         (map strings→city cnames)))))
-    (m-streets4/node
-     (returned : (Listof Street))
-     ((m-streets (snames : (Listof String)))
-      (m-streets4/node
-       (let ((City City1/simple-mapping) (Street Street2/simple-mapping))
-         (map Street snames)))))))
-         
-
-
-         
-         
-         
          
          <graph-rich-return>)]
 
