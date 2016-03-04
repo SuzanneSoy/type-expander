@@ -1,7 +1,8 @@
 #lang typed/racket
 (require "typed-untyped.rkt")
 (define-typed/untyped-modules #:no-test
-  (provide define-syntax/parse
+  (provide stx
+           define-syntax/parse
            λ/syntax-parse
            ~maybe
            ~lit
@@ -15,8 +16,10 @@
   (require syntax/parse
            syntax/parse/define
            syntax/parse/experimental/template
-           (for-syntax racket/base
-                       racket/syntax))
+           (for-syntax racket/syntax
+                       racket/stxparam)
+           (for-meta 2 racket/base)
+           racket/stxparam)
   
   (define-syntax ~maybe
     (pattern-expander
@@ -51,29 +54,32 @@
               #`(#,(s #'~and) name (#,(s #'~seq) (#,(s #'~literal) lit)))
               #`(#,(s #'~seq) (#,(s #'~literal) lit)))]))))
   
-  (begin-for-syntax
-    (require (for-syntax racket/base
-                         racket/stxparam)
-             racket/stxparam)
+  (module m-stx-identifier racket
+    (require racket/stxparam)
     
     (provide stx)
     
     (define-syntax-parameter stx
-      (lambda (stx)
-        (raise-syntax-error (syntax-e stx)
-                            "Can only be used in define-syntax/parse"))))
+      (lambda (call-stx)
+        (raise-syntax-error
+         (syntax-e call-stx)
+         "Can only be used in define-syntax/parse or λ/syntax-parse"
+         call-stx))))
+  
+  (require 'm-stx-identifier
+           (for-syntax 'm-stx-identifier))
   
   (define-simple-macro (define-syntax/parse (name . args) body0 . body)
     (define-syntax (name stx2)
       (syntax-parameterize ([stx (make-rename-transformer #'stx2)])
-                           (syntax-parse stx2
-                             [(_ . args) body0 . body]))))
+        (syntax-parse stx2
+          [(_ . args) body0 . body]))))
   
   (define-simple-macro (λ/syntax-parse args . body)
     (λ (stx2)
-      ;(syntax-parameterize ([stx (make-rename-transformer #'stx2)])
-      (syntax-parse stx2
-        [args . body])))
+      (syntax-parameterize ([stx (make-rename-transformer #'stx2)])
+        (syntax-parse stx2
+          [args . body]))))
   
   ;; λstx
   (begin
