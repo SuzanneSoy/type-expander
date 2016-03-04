@@ -1,5 +1,18 @@
 #lang typed/racket
 (require "typed-untyped.rkt")
+
+(module m-stx-identifier racket
+    (require racket/stxparam)
+    
+    (provide stx)
+    
+    (define-syntax-parameter stx
+      (lambda (call-stx)
+        (raise-syntax-error
+         (syntax-e call-stx)
+         "Can only be used in define-syntax/parse or λ/syntax-parse"
+         call-stx))))
+
 (define-typed/untyped-modules #:no-test
   (provide stx
            define-syntax/parse
@@ -12,6 +25,8 @@
            template/debug
            quasitemplate/debug
            meta-eval)
+  (begin-for-syntax
+    (provide stx))
   
   (require syntax/parse
            syntax/parse/define
@@ -54,20 +69,8 @@
               #`(#,(s #'~and) name (#,(s #'~seq) (#,(s #'~literal) lit)))
               #`(#,(s #'~seq) (#,(s #'~literal) lit)))]))))
   
-  (module m-stx-identifier racket
-    (require racket/stxparam)
-    
-    (provide stx)
-    
-    (define-syntax-parameter stx
-      (lambda (call-stx)
-        (raise-syntax-error
-         (syntax-e call-stx)
-         "Can only be used in define-syntax/parse or λ/syntax-parse"
-         call-stx))))
-  
-  (require 'm-stx-identifier
-           (for-syntax 'm-stx-identifier))
+  (require (submod ".." m-stx-identifier)
+           (for-syntax (submod ".." m-stx-identifier)))
   
   (define-simple-macro (define-syntax/parse (name . args) body0 . body)
     (define-syntax (name stx2)
