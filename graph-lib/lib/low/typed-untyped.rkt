@@ -101,9 +101,9 @@
 (begin
   (define-syntax (define-typed/untyped-modules stx)
     (syntax-parse stx
-      [(_ (~optional (~and no-test #:no-test))
+      [(def-t/u-mod (~optional (~and no-test #:no-test))
           (~optional (~and untyped-first #:untyped-first)) . body)
-       (define (ds sym) (datum->syntax stx sym stx))
+       (define (ds sym) (datum->syntax #'def-t/u-mod sym #'def-t/u-mod))
        (define/with-syntax module-typed
          #`(module #,(ds 'typed) #,(ds 'typed/racket)
              . body))
