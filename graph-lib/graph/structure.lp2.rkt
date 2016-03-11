@@ -181,18 +181,18 @@ Test predicate:
        ;; Occurrence typing won't work well, if only because fields could be of
        ;; a type for which TR doesn't know how to make-predicate.
        #|(define (check-occurrence-typing [x : (U Number st st3)])
-         (if (st? x)
-             (match (ann x st) [(st the-a the-b) (cons the-b the-a)])
-             'other))
+       (if (st? x)
+       (match (ann x st) [(st the-a the-b) (cons the-b the-a)])
+       'other))
        (check-equal?
-        (check-occurrence-typing (ann (st 1 "i") (U Number st st3)))
-        '("i" . 1))
+       (check-occurrence-typing (ann (st 1 "i") (U Number st st3)))
+       '("i" . 1))
        (check-equal?
-        (check-occurrence-typing (ann (st2 "j" 2) (U Number st st3)))
-        'other)
+       (check-occurrence-typing (ann (st2 "j" 2) (U Number st st3)))
+       'other)
        (check-equal?
-        (check-occurrence-typing (ann 9 (U Number st st3)))
-        'other)|#]
+       (check-occurrence-typing (ann 9 (U Number st st3)))
+       'other)|#]
 
 @section{Pre-declaring structs}
 
@@ -225,9 +225,9 @@ have access to all the types we care about, and fill the rest with @tc[∀] type
        (define-for-syntax (check-remember-fields fields)
          (check-remember-all 'structure (sort-fields fields)))]
 
-Since get-field is a macro, it should not care about the type of the field(s),
-and the code it expands to should be a @tc[cond] which only tests the field part
-of the structure.
+Since @tc[get-field] is a macro, it should not care about the type of the
+field(s), and the code it expands to should be a @tc[cond] which only tests the
+field part of the structure.
 
 @CHUNK[<declare-all-structs>
        (define-syntax/parse (declare-all-structs fields→stx-name-alist:id
@@ -426,6 +426,15 @@ The fields in @tc[fields→stx-name-alist] are already sorted.
         : 'val-c
         'val-c)]
 
+@subsection{Predicate}
+
+@chunk[<structure?>
+       (define-syntax/parse (structure? field …)
+         (if (check-remember-fields #'(field ...))
+             (meta-struct-predicate (fields→stx-name #'(field ...))
+                                    #:srcloc stx)
+             (remember-all-errors #'list stx #'(field ...))))]
+
 @subsection{Match-expander}
 
 @chunk[<syntax-class-for-match>
@@ -520,65 +529,11 @@ instead of needing an extra recompilation.
 In order to be able to access elements in the list as deep as they can be, we
 need to know the length of the longest structure used in the whole program. 
 
-Knowing what structures exist and what elements they contain can only help, so
-we'll remember that instead.
-
-The @tc[remember-all] for-syntax function below memorizes its arguments across
-compilations, and adds them to the file “@code{remember.rkt}”:
-
-@CHUNK[<remember-all>
-       (require (for-syntax "remember.rkt"))
-       
-       (define-for-syntax (check-remember-all category value)
-         (let ([datum-value (syntax->datum (datum->syntax #f value))])
-           (if (not (member (cons category datum-value) all-remembered-list))
-               (let ((file-name (build-path (this-expression-source-directory)
-                                            "remember.rkt")))
-                 ;; Add the missing field names to all-fields.rkt
-                 (with-output-file [port file-name] #:exists 'append
-                                   (writeln (cons category datum-value) port))
-                 #f)
-               #t)))
-       
-       (define-for-syntax (remember-all-errors id fallback stx-list)
-         ;<remember-all-hard-error>
-         #`(#,id #,(for/list ([cause `(,@(syntax->list stx-list) ,fallback)])
-                     (syntax/loc cause delayed-error-please-recompile))))]
-
-@CHUNK[<remember-all-hard-error>
-       (raise-syntax-error
-        (car (syntax->datum stx))
-        (format "The fields ~a were added to ~a. Please recompile now."
-                (string-join (map symbol->string missing) ", ")
-                file-name)
-        #f
-        #f
-        (filter (λ (f) (not (member (syntax->datum f) all-fields)))
-                (syntax->list fields)))]
-
-We can, during subsequent compilations, retrieve the list of already-memorized
-fields for a given tag.
-
-@CHUNK[<get-remembered>
-       (define-for-syntax (get-remembered category)
-         (cdr (or (assoc category all-remembered-alist) '(_))))]
-
-If we start with an empty “@code{remember.rkt}” file, it will throw an error at
-each call with a not-yet-remembered value. In order to avoid that, we use the
-macro @tc[(delayed-error-please-recompile)], which expands to an undefined
-identifier @code{please-recompile}. That error is caught later, and gives a
-chance to more calls to @tc[remember-all] to be executed during macro-expansion.
-We define @tc[delayed-error-please-recompile] in a submodule, to minimize the
-chances that we could write a definition for that identifier.
-
-@CHUNK[<delayed-error-please-recompile>
-       (begin-for-syntax
-         (module m-please-recompile typed/racket
-           (define-syntax (delayed-error-please-recompile stx)
-             #'please-recompile)
-           (provide delayed-error-please-recompile))
-         
-         (require 'm-please-recompile))]
+Knowing what structures exist and what elements they
+contain can only help, so we'll remember that instead, using
+the @tc[remember-all] for-syntax function which memorizes
+its arguments across compilations, and adds them to the file
+“@code{remember.rkt}”.
 
 @section{Conclusion}
 
@@ -589,13 +544,13 @@ chances that we could write a definition for that identifier.
                                 racket/syntax
                                 syntax/parse
                                 syntax/parse/experimental/template
-                                mzlib/etc
                                 racket/struct-info
                                 racket/sequence
                                 ;; in-syntax on older versions:
                                 ;;;unstable/sequence
                                 (submod "../lib/low.rkt" untyped)
-                                "meta-struct.rkt")
+                                "meta-struct.rkt"
+                                "remember-lib.rkt")
                     "../lib/low.rkt"
                     "../type-expander/type-expander.lp2.rkt"
                     "../type-expander/multi-id.lp2.rkt")
@@ -605,13 +560,12 @@ chances that we could write a definition for that identifier.
                     λstructure-get
                     structure
                     structure-supertype
-                    structure-supertype*)
+                    structure-supertype*
+                    structure?)
            
            (begin-for-syntax
              (provide structure-args-stx-class))
            
-           <remember-all>
-           <get-remembered>
            <check-remember-fields>
            
            <named-sorted-structures>
@@ -620,7 +574,6 @@ chances that we could write a definition for that identifier.
            <declare-all-structs>
            <fields→stx-name>
            <make-structure-constructor>
-           <delayed-error-please-recompile>
            
            <fields→supertypes>
            <get-field>
@@ -630,6 +583,8 @@ chances that we could write a definition for that identifier.
            <structure-supertype*>
            <match-expander>
            <type-expander>
+           
+           <structure?>
            
            <structure>
            <define-structure>)
@@ -642,7 +597,7 @@ chances that we could write a definition for that identifier.
                     "../lib/low.rkt"
                     "../type-expander/type-expander.lp2.rkt"
                     typed/rackunit)
-
+           
            <test-make-structure-constructor>
            <test-get-field>
            <test-match-expander>

@@ -630,8 +630,7 @@ And one each for @tc[fold-instance] and @tc[replace-in-instance2]:
            (syntax-parse stx
              #:context `(tmpl-replace-in-instance-8 ,(current-replacement))
              [(_ type:expr [from to pred? fun] …)
-              #`#,(replace-in-instance2 #'type #'([from to pred? fun] …))]
-             [_ (error (format "~a" `(tmpl-replace-in-instance-8 ,(continuation-mark-set->context (current-continuation-marks)) ,(syntax->datum (current-replacement)))))])))]
+              #`#,(replace-in-instance2 #'type #'([from to pred? fun] …))])))]
 
 These metafunctions just extract the arguments for @tc[replace-in-type] and
 @tc[replace-in-instance2], and pass them to these functions.
