@@ -2,22 +2,25 @@
 (require "typed-untyped.rkt")
 
 (module m-stx-identifier racket
-    (require racket/stxparam)
-    
-    (provide stx)
-    
-    (define-syntax-parameter stx
-      (lambda (call-stx)
-        (raise-syntax-error
-         (syntax-e call-stx)
-         "Can only be used in define-syntax/parse or λ/syntax-parse"
-         call-stx))))
+  (require racket/stxparam)
+  
+  (provide stx)
+  
+  (define-syntax-parameter stx
+    (lambda (call-stx)
+      (raise-syntax-error
+       (syntax-e call-stx)
+       "Can only be used in define-syntax/parse or λ/syntax-parse"
+       call-stx))))
 
 (define-typed/untyped-modules #:no-test
   (provide stx
            define-syntax/parse
            λ/syntax-parse
            ~maybe
+           ~maybe*
+           ~optkw
+           ~kw
            ~lit
            ~or-bug
            define-simple-macro
@@ -33,7 +36,7 @@
            syntax/parse/experimental/template
            (for-syntax racket/syntax
                        racket/stxparam)
-           (for-meta 2 racket/base)
+           (for-meta 2 racket/base racket/syntax)
            racket/stxparam)
   
   (define-syntax ~maybe
@@ -43,6 +46,34 @@
          [(self pat ...)
           (define (s stx) (datum->syntax #'self stx stx stx))
           #`(#,(s #'~optional) (#,(s #'~seq) pat ...))]))))
+  
+  (define-syntax ~maybe*
+    (pattern-expander
+     (λ (stx)
+       (syntax-parse stx
+         [(self name pat ...)
+          (define (s stx) (datum->syntax #'self stx stx stx))
+          #`(#,(s #'~and) name (#,(s #'~optional) (#,(s #'~seq) pat ...)))]))))
+  
+  (define-syntax ~optkw
+    (pattern-expander
+     (λ (stx)
+       (syntax-parse stx
+         [(self kw:keyword)
+          (define (s stx) (datum->syntax #'self stx stx stx))
+          (define/with-syntax name
+            (format-id #'kw "~a" (keyword->string (syntax-e #'kw))))
+          #`(#,(s #'~optional) (#,(s #'~and) name kw))]))))
+  
+  (define-syntax ~kw
+    (pattern-expander
+     (λ (stx)
+       (syntax-parse stx
+         [(self kw:keyword)
+          (define (s stx) (datum->syntax #'self stx stx stx))
+          (define/with-syntax name
+            (format-id #'kw "~a" (keyword->string (syntax-e #'kw))))
+          #`(#,(s #'~and) name kw)]))))
   
   ;; Circumvent the bug that causes "syntax-parse: duplicate attribute in: a" in
   ;; (syntax-parse #'(x y z) [((~or a (a b c)) ...) #'(a ...)])

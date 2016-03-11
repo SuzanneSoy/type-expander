@@ -39,7 +39,7 @@ example below where the second @tc[define-datatype] throws an error:
          [Var (Symbol)]
          [Lambda (Symbol Expr)])]
 
-@section{The @racket[Variant] supertype}
+@section[#:tag "variant|supertype"]{The @racket[Variant] supertype}
 
 We define variants as instances of subtypes of the @tc[Tagged] structure:
 
@@ -334,9 +334,9 @@ number of name collisions.
 @section{@racket[define-tagged]}
 
 @chunk[<define-tagged>
-       (define-syntax/parse (define-tagged tag:id [field type] …
-                              (~optional #:type-noexpand)
-                              (~maybe #:? tag?))
+       (define-syntax/parse (define-tagged tag:id
+                              (~maybe #:? tag?)
+                              [field type] …)
          (define/with-syntax (pat …) (generate-temporaries #'(field …)))
          (define/with-syntax (value …) (generate-temporaries #'(field …)))
          (define/with-syntax default-tag? (format-id #'tag "~a?" #'tag))
@@ -424,6 +424,103 @@ number of name collisions.
        (check-not-equal?: (tagged-s2 4 "flob")
                           (tagged-s4 4 "flob"))]
 
+@section{Uninterned tags}
+
+We wish to be able to declare tags only visible to the
+creator, unlike the ones above which are visible
+everywhere.
+
+We will define two flavours: one where uninterned tags
+inherit the interned tag, os that the interned @tc[tag] is a
+supertype of the uninterned @tc[tag] (but not the converse),
+and a second, which we will call private tags, where the
+private tag inherits directly from @tc[Tagged], the base
+structure described in section @secref{variant|supertype},
+and is therefore unrelated to the interned @tc[tag] (nor to
+the uninterned @tc[tag] either).
+
+@; TODO: this should be integrated a bit better with other function, for example
+@; Tagged-predicate? (provided as Tagged?) is likely to not work on uninterned
+@; tags.
+
+@chunk[<define-uninterned-tagged>
+       (define-syntax/parse (define-private-tagged tag:id
+                              (~maybe #:? tag?)
+                              . (~and structure-type ([field type] …)))
+         (define/with-syntax default-tag? (format-id #'tag "~a?" #'tag))
+         (define-temp-ids "~a/struct" tag)
+         (define-temp-ids "~a/arg" (field …))
+         (define-temp-ids "~a/pat" (field …))
+         (template
+          (begin
+            (struct (T) tag/struct Tagged ()) ; Private
+            ;(struct (T) tag/struct interned ()) ; Uninterned
+            (define-multi-id tag
+              #:type-expand-once
+              (tag/struct (structure . structure-type))
+              #:match-expander
+              (λ/syntax-parse (_ . (~and structure-pat
+                                         ((~and field/pat :expr) …)))
+                (quasitemplate
+                 (and (? (make-predicate (tag/struct Any)))
+                      (app Tagged-value
+                           #,(syntax/loc #'structure-pat
+                               (structure [field field/pat] …))))))
+              #:call
+              (λ/syntax-parse (_ . (~and args ((~and field/arg :expr) …)))
+                (quasitemplate
+                 (tag/struct #,(syntax/loc #'args
+                                 (structure #:instance
+                                            [field : type field/arg] …))))))
+            ;; TODO: the return type is not precise enough, it should be:
+            ;; #:+ (tag/struct (structure Any …))
+            ;; #:- (! (tag/struct (structure Any …)))
+            (: (?? tag? default-tag?) (→ Any Boolean :
+                                         #:+ (tag/struct Any)))
+            (define ((?? tag? default-tag?) x)
+              (and ((make-predicate (tag/struct Any)) x)
+                   ((structure? field …) (Tagged-value x)))))))]
+
+@chunk[<test-uninterned-tagged>
+       (define-syntax-rule (defp make mt)
+         (begin
+           (define-private-tagged txyz #:? txyz?
+             [a Number]
+             [b String])
+           
+           (define (make) (txyz 1 "b"))
+           
+           (define (mt v)
+             (match v
+               ((txyz x y) (list 'macro y x))
+               (_ #f)))))
+       
+       (defp make mt)
+       
+       (define-private-tagged txyz #:? txyz?
+         [a Number]
+         [b String])
+       
+       (check-equal?: (match (make)
+                        ((tagged txyz x y) (list 'out y x))
+                        (_ #f))
+                      #f)
+       
+       (check-equal?: (mt (tagged txyz [x 1] [y "b"]))
+                      #f)
+       
+       (check-equal?: (mt (make))
+                      '(macro "b" 1))
+       
+       (check-not-equal?: (make) (txyz 1 "b"))
+       (check-equal?: (match (make)
+                        ((txyz x y) (list 'out y x))
+                        (_ #f))
+                      #f)
+       
+       (check-equal?: (mt (txyz 1 "b"))
+                      #f)]
+
 @section{Conclusion}
 
 @chunk[<*>
@@ -444,6 +541,7 @@ number of name collisions.
                     define-variant
                     tagged
                     define-tagged
+                    define-private-tagged
                     any-tagged)
            
            <variant-supertype>
@@ -457,6 +555,7 @@ number of name collisions.
            <define-variant>
            <tagged>
            <define-tagged>
+           <define-uninterned-tagged>
            
            (module+ test-helpers
              (provide Tagged-value)))
@@ -474,4 +573,5 @@ number of name collisions.
            <test-constructor>
            <test-define-variant>
            <test-tagged>
-           <test-define-tagged>))]
+           <test-define-tagged>
+           <test-uninterned-tagged>))]

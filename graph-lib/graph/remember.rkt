@@ -145,3 +145,5 @@
 (variant . dj1)
 (variant . dk1)
 (variant . dl1)
+(structure x y)
+(variant . txyz)

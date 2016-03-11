@@ -21,6 +21,10 @@
                            (constructor dh1 Number String))
                       (constructor dh1 2 "y"))
        
+       (define-private-tagged txyz #:? txyz?
+         [a Number]
+         [b String])
+       
        (ann (constructor dk1 2 "y")
             (constructor dk1 Number String))]
 
