@@ -215,7 +215,7 @@ We derive identifiers for these based on the @tc[node] name:
        (define-temp-ids "~a/incomplete-tag" (node …))
        (define-temp-ids "~a/incomplete-type" ((field …) …))
        
-       (define-temp-ids "~a/with-promises-type" (node …) #:first-base root)
+       (define-temp-ids "~a/with-promises" (node …) #:first-base root)
        
        (define-temp-ids "~a/index-type" (node …))]
 
@@ -235,8 +235,8 @@ We derive identifiers for these based on the @tc[node] name:
        (node/incomplete-tag …)
        ((field/incomplete-type …) …)
        
-       (node/with-promises-type …)
-       root/with-promises-type
+       (node/with-promises …)
+       root/with-promises
        
        (node/index-type …)]
 
@@ -252,9 +252,6 @@ We derive identifiers for these based on the @tc[node] name:
        (define-temp-ids "~a/with-indices-tag" (node …))
        (define-temp-ids "~a/with-indices→with-promises" (node …)
          #:first-base root)
-       
-       (define-temp-ids "~a/make-with-promises" (node …))
-       (define-temp-ids "~a/with-promises-tag" (node …))
        
        (define-temp-ids "~a/mapping-function" (node …))
        (define-temp-ids "~a/mapping-function-type" (node …))
@@ -298,6 +295,7 @@ The graph name will be used in several ways:
                     …
                     [(_ #:? (~datum node))
                      (syntax/loc stx node?)]
+                    …
                     [(_ . rest)
                      (syntax/loc stx (root/constructor . rest))]))
          #:id (λ (stx) #'root/constructor))]
@@ -409,7 +407,7 @@ node.
 
 @chunk[<constructors>
        (begin
-         (: node/constructor (→ param-type … (Promise node/with-promises-type)))
+         (: node/constructor (→ param-type … (Promise node/with-promises)))
          (define (node/constructor param …)
            (match-let ([(list node/database …)
                         (fq 'node/placeholder-queue
@@ -553,20 +551,12 @@ that node's @tc[with-promises] type.
 @; TODO: use a type-expander here, instead of a template metafunction.
 
 @CHUNK[<define-with-promises>
-       (define-type node/with-promises-type
-         (tagged node/with-promises-tag
-                 [field : <field/with-promises-type>] …))
-       
-       (: node/make-with-promises (→ <field/with-promises-type> …
-                                     node/with-promises-type))
-       (define (node/make-with-promises field/value …)
-         (tagged node/with-promises-tag
-                 [field : <field/with-promises-type> field/value]
-                 …))]
+       (define-private-tagged node/with-promises
+         [field : <field/with-promises-type>] …)]
 
 @CHUNK[<field/with-promises-type>
        (tmpl-replace-in-type field-type
-                             [node (Promise node/with-promises-type)] …)]
+                             [node (Promise node/with-promises)] …)]
 
 @subsection{Making incomplete nodes}
 
@@ -694,10 +684,10 @@ because @hyperlink["https://github.com/racket/typed-racket/issues/159"]{it
 
 @chunk[<index→promise-clause>
        [node/index-type
-        (Promise node/with-promises-type)
+        (Promise node/with-promises)
         (struct-predicate node/index-type)
         (λ ([tagged-index : node/index-type] [acc : Void])
-          : (values (Promise node/with-promises-type) Void)
+          : (values (Promise node/with-promises) Void)
           (values <index→promise> acc))]]
 
 TODO: check what we are closing over in that promise.
@@ -713,12 +703,12 @@ closes over.
 
 @chunk[<define-with-indices→with-promises>
        (: node/with-indices→with-promises (→ node/with-indices-type
-                                             node/with-promises-type))
+                                             node/with-promises))
        (define (node/with-indices→with-promises n)
          (define f (tmpl-fold-instance (List <field/with-indices-type> …)
                                        Void
                                        <index→promise-clause> …))
-         (apply node/make-with-promises (first-value (f (cdr n) (void)))))]
+         (apply node/with-promises (first-value (f (cdr n) (void)))))]
 
 Where @tc[<field-with-indices-type>] is the @tc[field-type] in which node types
 are replaced by tagged indices, as defined earlier.
@@ -735,7 +725,7 @@ via @tc[(g Street)].
 @chunk[<graph-type-expander>
        (λ (stx)
          (syntax-parse stx
-           [(_ (~datum node)) #'node/with-promises-type] …
+           [(_ (~datum node)) #'node/with-promises] …
            [(_ #:incomplete (~datum node)) #'node/incomplete-type] …
            [(_ #:make-incomplete (~datum node))
             #'(→ field/incomplete-type … node/incomplete-type)] …

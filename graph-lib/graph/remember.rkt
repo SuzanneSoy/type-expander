@@ -147,3 +147,7 @@
 (variant . dl1)
 (structure x y)
 (variant . txyz)
+(variant . City89/with-promises-tag)
+(variant . Street90/with-promises-tag)
+(variant . House91/with-promises-tag)
+(variant . Person92/with-promises-tag)

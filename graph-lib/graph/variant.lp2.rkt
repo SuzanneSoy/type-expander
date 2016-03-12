@@ -444,9 +444,11 @@ the uninterned @tc[tag] either).
 @; tags.
 
 @chunk[<define-uninterned-tagged>
-       (define-syntax/parse (define-private-tagged tag:id
-                              (~maybe #:? tag?)
-                              . (~and structure-type ([field type] …)))
+       (define-syntax/parse
+           (define-private-tagged tag:id
+             (~maybe #:? tag?)
+             . (~and structure-type
+                     ([field (~optional (~and C :colon)) type] …)))
          (define/with-syntax default-tag? (format-id #'tag "~a?" #'tag))
          (define-temp-ids "~a/struct" tag)
          (define-temp-ids "~a/arg" (field …))
