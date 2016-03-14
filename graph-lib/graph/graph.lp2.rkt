@@ -200,7 +200,17 @@ A single node name can refer to several types:
 
 We derive identifiers for these based on the @tc[node] name:
 
+@; The syntax-local-introduce trick doesn't seem to work well here.
+@;  Street: identifier's binding is ambiguous
+@;   context...:
+@;   matching binding...:
+@;   matching binding...: in: Street
+
 @chunk[<define-ids/first-step>
+       ;(define/with-syntax (node/promise-type …)
+       ;  (stx-map syntax-local-introduce #'(node …)))
+       
+       (define-temp-ids "~a/promise-type" (node …))
        (define-temp-ids "~a/constructor" (node …) #:first-base root)
        (define-temp-ids "~a?" (node …))
        
@@ -220,6 +230,7 @@ We derive identifiers for these based on the @tc[node] name:
        (define-temp-ids "~a/index-type" (node …))]
 
 @chunk[<pass-to-second-step>
+       (node/promise-type …)
        (node/constructor …)
        root/constructor
        (node? …)
@@ -293,6 +304,9 @@ The graph name will be used in several ways:
                     [(_ #:root (~datum node) . rest)
                      (syntax/loc stx (node/constructor . rest))]
                     …
+                    ;; TODO: TR has issues with occurrence typing and promises,
+                    ;; so we should wrap the nodes in a tag, which contains a
+                    ;; promise, instead of the opposite (tag inside promise).
                     [(_ #:? (~datum node))
                      (syntax/loc stx node?)]
                     …
@@ -336,7 +350,8 @@ available outside the graph definition:
        ;; TODO: Struct definitions have to be outside due to TR bug #192
        ;; https://github.com/racket/typed-racket/issues/192
        (begin <define-placeholder-struct/first-step>) …
-       (begin <define-index-struct/first-step>) …]
+       (begin <define-index-struct/first-step>) …
+       (begin <define-promise-type/first-step>) …]
 
 It will then bind these generated names to identifiers which can be used in the
 scope of the graph declaration. There, we will first inject the user-supplied
@@ -381,25 +396,25 @@ It will be called from the first step with the following syntax:
        (define-syntax/parse <signature-second-step>
          <define-ids/second-step>
          (template/debug debug
-          (begin
-            (begin <define-mapping-function>) …
-            
-            (begin <define-placeholder-type>) …
-            (begin <define-make-placeholder-type>) …
-            (begin <define-with-indices>) …
-            (begin <define-with-promises>) …
-            (begin (begin <define-field/incomplete-type>) …) …
-            (begin <define-incomplete-type>) …
-            
-            (begin <define-mapping-function-type>) …
-            
-            (: fq (case→ (→ 'node/placeholder-queue node/placeholder-type
-                            (List (Vectorof node/with-indices-type) …))
-                         …))
-            (define (fq queue-name placeholder)
-              <fold-queues>)
-            
-            <constructors>)))]
+           (begin
+             (begin <define-mapping-function>) …
+             
+             (begin <define-placeholder-type>) …
+             (begin <define-make-placeholder-type>) …
+             (begin <define-with-indices>) …
+             (begin <define-with-promises>) …
+             (begin (begin <define-field/incomplete-type>) …) …
+             (begin <define-incomplete-type>) …
+             
+             (begin <define-mapping-function-type>) …
+             
+             (: fq (case→ (→ 'node/placeholder-queue node/placeholder-type
+                             (List (Vectorof node/with-indices-type) …))
+                          …))
+             (define (fq queue-name placeholder)
+               <fold-queues>)
+             
+             <constructors>)))]
 
 We shall define a graph constructor for each node type, which accepts the
 arguments for that node's mapping, and generates a graph rooted in the resulting
@@ -407,14 +422,13 @@ node.
 
 @chunk[<constructors>
        (begin
-         (: node/constructor (→ param-type … (Promise node/with-promises)))
+         (: node/constructor (→ param-type … node/promise-type))
          (define (node/constructor param …)
            (match-let ([(list node/database …)
                         (fq 'node/placeholder-queue
                             (node/make-placeholder param …))])
              (begin <define-with-indices→with-promises>) …
-             (delay (node/with-indices→with-promises
-                     (vector-ref node/database 0))))))
+             (node/with-indices→with-promises (vector-ref node/database 0)))))
        …]
 
 
@@ -550,13 +564,18 @@ that node's @tc[with-promises] type.
 
 @; TODO: use a type-expander here, instead of a template metafunction.
 
+@; TODO: use a private-constructor here (single field, no need to use a
+@; structure with define-private-tagged).
+@CHUNK[<define-promise-type/first-step>
+       (define-private-tagged node/promise-type
+         [n : (Promise node/with-promises)])]
 @CHUNK[<define-with-promises>
-       (define-private-tagged node/with-promises
-         [field : <field/with-promises-type>] …)]
+       (define-structure node/with-promises
+         [field <field/with-promises-type>] …)]
 
 @CHUNK[<field/with-promises-type>
        (tmpl-replace-in-type field-type
-                             [node (Promise node/with-promises)] …)]
+         [node node/promise-type] …)]
 
 @subsection{Making incomplete nodes}
 
@@ -582,7 +601,7 @@ library. We replace all occurrences of a @tc[node] name with its
        (define-type field/incomplete-type <field/incomplete-type>)]
 @chunk[<field/incomplete-type>
        (tmpl-replace-in-type field-type
-                             [node node/placeholder-type] …)]
+         [node node/placeholder-type] …)]
 
 @subsection{Converting incomplete nodes to with-indices ones}
 
@@ -613,8 +632,8 @@ library. We replace all occurrences of a @tc[node] name with its
               (apply node/mapping-function
                      ((struct-accessor node/placeholder-struct 0) e))]
              [f (tmpl-fold-instance (List <field/incomplete-type> …)
-                                    Δ-Queues
-                                    <placeholder→with-indices-clause> …)])
+                  Δ-Queues
+                  <placeholder→with-indices-clause> …)])
          (let-values ([(r new-Δ-queues) (f (cdr mapping-result) Δ-queues)])
            (values (apply node/make-with-indices r)
                    new-Δ-queues)))]
@@ -684,10 +703,10 @@ because @hyperlink["https://github.com/racket/typed-racket/issues/159"]{it
 
 @chunk[<index→promise-clause>
        [node/index-type
-        (Promise node/with-promises)
+        node/promise-type
         (struct-predicate node/index-type)
         (λ ([tagged-index : node/index-type] [acc : Void])
-          : (values (Promise node/with-promises) Void)
+          : (values node/promise-type Void)
           (values <index→promise> acc))]]
 
 TODO: check what we are closing over in that promise.
@@ -699,16 +718,19 @@ closes over.
        (let ([successor-with-index
               (vector-ref node/database ((struct-accessor node/index-type 0)
                                          tagged-index))])
-         (delay (node/with-indices→with-promises successor-with-index)))]
+         (node/with-indices→with-promises successor-with-index))]
 
 @chunk[<define-with-indices→with-promises>
        (: node/with-indices→with-promises (→ node/with-indices-type
-                                             node/with-promises))
+                                             node/promise-type))
        (define (node/with-indices→with-promises n)
-         (define f (tmpl-fold-instance (List <field/with-indices-type> …)
-                                       Void
-                                       <index→promise-clause> …))
-         (apply node/with-promises (first-value (f (cdr n) (void)))))]
+         (node/promise-type
+          (delay
+            (let ()
+              (define f (tmpl-fold-instance (List <field/with-indices-type> …)
+                          Void
+                          <index→promise-clause> …))
+              (apply node/with-promises (first-value (f (cdr n) (void))))))))]
 
 Where @tc[<field-with-indices-type>] is the @tc[field-type] in which node types
 are replaced by tagged indices, as defined earlier.
@@ -725,7 +747,7 @@ via @tc[(g Street)].
 @chunk[<graph-type-expander>
        (λ (stx)
          (syntax-parse stx
-           [(_ (~datum node)) #'node/with-promises] …
+           [(_ (~datum node)) #'node/promise-type] …
            [(_ #:incomplete (~datum node)) #'node/incomplete-type] …
            [(_ #:make-incomplete (~datum node))
             #'(→ field/incomplete-type … node/incomplete-type)] …
@@ -742,12 +764,16 @@ We will be able to use this type expander in function types, for example:
        (define (type-example [x : (gr Street)])
          : (gr Street)
          x)
-       (check-equal?: (let* ([v1 (car (structure-get (cadr (force g)) streets))]
-                             [v2 (ann (type-example (force v1)) (gr Street))]
-                             [v3 (structure-get (cadr v2) sname)])
-                        v3)
-                      : String
-                      "Ada Street")]
+       (check-equal?:
+        (let* ([v1 (car
+                    (structure-get (force (structure-get (Tagged-value g) n))
+                                   streets))]
+               [v2 (ann (type-example v1) (gr Street))]
+               [v3 (structure-get (force (structure-get (Tagged-value v2) n))
+                                  sname)])
+          v3)
+        : String
+        "Ada Street")]
 
 @section{Putting it all together}
 
@@ -774,7 +800,9 @@ We will be able to use this type expander in function types, for example:
          ;(begin-for-syntax
          ;<multiassoc-syntax>)
          
-         (provide define-graph)
+         (provide define-graph
+                  define-graph-second-step ; DEBUG
+                  )
          <first-step>
          <second-step>)]
 
@@ -789,11 +817,34 @@ not match the one from @tc[typed/racket]
                   (only-in "../lib/low.rkt" cars cdrs check-equal?:)
                   (only-in "structure.lp2.rkt" structure-get)
                   "../type-expander/type-expander.lp2.rkt"
-                  typed/rackunit)
+                  typed/rackunit
+                  ;;DEBUG:
+                  (for-syntax syntax/parse
+                              racket/syntax
+                              syntax/parse/experimental/template
+                              racket/sequence
+                              racket/pretty
+                              "rewrite-type.lp2.rkt"
+                              (submod "../lib/low.rkt" untyped)
+                              "meta-struct.rkt")
+                  racket/splicing
+                  "fold-queues.lp2.rkt"
+                  "rewrite-type.lp2.rkt"
+                  "../lib/low.rkt"
+                  "structure.lp2.rkt"
+                  "variant.lp2.rkt"
+                  "../type-expander/type-expander.lp2.rkt"
+                  "../type-expander/multi-id.lp2.rkt"
+                  "meta-struct.rkt")
          
          (provide g)
          <use-example>
-         <type-example>)]
+         <type-example>
+         
+         (define-graph gr-simple
+           [Fountain [water : (Listof Symbol)]
+            [(m-fountain [mountain : Symbol])
+             (Fountain (list mountain mountain))]]))]
 
 The whole file, finally:
 

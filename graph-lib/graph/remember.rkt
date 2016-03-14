@@ -151,3 +151,6 @@
 (variant . Street90/with-promises-tag)
 (variant . House91/with-promises-tag)
 (variant . Person92/with-promises-tag)
+(structure n)
+(structure water)
+(structure water)

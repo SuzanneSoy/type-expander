@@ -539,6 +539,7 @@ the uninterned @tc[tag] either).
                     "structure.lp2.rkt")
            (provide (rename-out [Tagged-predicate? Tagged?]
                                 [Tagged-type TaggedTop])
+                    Tagged-value
                     constructor
                     define-variant
                     tagged
@@ -560,7 +561,7 @@ the uninterned @tc[tag] either).
            <define-uninterned-tagged>
            
            (module+ test-helpers
-             (provide Tagged-value)))
+             #;(provide Tagged-value)))
          
          (require 'main)
          (provide (all-from-out 'main))
