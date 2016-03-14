@@ -232,7 +232,8 @@ field part of the structure.
 @CHUNK[<declare-all-structs>
        (define-syntax/parse (declare-all-structs fields→stx-name-alist:id
                                                  (name field ...) ...)
-         #'(begin
+         (define-temp-ids "~a/T" ((field …) …))
+         #`(begin
              <struct-declarations>
              
              (define-for-syntax fields→stx-name-alist
@@ -283,10 +284,18 @@ associative list.
 The struct declarations are rather standard. We use @tc[#:transparent], so that
 @tc[equal?] compares instances memberwise.
 
+@chunk[<structure-top>
+       (struct StructureTop ())
+       (define-type StructureTopType StructureTop)]
+
 @; TODO: write “field : Tfield”, it's cleaner.
 @CHUNK[<struct-declarations>
-       (struct (field ...) name ([field : field] ...) #:transparent)
-       ...]
+       (struct (field/T …)
+         name
+         #,(syntax-local-introduce #'StructureTop)
+         ([field : field/T] …)
+         #:transparent)
+       …]
 
 @section{Constructor}
 
@@ -561,10 +570,14 @@ its arguments across compilations, and adds them to the file
                     structure
                     structure-supertype
                     structure-supertype*
-                    structure?)
+                    structure?
+                    (rename-out [StructureTopType StructureTop])
+                    StructureTop?)
            
            (begin-for-syntax
              (provide structure-args-stx-class))
+
+           <structure-top>
            
            <check-remember-fields>
            
