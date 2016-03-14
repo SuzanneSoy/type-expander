@@ -154,3 +154,4 @@
 (structure n)
 (structure water)
 (structure water)
+(variant . cxyz)

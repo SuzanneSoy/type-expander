@@ -483,6 +483,43 @@ the uninterned @tc[tag] either).
               (and ((make-predicate (tag/struct Any)) x)
                    ((structure? field …) (Tagged-value x)))))))]
 
+@chunk[<define-uninterned-constructor>
+       (define-syntax/parse
+           (define-private-constructor tag:id
+             (~maybe #:? tag?)
+             T:expr …)
+         (define/with-syntax default-tag? (format-id #'tag "~a?" #'tag))
+         (define-temp-ids "~a/struct" tag)
+         (define-temp-ids "~a/arg" (T …))
+         (define-temp-ids "~a/pat" (T …))
+         (define/syntax-parse (~or ([T₀:expr arg₀ pat₀])
+                                   ([Tᵢ:expr argᵢ patᵢ] …))
+           #'([T T/arg T/pat] …))
+         (template
+          (begin
+            (struct (X) tag/struct Tagged ()) ; Private
+            ;(struct (X) tag/struct interned ()) ; Uninterned
+            (define-multi-id tag
+              #:type-expand-once
+              (tag/struct (?? T₀ (List Tᵢ …)))
+              #:match-expander
+              (λ/syntax-parse (_ . (~and pats (?? ((~and pat₀ :expr))
+                                                  ((~and patᵢ :expr) …))))
+                (quasitemplate
+                 (and (? (make-predicate (tag/struct Any)))
+                      (app Tagged-value
+                           #,(syntax/loc #'pats
+                               (?? pat₀ (list patᵢ …)))))))
+              #:call
+              (λ/syntax-parse (_ . (~and args (?? ((~and arg₀ :expr))
+                                                  ((~and argᵢ :expr) …))))
+                (quasitemplate
+                 (tag/struct #,(syntax/loc #'args
+                                 (?? arg₀ (list argᵢ …)))))))
+            (: (?? tag? default-tag?) (→ Any Boolean : (tag/struct Any)))
+            (define ((?? tag? default-tag?) x)
+              ((make-predicate (tag/struct Any)) x)))))]
+
 @chunk[<test-uninterned-tagged>
        (define-syntax-rule (defp make mt)
          (begin
@@ -523,6 +560,42 @@ the uninterned @tc[tag] either).
        (check-equal?: (mt (txyz 1 "b"))
                       #f)]
 
+@chunk[<test-uninterned-constructor>
+       (define-syntax-rule (defpc makec mtc)
+         (begin
+           (define-private-constructor cxyz #:? cxyz? Number String)
+           
+           (define (makec) (cxyz 1 "b"))
+           
+           (define (mtc v)
+             (match v
+               ((cxyz x y) (list 'macro y x))
+               (_ #f)))))
+       
+       (defpc makec mtc)
+       
+       (define-private-constructor cxyz #:? cxyz? Number String)
+       
+       (check-equal?: (match (makec)
+                        ((constructor cxyz e f) (list 'out f e))
+                        (_ #f))
+                      #f)
+       
+       (check-equal?: (mtc (constructor cxyz 1 "b"))
+                      #f)
+       
+       (check-equal?: (mtc (makec))
+                      '(macro "b" 1))
+       
+       (check-not-equal?: (makec) (cxyz 1 "b"))
+       (check-equal?: (match (makec)
+                        ((cxyz e f) (list 'out f e))
+                        (_ #f))
+                      #f)
+       
+       (check-equal?: (mtc (cxyz 1 "b"))
+                      #f)]
+
 @section{Conclusion}
 
 @chunk[<*>
@@ -545,6 +618,7 @@ the uninterned @tc[tag] either).
                     tagged
                     define-tagged
                     define-private-tagged
+                    define-private-constructor
                     any-tagged)
            
            <variant-supertype>
@@ -559,6 +633,7 @@ the uninterned @tc[tag] either).
            <tagged>
            <define-tagged>
            <define-uninterned-tagged>
+           <define-uninterned-constructor>
            
            (module+ test-helpers
              #;(provide Tagged-value)))
@@ -577,4 +652,5 @@ the uninterned @tc[tag] either).
            <test-define-variant>
            <test-tagged>
            <test-define-tagged>
-           <test-uninterned-tagged>))]
+           <test-uninterned-tagged>
+           <test-uninterned-constructor>))]

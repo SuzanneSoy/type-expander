@@ -567,8 +567,8 @@ that node's @tc[with-promises] type.
 @; TODO: use a private-constructor here (single field, no need to use a
 @; structure with define-private-tagged).
 @CHUNK[<define-promise-type/first-step>
-       (define-private-tagged node/promise-type
-         [n : (Promise node/with-promises)])]
+       (define-private-constructor node/promise-type
+         (Promise node/with-promises))]
 @CHUNK[<define-with-promises>
        (define-structure node/with-promises
          [field <field/with-promises-type>] …)]
@@ -766,10 +766,10 @@ We will be able to use this type expander in function types, for example:
          x)
        (check-equal?:
         (let* ([v1 (car
-                    (structure-get (force (structure-get (Tagged-value g) n))
+                    (structure-get (force (Tagged-value g))
                                    streets))]
                [v2 (ann (type-example v1) (gr Street))]
-               [v3 (structure-get (force (structure-get (Tagged-value v2) n))
+               [v3 (structure-get (force (Tagged-value v2))
                                   sname)])
           v3)
         : String
