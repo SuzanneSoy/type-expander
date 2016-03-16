@@ -6,7 +6,7 @@
 
 (require "type-expander/type-expander.lp2.rkt")
 (require "type-expander/multi-id.lp2.rkt")
-(require "graph/variant.lp2.rkt")
+(require "graph/adt.lp2.rkt")
 |#
 
 #|
@@ -109,7 +109,7 @@
 (module m typed/racket
   (provide ma)
   (require "type-expander/type-expander.lp2.rkt")
-  (require "graph/variant.lp2.rkt")
+  (require "graph/adt.lp2.rkt")
   
   ;(let ()
   ;(define-tagged ma (fav String))

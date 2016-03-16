@@ -6,8 +6,7 @@
          "get.lp2.rkt"
          "../type-expander/type-expander.lp2.rkt"
          "../type-expander/multi-id.lp2.rkt"
-         "structure.lp2.rkt" ; debug
-         "variant.lp2.rkt" ; debug
+         "adt.lp2.rkt" ; debug
          "fold-queues.lp2.rkt"; debug
          "rewrite-type.lp2.rkt"; debug
          "meta-struct.rkt"; debug
@@ -21,6 +20,8 @@
 (frozen (~>))
 |#
 
+
+(require "../lib/debug-syntax.rkt")
 
 (define-type blob String)
 (define-type-expander (bubble stx) #'String)
@@ -52,18 +53,20 @@
   : (Listof Street)
   (map Street snames)])
 
+#|
+
 #;(super-define-graph/rich-return
- grr3
- ([City [streets : (~> m-streets)]]
-  [Street [sname : String]])
- [(m-cities [cnames : (Listof (Listof bubble))])
-  : (Listof City)
-  (define (strings→city [s : (Listof blob)])
-    (City (m-streets s)))
-  (map strings→city cnames)]
- [(m-streets [snames : (Listof String)])
-  : (Listof Street)
-  (map Street snames)])
+   grr3
+   ([City [streets : (~> m-streets)]]
+    [Street [sname : String]])
+   [(m-cities [cnames : (Listof (Listof bubble))])
+    : (Listof City)
+    (define (strings→city [s : (Listof blob)])
+      (City (m-streets s)))
+    (map strings→city cnames)]
+   [(m-streets [snames : (Listof String)])
+    : (Listof Street)
+    (map Street snames)])
 
 #|
 
@@ -82,4 +85,5 @@
 
 (dg grr)
 (dg grra)
+|#
 |#

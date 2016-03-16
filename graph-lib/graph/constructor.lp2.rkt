@@ -12,7 +12,7 @@ This file defines @tc[constructor], a form which allows
 tagging values, so that two otherwise identical values can
 be distinguished by the constructors used to wrapp them.
 
-@section[#:tag "variant|supertype"]{The @racket[ConstructorTop] supertype}
+@section[#:tag "constructor|supertype"]{The @racket[ConstructorTop] supertype}
 
 We define variants as instances of subtypes of the @tc[Tagged] structure:
 
@@ -43,12 +43,31 @@ For this, we use the @tc[remember] library:
 
 We pre-declare here in this file all the remembered constructors:
 
+@CHUNK[<declare-constructor-struct>
+       (define-syntax (declare-constructor-struct stx)
+         (syntax-case stx ()
+           [(_ name)
+            #`(struct (T)
+                name
+                #,(syntax-local-introduce #'ConstructorTop)
+                ()
+                #:transparent)]))]
+
+@CHUNK[<declare-uninterned-constructor-struct>
+       (define-syntax (declare-uninterned-constructor-struct stx)
+         (syntax-parse stx
+           [(_ name)
+            (define/syntax-parse ((~maybe no-with-struct)) #'())
+            (with-constructor-name→stx-name
+                (parent no-with-struct #'name #'please-recompile stx)
+              #'(struct (T)
+                  name
+                  parent
+                  ()
+                  #:transparent))]))]
+
 @CHUNK[<constructor-declarations>
-       (struct (T)
-         constructor-name/struct
-         #,(syntax-local-introduce #'ConstructorTop)
-         ()
-         #:transparent)
+       (declare-constructor-struct constructor-name/struct)
        …]
 
 We define an associative list which maps the constructor
@@ -214,7 +233,9 @@ instance:
                        stx)
            (template
             ((λ #:∀ (T …) ([arg : T] …)
-               : (constructor constructor-name T …)
+               : (constructor constructor-name
+                              (?? (?@ #:with-struct with-struct))
+                              T …)
                (stx-name (?? arg₀ (list argᵢ …))))
              value …))))]
 
@@ -238,13 +259,18 @@ instance:
                     (rename-out [ConstructorTop-values constructor-values]))
            
            <constructor-top>
+           <declare-constructor-struct>
            <remember-lib>
            <named-sorted-constructors>
            <declare-all-constructors>
            <with-constructor-name→stx-name>
+           <declare-uninterned-constructor-struct>
            
            <constructor>
-           <predicate>)
+           <predicate>
+           
+           (module+ private
+             (provide declare-constructor-struct)))
          
          (require 'main)
          (provide (all-from-out 'main))

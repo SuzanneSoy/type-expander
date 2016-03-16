@@ -18,7 +18,9 @@ In section @secref{doc/example|foo} we present, blah blah.
 
 @subsection[#:tag "doc/example|foo"]{My subsection}
 
-@$${\frac{2x}{x^2}}
+@$${\frac{\href{//jsmaniac.github.io}{2x}}{\class{some-css-class}{x^2}}}
+
+
 @(colorize (filled-ellipse 30 15) "blue")
 @; Line comment
 

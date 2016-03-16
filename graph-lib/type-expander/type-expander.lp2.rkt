@@ -83,6 +83,8 @@ else.
 
 @chunk[<apply-type-expander>
        (define (apply-type-expander type-expander-stx stx)
+         (displayln type-expander-stx)
+         (displayln (syntax->datum type-expander-stx))
          (let ([type-expander (syntax-local-value type-expander-stx)])
            (((get-prop:type-expander-value type-expander) type-expander) stx)))]
 
@@ -133,9 +135,15 @@ else.
                      . args) ;; TODO: test
                     #:with expanded-once
                     #'(nested-application.expanded-once . args))
-           (pattern (~datum ~>)
+           (pattern (~and xxx (~datum ~>))
                     #:with expanded-once #'()
-                    #:when (displayln (format "dict = ~a" (dict->list env)))
+                    #:when (display (format "dict =\n  "))
+                    #:when (displayln (dict->list env))
+                    #:when (displayln #'xxx)
+                    #:when (newline)
+                    #:when (pretty-write (map syntax-debug-info
+                                              (map car (dict->list env))))
+                    #:when (pretty-write (syntax-debug-info #'xxx))
                     #:when #f))
          
          (define-syntax-class fa (pattern (~or (~literal ∀) (~literal All))))
@@ -155,7 +163,8 @@ else.
                  #,(expand-type #'T (bind-type-vars #'(TVar ...) env)))]
            [((~literal Rec) R:id T:expr)
             #`(Rec R #,(expand-type #'T (bind-type-vars #'(R) env)))]
-           [((~datum Let) [V:id E:id] T:expr);; TODO: ~literal instead of ~datum
+           [((~commit (~datum Let)) [V:id E:id] T:expr)
+            ;; TODO: ~literal instead of ~datum
             ;; TODO: ~commit  when we find Let, so that syntax errors are not
             ;; interpreted as an arbitrary call.
             ;; TODO : for now we only allow aliasing (which means E is an id),

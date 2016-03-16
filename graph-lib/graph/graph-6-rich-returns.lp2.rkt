@@ -110,6 +110,7 @@ plain list.
          (define-temp-ids "~a/node-marker" (mapping …))
          (define-temp-ids "~a/from-first-pass" (node …))
          ;(define/with-syntax id-~> (datum->syntax #'name '~>))
+         (define/with-syntax introduced-~> (datum->syntax #'name '~>))
          <inline-temp-nodes>
          (quasitemplate/debug debug
            (begin
@@ -150,7 +151,7 @@ plain list.
 
 @chunk[<replace-in-instance>
        (tmpl-replace-in-instance
-        (Let ~> second-step-marker-expander field-type)
+        (Let (introduced-~> second-step-marker-expander) field-type)
         <second-pass-replace>)]
 
 @chunk[<second-pass-type-expander>
@@ -276,8 +277,7 @@ encapsulating the result types of mappings.
                   "get.lp2.rkt"
                   "../type-expander/type-expander.lp2.rkt"
                   "../type-expander/multi-id.lp2.rkt"
-                  "structure.lp2.rkt" ; debug
-                  "variant.lp2.rkt" ; debug
+                  "adt.lp2.rkt" ; debug
                   "fold-queues.lp2.rkt"; debug
                   "rewrite-type.lp2.rkt"; debug
                   "meta-struct.rkt"; debug

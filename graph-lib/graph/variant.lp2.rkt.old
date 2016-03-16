@@ -1,0 +1,61 @@
+#lang scribble/lp2
+@(require "../lib/doc.rkt")
+@doc-lib-setup
+
+@section{Uninterned tags}
+
+@section{Conclusion}
+
+@chunk[<*>
+       (begin
+         (module main typed/racket
+           (require (for-syntax racket/list
+                                syntax/parse
+                                syntax/parse/experimental/template
+                                racket/syntax
+                                (submod "../lib/low.rkt" untyped))
+                    "../lib/low.rkt"
+                    "../type-expander/multi-id.lp2.rkt"
+                    "../type-expander/type-expander.lp2.rkt"
+                    "structure.lp2.rkt")
+           (provide (rename-out [Tagged-predicate? Tagged?]
+                                [Tagged-type TaggedTop])
+                    Tagged-value
+                    constructor
+                    define-variant
+                    define-private-tagged
+                    define-private-constructor)
+           
+           <variant-supertype>
+           <remember-tags>
+           <named-sorted-tags>
+           <declare-all-tags>
+           <tag-name→stx-name>
+           
+           <predicate>
+           <constructor>
+           <define-variant>
+           <tagged>
+           <define-tagged>
+           <define-uninterned-tagged>
+           <define-uninterned-constructor>
+           
+           (module+ test-helpers
+             #;(provide Tagged-value)))
+         
+         (require 'main)
+         (provide (all-from-out 'main))
+         
+         (module* test typed/racket
+           (require (submod "..")
+                    (submod ".." main test-helpers)
+                    typed/rackunit
+                    "../lib/low.rkt"
+                    "../type-expander/type-expander.lp2.rkt")
+           
+           <test-constructor>
+           <test-define-variant>
+           <test-tagged>
+           <test-define-tagged>
+           <test-uninterned-tagged>
+           <test-uninterned-constructor>))]

@@ -21,7 +21,7 @@
                            (constructor dh1 Number String))
                       (constructor dh1 2 "y"))
        
-       (define-private-tagged txyz #:? txyz?
+       (define-tagged txyz #:private #:? txyz?
          [a Number]
          [b String])
        
@@ -32,7 +32,7 @@
        (begin 
          (module main typed/racket
            (require (for-syntax racket/list)
-                    "variant.lp2.rkt")
+                    "adt.lp2.rkt")
            <mainbody>)
          
          (require 'main)
@@ -43,6 +43,6 @@
                     "../lib/low.rkt"
                     "../type-expander/type-expander.lp2.rkt"
                     typed/rackunit
-                    "variant.lp2.rkt")
+                    "adt.lp2.rkt")
            
            <testbody>))]

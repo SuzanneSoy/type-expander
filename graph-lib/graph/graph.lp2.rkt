@@ -562,15 +562,11 @@ the @tc[tmpl-replace-in-type] template metafunction from the rewrite-type
 library. We replace all occurrences of a @tc[node] name with a @tc[Promise] for
 that node's @tc[with-promises] type.
 
-@; TODO: use a type-expander here, instead of a template metafunction.
-
-@; TODO: use a private-constructor here (single field, no need to use a
-@; structure with define-private-tagged).
 @CHUNK[<define-promise-type/first-step>
-       (define-private-constructor node/promise-type
+       (define-constructor node/promise-type #:private
          (Promise node/with-promises))]
 @CHUNK[<define-with-promises>
-       (define-structure node/with-promises
+       (define-plain-structure node/with-promises
          [field <field/with-promises-type>] …)]
 
 @CHUNK[<field/with-promises-type>
@@ -599,6 +595,7 @@ library. We replace all occurrences of a @tc[node] name with its
 
 @chunk[<define-field/incomplete-type>
        (define-type field/incomplete-type <field/incomplete-type>)]
+
 @chunk[<field/incomplete-type>
        (tmpl-replace-in-type field-type
          [node node/placeholder-type] …)]
@@ -766,11 +763,9 @@ We will be able to use this type expander in function types, for example:
          x)
        (check-equal?:
         (let* ([v1 (car
-                    (structure-get (force (Tagged-value g))
-                                   streets))]
+                    (uniform-get g streets))]
                [v2 (ann (type-example v1) (gr Street))]
-               [v3 (structure-get (force (Tagged-value v2))
-                                  sname)])
+               [v3 (uniform-get v2 sname)])
           v3)
         : String
         "Ada Street")]
@@ -791,8 +786,7 @@ We will be able to use this type expander in function types, for example:
                   "fold-queues.lp2.rkt"
                   "rewrite-type.lp2.rkt"
                   "../lib/low.rkt"
-                  "structure.lp2.rkt"
-                  "variant.lp2.rkt"
+                  "adt.lp2.rkt"
                   "../type-expander/type-expander.lp2.rkt"
                   "../type-expander/multi-id.lp2.rkt"
                   "meta-struct.rkt")
@@ -815,27 +809,8 @@ not match the one from @tc[typed/racket]
        (module* test typed/racket
          (require (submod "..")
                   (only-in "../lib/low.rkt" cars cdrs check-equal?:)
-                  (only-in "structure.lp2.rkt" structure-get)
-                  "../type-expander/type-expander.lp2.rkt"
-                  typed/rackunit
-                  ;;DEBUG:
-                  (for-syntax syntax/parse
-                              racket/syntax
-                              syntax/parse/experimental/template
-                              racket/sequence
-                              racket/pretty
-                              "rewrite-type.lp2.rkt"
-                              (submod "../lib/low.rkt" untyped)
-                              "meta-struct.rkt")
-                  racket/splicing
-                  "fold-queues.lp2.rkt"
-                  "rewrite-type.lp2.rkt"
-                  "../lib/low.rkt"
-                  "structure.lp2.rkt"
-                  "variant.lp2.rkt"
-                  "../type-expander/type-expander.lp2.rkt"
-                  "../type-expander/multi-id.lp2.rkt"
-                  "meta-struct.rkt")
+                  (only-in "adt.lp2.rkt" uniform-get)
+                  "../type-expander/type-expander.lp2.rkt")
          
          (provide g)
          <use-example>

@@ -519,7 +519,17 @@ functions is undefined.
            [((~literal quote) a)
             #'(inst values 'a acc-type)]
            [x:id
-            #'(inst values x acc-type)]))]
+            #'(inst values x acc-type)]
+           [_
+            (raise-syntax-error 'recursive-replace-4
+                                (format (string-append "Syntax-parse failed\n"
+                                                       "  ~a\n"
+                                                       "  expanded to ~a")
+                                        (syntax->datum type)
+                                        (syntax->datum (expand-type type)))
+                                `(recursive-replace-4 ,(current-replacement))
+                                #f
+                                (list type))]))]
 
 @subsection{Union types}
 
@@ -648,8 +658,6 @@ These metafunctions just extract the arguments for @tc[replace-in-type] and
                          (only-in "../type-expander/type-expander.lp2.rkt"
                                   expand-type)
                          "meta-struct.rkt")
-             "structure.lp2.rkt"
-             "variant.lp2.rkt"
              "../type-expander/multi-id.lp2.rkt"
              "../type-expander/type-expander.lp2.rkt"
              "../lib/low.rkt")
@@ -683,8 +691,6 @@ These metafunctions just extract the arguments for @tc[replace-in-type] and
          (module* test typed/racket
            (require (submod "..")
                     typed/rackunit
-                    "structure.lp2.rkt"
-                    "variant.lp2.rkt"
                     "../type-expander/multi-id.lp2.rkt"
                     "../type-expander/type-expander.lp2.rkt")
            

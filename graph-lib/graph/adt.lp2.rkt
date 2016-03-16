@@ -10,21 +10,33 @@
 
 We define variants (tagged unions), with the following constraints:
 
-@itemlist[
- @item{Unions are anonymous: two different unions can contain the same tag, and
-  there's no way to distinguish these two occurrences of the tag}
- @item{Callers can require an uninterned tag which inherits the interned tag, so
-  that @racket[(constructor #:uninterned tag Number)] is a subtype of
-  @racket[(constructor #:uninterned tag Number)], but not the reverse}
- @item{The tag can be followed by zero or more “fields”}
- @item{An instance of a variant only @racket[match]es with its constructor and
-  the same number of fields, with exact matching on the tag for uninterned
-  tags}]
+@; TODO: put a short usage example here
 
-See @url{https://github.com/andmkent/datatype/} for an existing module providing
-Algebraic Data Types. The main difference with our library is that a given tag
-(i.e. constructor) cannot be shared by multiple unions, as can be seen in the
-example below where the second @tc[define-datatype] throws an error:
+@itemlist[
+ @item{Unions are anonymous: two different unions can
+  contain the same tag, and there's no way to distinguish
+  these two occurrences of the tag}
+ @item{Users can define an uninterned tag, i.e. one which
+  will not match against other uses of the same tag name. A
+  constructor using this uninterned tag is a subtype of the
+  constructor using the interned one, but not the reverse.
+  This means that 
+  @racket[(constructor #:uninterned tag Number)] is a
+  subtype of @racket[(constructor tag Number)], but not the
+  opposite. This allows testing if a constructor instance
+  was created by the rightful owner, or by some other code
+  which happens to use the same name.}
+ @item{The tag can be followed by zero or more “fields”}
+ @item{An instance of a variant only @racket[match]es with
+  its constructor and the same number of fields, with exact
+  matching on the tag for uninterned tags}]
+
+See @url{https://github.com/andmkent/datatype/} for an
+existing module providing Algebraic Data Types. The main
+difference is that unlike our library, a given constructor
+name cannot be shared by multiple unions, as can be seen in
+the example below where the second @tc[define-datatype]
+throws an error:
 
 @chunk[<datatype-no-sharing>
        (require datatype)
@@ -43,7 +55,7 @@ example below where the second @tc[define-datatype] throws an error:
 @section{Constructors, tagged, variants and structures}
 
 We first define @tc[structure] and @tc[constructor], the
-primitives allowing us to build instance, match against them
+primitives allowing us to build instances, match against them
 and express the type itself.
 
 @chunk[<require-modules>
@@ -51,7 +63,7 @@ and express the type itself.
        (require "constructor.lp2.rkt")]
 
 We then define @tc[tagged], which is a shorthand for
-manipulating constructors which single value is a promise
+manipulating constructors whose single value is a promise
 for a structure.
 
 @chunk[<require-modules>
@@ -66,7 +78,7 @@ thin wrapper against @tc[(U (~or constructor tagged) …)].
 The @tc[define-tagged] and @tc[define-constructor] forms
 also allow the @tc[#:uninterned] and @tc[#:private]
 keywords, to create uninterned constructors and tagged
-structures as described in @secref{ADT|introduction}.
+structures as described in the @secref{ADT|introduction}.
 
 @chunk[<require-modules>
        (require "define-adt.lp2.rkt")]
@@ -77,31 +89,39 @@ operate on @tc[tagged] structures. We also wrap the plain
 structure, using a common tag for all plain structures. This
 allows us to rely on the invariant that @tc[uniform-get]
 always operates on data with the same shape (a constructor
-which single value is a promise for a structure)@note{This
+whose single value is a promise for a structure)@note{This
  avoids the risk of combinatorial explosion for the intput
  type of @racket[uniform-get], when accessing a deeply nested
- field: allowing 
+ field: allowing
  @racket[(U structure
             (constructor structure)
             (constructor (Promise structure)))]
- would result in a type of size @${n⁴}, with ${n} then depth
+ would result in a type of size @${n⁴}, with @${n} the depth
  of the accessed field.}
 
 @chunk[<require-modules>
-       (void)] @;(require "uniform-get.lp2.rkt")
+       (require "uniform-get.lp2.rkt")]
 
 @chunk[<*>
-       (void)
-       #;(begin
+       (begin
          (module main typed/racket
            <require-modules>
            (provide constructor
                     define-constructor
+                    ConstructorTop
+                    ConstructorTop?
+                    constructor?
+                    constructor-values
                     tagged
                     define-tagged
                     variant
                     define-variant
-                    (rename-out [wrapped-structure structure])
+                    (rename-out
+                     [wrapped-structure structure]
+                     [wrapped-structure-supertype structure-supertype]
+                     [structure plain-structure]
+                     [structure-supertype plain-structure-supertype]
+                     [define-structure define-plain-structure])
                     uniform-get))
          
          (require 'main)

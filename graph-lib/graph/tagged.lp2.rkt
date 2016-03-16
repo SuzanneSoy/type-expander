@@ -32,8 +32,9 @@ for a structure.
                           . structure-type)
          (quasitemplate
           (constructor tag (?? (?@ #:with-struct with-struct))
-                       #,(syntax/loc #'structure-type
-                           (structure . structure-type)))))]
+                       (Promise
+                        #,(syntax/loc #'structure-type
+                            (structure . structure-type))))))]
 
 @subsection{@racket[match-expander]}
 
@@ -42,8 +43,10 @@ for a structure.
                           . structure-pat)
          (quasitemplate
           (constructor tag (?? (?@ #:with-struct with-struct))
-                       #,(syntax/loc #'structure-pat
-                           (structure . structure-pat)))))]
+                       (? promise?
+                          (app force
+                               #,(syntax/loc #'structure-pat
+                                   (structure . structure-pat)))))))]
 
 @subsection{@racket[instance creation]}
 
@@ -62,30 +65,39 @@ for a structure.
          (define-temp-ids "~a/arg" (sa.field …))
          (define/with-syntax c
            (if (attribute sa.type)
-               (quasitemplate
-                (λ ([sa.field/arg : sa.type] …)
-                  : (constructor tag (?? (?@ #:with-struct with-struct))
-                                 #,(syntax/loc #'fields
-                                     (structure [sa.field sa.type] …)))
-                  (constructor tag (?? (?@ #:with-struct with-struct))
-                               #,(syntax/loc #'fields
-                                   (structure #:instance
-                                              [sa.field : sa.type sa.field/arg]
-                                              …)))))
-               (quasitemplate
-                (λ #:∀ (sa.field/TTemp …) ([sa.field/arg : sa.field/TTemp] …)
-                  : (constructor tag (?? (?@ #:with-struct with-struct))
-                                 #,(syntax/loc #'fields
-                                     (structure [sa.field sa.field/TTemp] …)))
-                  (constructor tag (?? (?@ #:with-struct with-struct))
-                               #,(syntax/loc #'fields
-                                   (structure #:instance
-                                              [sa.field sa.field/arg] …)))))))
+               (quasitemplate <make-instance-with-types>)
+               (quasitemplate <make-instance-infer>)))
          (if (attribute sa.value)
              #'(c sa.value …)
              #'c))]
 
-@subsection{@racket[predicate]}
+@CHUNK[<make-instance-with-types>
+       (λ ([sa.field/arg : sa.type] …)
+         : (constructor tag (?? (?@ #:with-struct with-struct))
+                        (Promise
+                         #,(syntax/loc #'fields
+                             (structure [sa.field sa.type] …))))
+         (constructor tag (?? (?@ #:with-struct with-struct))
+                      #,(syntax/loc #'fields
+                          (delay
+                            (structure #:instance
+                                       [sa.field : sa.type sa.field/arg]
+                                       …)))))]
+
+
+@CHUNK[<make-instance-infer>
+       (λ #:∀ (sa.field/TTemp …) ([sa.field/arg : sa.field/TTemp] …)
+         : (constructor tag (?? (?@ #:with-struct with-struct))
+                        (Promise
+                         #,(syntax/loc #'fields
+                             (structure [sa.field sa.field/TTemp] …))))
+         (constructor tag (?? (?@ #:with-struct with-struct))
+                      #,(syntax/loc #'fields
+                          (delay
+                            (structure #:instance
+                                       [sa.field sa.field/arg] …)))))]
+
+@subsection{Predicate}
 
 @CHUNK[<tagged-top?>
        (define-multi-id TaggedTop?
