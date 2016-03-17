@@ -15,15 +15,16 @@ compilations, and adds them to the file “@code{remember.rkt}”:
        (require "remember.rkt")
        
        (define (check-remember-all category value)
-         (let ([datum-value (syntax->datum (datum->syntax #f value))])
-           (if (not (member (cons category datum-value) all-remembered-list))
-               (let ((file-name (build-path (this-expression-source-directory)
-                                            "remember.rkt")))
-                 ;; Add the missing field names to all-fields.rkt
-                 (with-output-file [port file-name] #:exists 'append
-                                   (writeln (cons category datum-value) port))
-                 #f)
-               #t)))]
+         (if (not (member (cons category (to-datum value))
+                          all-remembered-list))
+             (let ((file-name (build-path (this-expression-source-directory)
+                                          "remember.rkt")))
+               ;; Add the missing field names to all-fields.rkt
+               (with-output-file [port file-name] #:exists 'append
+                                 (writeln (cons category (to-datum value))
+                                          port))
+               #f)
+             #t))]
 
 @CHUNK[<remember-all-errors>
        (define (remember-all-errors id fallback stx)
@@ -118,7 +119,8 @@ declared using @tc[define-syntax].
                 (for-syntax mzlib/etc
                             (submod "../lib/low.rkt" untyped)
                             racket/string
-                            racket/format))
+                            racket/format
+                            mischief/transform))
        (begin-for-syntax
          (provide check-remember-all
                   remember-all-errors

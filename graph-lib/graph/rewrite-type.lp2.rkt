@@ -145,11 +145,11 @@ offloaded to a separate subroutine.
 @CHUNK[<replace-in-instance>
        (define-for-syntax (replace-in-instance val t r)
          (parameterize-push-stx ([current-replacement
-                              `(replace-in-instance ,val ,t ,r)])
-           (define/with-syntax ([from to fun] ...) r)
-           <recursive-replace-in-instance>
-           <replace-in-union>
-           (recursive-replace val t)))]
+                                  `(replace-in-instance ,val ,t ,r)])
+                                (define/with-syntax ([from to fun] ...) r)
+                                <recursive-replace-in-instance>
+                                <replace-in-union>
+                                (recursive-replace val t)))]
 
 The @tc[recursive-replace] internal function defined below takes a type
 @tc[type] and produces an expression that transforms instances of that type
@@ -173,63 +173,63 @@ The other cases are similarly defined:
 @CHUNK[<recursive-replace-in-instance>
        (define (recursive-replace stx-val type)
          (parameterize-push-stx ([current-replacement
-                              `(recursive-replace ,stx-val ,type)])
-           (define/with-syntax val stx-val)
-           (define/with-syntax (v-cache) (generate-temporaries #'(val-cache)))
-           (syntax-parse type
-             #:context `(recursive-replace-2 ,(current-replacement))
-             [x:id
-              #:attr assoc-from-to (cdr-stx-assoc #'x
-                                                  #'((from . (to . fun)) ...))
-              #:when (attribute assoc-from-to)
-              #:with (to-type . to-fun) #'assoc-from-to
-              (define/with-syntax (tmp) (generate-temporaries #'(x)))
-              ;; TODO: Add predicate for to-type in the pattern.
-              #`(to-fun val)]
-             [((~literal List) a ...)
-              (define/with-syntax (tmp ...) (generate-temporaries #'(a ...)))
-              #`(let-values ([(tmp ...) (apply values val)])
-                  (list #,@(stx-map recursive-replace #'(tmp ...) #'(a ...))))]
-             <replace-in-instance-case-pairof>
-             [((~literal Listof) a)
-              (define/with-syntax (tmp) (generate-temporaries #'(a)))
-              #`(map (λ ([tmp : a]) #,(recursive-replace #'tmp #'a))
-                     val)]
-             [((~literal Vector) a ...)
-              (define/with-syntax (tmp ...) (generate-temporaries #'(a ...)))
-              (define/with-syntax (idx ...) (generate-indices #'(a ...)))
-              #`(let ([v-cache val])
-                  (let ([tmp (vector-ref v-cache idx)]
-                        ...)
-                    (vector-immutable #,@(stx-map recursive-replace
-                                                  #'(tmp ...)
-                                                  #'(a ...)))))]
-             [((~literal Vectorof) a)
-              (define/with-syntax (tmp) (generate-temporaries #'(a)))
-              ;; Inst because otherwise it won't widen the inferred mutable
-              ;; vector elements' type.
-              #`((inst vector->immutable-vector
-                       #,(replace-in-type #'a #'([from to] ...)))
-                 (list->vector
-                  (map (λ ([tmp : a]) #,(recursive-replace #'tmp #'a))
-                       (vector->list val))))]
-             [((~literal U) a ...)
-              #`(let ([v-cache val])
-                  (cond
-                    #,@(stx-map (λ (ta)
-                                  (replace-in-union #'v-cache ta r))
-                                #'(a ...))))]
-             [((~literal quote) a)
-              #'val]
-             [x:id
-              #'val])))]
+                                  `(recursive-replace ,stx-val ,type)])
+                                (define/with-syntax val stx-val)
+                                (define/with-syntax (v-cache) (generate-temporaries #'(val-cache)))
+                                (syntax-parse type
+                                  #:context `(recursive-replace-2 ,(current-replacement))
+                                  [x:id
+                                   #:attr assoc-from-to (cdr-stx-assoc #'x
+                                                                       #'((from . (to . fun)) ...))
+                                   #:when (attribute assoc-from-to)
+                                   #:with (to-type . to-fun) #'assoc-from-to
+                                   (define/with-syntax (tmp) (generate-temporaries #'(x)))
+                                   ;; TODO: Add predicate for to-type in the pattern.
+                                   #`(to-fun val)]
+                                  [((~literal List) a ...)
+                                   (define/with-syntax (tmp ...) (generate-temporaries #'(a ...)))
+                                   #`(let-values ([(tmp ...) (apply values val)])
+                                       (list #,@(stx-map recursive-replace #'(tmp ...) #'(a ...))))]
+                                  <replace-in-instance-case-pairof>
+                                  [((~literal Listof) a)
+                                   (define/with-syntax (tmp) (generate-temporaries #'(a)))
+                                   #`(map (λ ([tmp : a]) #,(recursive-replace #'tmp #'a))
+                                          val)]
+                                  [((~literal Vector) a ...)
+                                   (define/with-syntax (tmp ...) (generate-temporaries #'(a ...)))
+                                   (define/with-syntax (idx ...) (generate-indices #'(a ...)))
+                                   #`(let ([v-cache val])
+                                       (let ([tmp (vector-ref v-cache idx)]
+                                             ...)
+                                         (vector-immutable #,@(stx-map recursive-replace
+                                                                       #'(tmp ...)
+                                                                       #'(a ...)))))]
+                                  [((~literal Vectorof) a)
+                                   (define/with-syntax (tmp) (generate-temporaries #'(a)))
+                                   ;; Inst because otherwise it won't widen the inferred mutable
+                                   ;; vector elements' type.
+                                   #`((inst vector->immutable-vector
+                                            #,(replace-in-type #'a #'([from to] ...)))
+                                      (list->vector
+                                       (map (λ ([tmp : a]) #,(recursive-replace #'tmp #'a))
+                                            (vector->list val))))]
+                                  [(~and whole ((~literal U) a ...))
+                                   #`(let ([v-cache val])
+                                       (cond
+                                         #,@(stx-map (λ (ta)
+                                                       (replace-in-union #'v-cache ta r #'whole))
+                                                     #'(a ...))))]
+                                  [((~literal quote) a)
+                                   #'val]
+                                  [x:id
+                                   #'val])))]
 
 For unions, we currently support only tagged unions, that is unions where each
 possible type is a @tc[List] with a distinct @tc[tag] in its first element.
 TODO: we currently don't check that each @tc[tag] is distinct.
 
 @CHUNK[<replace-in-union>
-       (define (replace-in-union stx-v-cache t r)
+       (define (replace-in-union stx-v-cache t r whole)
          (define/with-syntax v-cache stx-v-cache)
          (syntax-parse t
            #:context `(replace-in-union-3 ,(current-replacement))
@@ -237,8 +237,10 @@ TODO: we currently don't check that each @tc[tag] is distinct.
             <replace-in-tagged-union-instance>]
            [_ (raise-syntax-error
                'replace-in-type
-               (format "Type-replace on untagged Unions isn't supported yet: ~a"
-                       (syntax->datum t))
+               (~a "Type-replace on untagged Unions isn't supported yet: "
+                   (syntax->datum t)
+                   " in "
+                   (syntax->datum whole))
                t)]
            [s:id
             #:when (begin (printf "~a ~a\n" (meta-struct? #'s) #'s)
@@ -401,11 +403,11 @@ functions is undefined.
 @CHUNK[<fold-instance>
        (define-for-syntax (fold-instance whole-type stx-acc-type r)
          (parameterize-push-stx ([current-replacement
-                              `(fold-instance ,whole-type ,stx-acc-type ,r)])
-           (define/with-syntax acc-type stx-acc-type)
-           (define/with-syntax ([from to pred? fun] ...) r)
-           <recursive-replace-fold-instance>
-           (recursive-replace whole-type)))]
+                                  `(fold-instance ,whole-type ,stx-acc-type ,r)])
+                                (define/with-syntax acc-type stx-acc-type)
+                                (define/with-syntax ([from to pred? fun] ...) r)
+                                <recursive-replace-fold-instance>
+                                (recursive-replace whole-type)))]
 
 @CHUNK[<recursive-replace-fold-instance>
        (define (new-type-for stx) (replace-in-type stx #'([from to] ...)))
@@ -502,7 +504,7 @@ functions is undefined.
                            (list->vector
                             (reverse (car f))))
                           (cdr f))))]
-           [((~literal U) a ...)
+           [(~and ((~literal U) a ...) whole)
             (define/with-syntax (new-a-type …) (stx-map new-type-for #'(a …)))
             #`(λ ([val : (U a ...)] [acc : acc-type])
                 : (values (U new-a-type …) acc-type)
@@ -553,10 +555,15 @@ functions is undefined.
           #:when (begin (printf "~a ~a\n" (meta-struct? #'s) #'s)
                         (meta-struct? #'s))
           (error "Type-replace on struct unions: WIP.")]
-         [_ (raise-syntax-error
+         [_
+          (show-backtrace)
+          (displayln (current-replacement))
+          (raise-syntax-error
              'replace-in-type
-             (format "Type-replace on untagged Unions isn't supported yet: ~a"
-                     (syntax->datum ta))
+             (~a "Type-fold-replace on untagged Unions isn't supported yet: "
+                 (syntax->datum ta)
+                 " in "
+                 (syntax->datum #'whole))
              ta)])]
 
 For cases of the union which are a tagged list, we use a simple guard, and call
@@ -588,7 +595,7 @@ efficient than the separate implementation.
 @CHUNK[<replace-in-instance2>
        (define-for-syntax (replace-in-instance2 t r)
          (define/with-syntax ([from to pred? fun] ...) r)
-         #`(λ ([val : #,t])
+         #`(λ ([val : #,(expand-type t)])
              (first-value
               (#,(fold-instance t
                                 #'Void
@@ -609,38 +616,38 @@ one for @tc[replace-in-type]:
 @CHUNK[<template-metafunctions>
        (define-template-metafunction (tmpl-replace-in-type stx)
          (parameterize-push-stx ([current-replacement stx])
-           (syntax-parse stx
-             #:context `(tmpl-replace-in-type-6 ,(current-replacement))
-             [(_ (~optional (~and debug? #:debug)) type:expr [from to] …)
-              (when (attribute debug?)
-                (displayln (format "~a" stx)))
-              (let ([res #`#,(replace-in-type #'type
-                                              #'([from to] …))])
-                (when (attribute debug?)
-                  (displayln (format "=> ~a" res)))
-                res)])))]
+                                (syntax-parse stx
+                                  #:context `(tmpl-replace-in-type-6 ,(current-replacement))
+                                  [(_ (~optional (~and debug? #:debug)) type:expr [from to] …)
+                                   (when (attribute debug?)
+                                     (displayln (format "~a" stx)))
+                                   (let ([res #`#,(replace-in-type #'type
+                                                                   #'([from to] …))])
+                                     (when (attribute debug?)
+                                       (displayln (format "=> ~a" res)))
+                                     res)])))]
 
 And one each for @tc[fold-instance] and @tc[replace-in-instance2]:
 
 @CHUNK[<template-metafunctions>
        (define-template-metafunction (tmpl-fold-instance stx)
          (parameterize-push-stx ([current-replacement stx])
-           (syntax-parse stx
-             #:context `(tmpl-fold-instance-7 ,(current-replacement))
-             [(_ type:expr acc-type:expr [from to pred? fun] …)
-              #`(begin
-                  "fold-instance expanded code below. Initially called with:"
-                  '(fold-instance type acc-type [from to pred? λ…] …)
-                  #,(fold-instance #'type
-                                   #'acc-type
-                                   #'([from to pred? fun] …)))])))
+                                (syntax-parse stx
+                                  #:context `(tmpl-fold-instance-7 ,(current-replacement))
+                                  [(_ type:expr acc-type:expr [from to pred? fun] …)
+                                   #`(begin
+                                       "fold-instance expanded code below. Initially called with:"
+                                       '(fold-instance type acc-type [from to pred? λ…] …)
+                                       #,(fold-instance #'type
+                                                        #'acc-type
+                                                        #'([from to pred? fun] …)))])))
        
        (define-template-metafunction (tmpl-replace-in-instance stx)
          (parameterize-push-stx ([current-replacement stx])
-           (syntax-parse stx
-             #:context `(tmpl-replace-in-instance-8 ,(current-replacement))
-             [(_ type:expr [from to pred? fun] …)
-              #`#,(replace-in-instance2 #'type #'([from to pred? fun] …))])))]
+                                (syntax-parse stx
+                                  #:context `(tmpl-replace-in-instance-8 ,(current-replacement))
+                                  [(_ type:expr [from to pred? fun] …)
+                                   #`#,(replace-in-instance2 #'type #'([from to pred? fun] …))])))]
 
 These metafunctions just extract the arguments for @tc[replace-in-type] and
 @tc[replace-in-instance2], and pass them to these functions.
@@ -657,7 +664,8 @@ These metafunctions just extract the arguments for @tc[replace-in-type] and
                          (submod "../lib/low.rkt" untyped)
                          (only-in "../type-expander/type-expander.lp2.rkt"
                                   expand-type)
-                         "meta-struct.rkt")
+                         "meta-struct.rkt"
+                         "../lib/low/backtrace.rkt")
              "../type-expander/multi-id.lp2.rkt"
              "../type-expander/type-expander.lp2.rkt"
              "../lib/low.rkt")

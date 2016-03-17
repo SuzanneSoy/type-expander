@@ -53,10 +53,10 @@
   : (Listof Street)
   (map Street snames)])
 
-#|
+;(grr3 '(("a" "b") ("c")))
 
 #;(super-define-graph/rich-return
-   grr3
+   grr4
    ([City [streets : (~> m-streets)]]
     [Street [sname : String]])
    [(m-cities [cnames : (Listof (Listof bubble))])
@@ -85,5 +85,4 @@
 
 (dg grr)
 (dg grra)
-|#
 |#

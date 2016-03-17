@@ -331,7 +331,7 @@ The fields in @tc[fields→stx-name-alist] are already sorted.
 
 @chunk[<fields→stx-name>
        (define-for-syntax (fields→stx-name fields)
-         (cdr (assoc (syntax->datum (datum->syntax #f (sort-fields fields)))
+         (cdr (assoc (to-datum (sort-fields fields))
                      fields→stx-name-alist)))]
 
 @subsection{Has-field}
@@ -559,7 +559,8 @@ its arguments across compilations, and adds them to the file
                                 ;;;unstable/sequence
                                 (submod "../lib/low.rkt" untyped)
                                 "meta-struct.rkt"
-                                "remember-lib.rkt")
+                                "remember-lib.rkt"
+                                mischief/transform)
                     "../lib/low.rkt"
                     "../type-expander/type-expander.lp2.rkt"
                     "../type-expander/multi-id.lp2.rkt")

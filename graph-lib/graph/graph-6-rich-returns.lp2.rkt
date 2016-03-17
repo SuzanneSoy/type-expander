@@ -9,10 +9,11 @@
 
 @section{Introduction}
 
-We define a wrapper around the @tc[graph] macro, which
+We build a wrapper around the @tc[graph] macro, which
 allows defining mappings with rich return types, instead of
 being forced to return a single node. For example, a mapping
-can return a list of nodes.
+can return a list of nodes, instead of having to push the
+list operations up in the “caller” nodes.
 
 During the graph construction, however, the user cannot
 access the contents of these rich values. If this was
@@ -43,11 +44,11 @@ To avoid this kind of issue, we will make the mapping
 functions return opaque values whose contents cannot be
 inspected during the creation of the graph. This also makes
 the implementation easier, as we will generate the graph in
-two phases: first, we will associate a single-field node
-with each mapping, and use it as their return type. Then, a
-second pass will break these nodes, and extract their
-constituents until an actual user-specified node is
-reached.
+two phases: first, we will associate a temporary
+single-field node with each mapping, and use it as their
+opaque return type. Then, a second pass will inline these
+temporary nodes, and extract their constituents in-depth
+until an actual user-specified node is reached.
 
 Since this implementation also allows serveral mappings to
 return the same node, the new signature separates the
@@ -88,20 +89,27 @@ Here is an example usage of this syntax:
          [(m-streets [snames : (Listof String)]) : (Listof Street)
           (map Street snames)])]
 
-The @tc[(~> m-streets)] type is a special marker which will
-be expanded to the return type of @tc[m-streets] (namely 
-@tc[(Listof Street)]) in the final graph type. For the first
-step, however, it will be expanded to 
-@tc[(U (grr #:placeholder m-streets/node) (Listof Street))].
+@tc[define-graph/rich-return] introduces a new
+type-expander, @tc[id-~>], which is used as a special marker
+to denote the return type of a mapping: @tc[(~> some-mapping)]
+is expanded to the actual return type for @tc[some-mapping].
+This notation is needed to facilitate the substitution of a
+mapping's return type by a temporary node.
+
+@tc[(~> m-streets)] which will be expanded to the return type of 
+@tc[m-streets] (namely @tc[(Listof Street)]) in the final
+graph type. For the first step, however, it will be expanded
+to @tc[(U (gr #:placeholder m-streets/node) (Listof Street))].
 Without this, passing the result of @tc[(m-streets s)] to 
 @tc[City] would be impossible: the former is a placeholder
-for the temporary node type which encapsulates the result
-of @tc[m-streets], while the latter would normally expect a
+for the temporary node type which encapsulates the result of
+@tc[m-streets], while the latter would normally expect a
 plain list.
 
 @CHUNK[<graph-rich-return>
        (define-syntax/parse <signature>
-         (define-temp-ids "first-step" name)
+         (define/with-syntax (node* …) #'(node …))
+         (define-temp-ids "~a/first-step" name)
          (define-temp-ids "first-step-expander2" name)
          (define-temp-ids "~a/simple-mapping" (node …))
          (define-temp-ids "~a/node" (mapping …))
@@ -109,12 +117,12 @@ plain list.
          (define-temp-ids "~a/extract" (node …) #:first-base root)
          (define-temp-ids "~a/node-marker" (mapping …))
          (define-temp-ids "~a/from-first-pass" (node …))
+         ;(define step2-introducer (make-syntax-introducer))
          ;(define/with-syntax id-~> (datum->syntax #'name '~>))
-         (define/with-syntax introduced-~> (datum->syntax #'name '~>))
-         <inline-temp-nodes>
+         ;(define/with-syntax introduced-~> (datum->syntax #'name '~>))
          (quasitemplate/debug debug
            (begin
-             (define-graph first-step
+             (define-graph name/first-step
                #:definitions [<first-pass-type-expander>]
                [node [field c (Let [id-~> first-step-expander2] field-type)] …
                 [(node/simple-mapping [field c field-type] …)
@@ -131,14 +139,8 @@ plain list.
              ;; call (make-root).
              ;; Possibility 2: use the "(name node)" type outside as the return
              ;; type of functions
-             (define-graph name
-               #:definitions [<second-pass-type-expander>]
-               [node [field c field-type] …
-                [(node/extract/mapping [from : (first-step node)])
-                 (node (<replace-in-instance> (get from field))
-                       …)
-                 …]]
-               …)
+             <step2>
+             #|
              (begin
                (: node/extract (→ (first-step node) root))
                (define (node/extract from)
@@ -147,20 +149,68 @@ plain list.
                                                 #,(immutable-free-id-set)))))
              …
              (root/extract (first-step ???)) ;; choice based on #:root argument
-             )))]
+             |#)))]
 
-@chunk[<replace-in-instance>
-       (tmpl-replace-in-instance
-        (Let (introduced-~> second-step-marker-expander) field-type)
-        <second-pass-replace>)]
+When declaring the nodes in the second step, @tc[~>] expands to the actual
+result type of the user-provided mappings, for example @tc[(Listof Street)]:
 
-@chunk[<second-pass-type-expander>
-       (define-type-expander (id-~> stx)
+@chunk[<second-step-~>-expander>
+       (define-type-expander (~>-to-result-type stx)
          (syntax-parse stx
            ;; TODO: should be ~literal
            [(_ (~datum mapping)) #'result-type] …
            ;; TODO: should fall-back to outer definition of ~>, if any?
-           ))
+           ))]
+
+We define the mapping's body in the second pass as a separate macro, so that
+when it is expanded, the @tc[second-step-marker-expander] has already been
+introduced.
+
+@CHUNK[<pass-2-mapping-body>
+       (define-syntax/parse (pass-2-mapping-body name
+                                                 <pass-2-mapping-body-args>)
+         <inline-temp-nodes>
+         (template
+          (node (<replace-in-instance> (get from field))
+                …)))]
+
+We need to provide to that staged macro all the identifiers it needs:
+
+@chunk[<pass-2-mapping-body-args>
+       id-~>
+       second-step-marker-expander
+       first-pass
+       node
+       (node* …)
+       from
+       (field …)
+       (field-type …)
+       (result-type …)
+       (mapping/node-marker …)
+       (mapping/node …)
+       val]
+
+The goal of these mappings is to inline the temporary nodes, and return a value
+which does not refer to them anymore:
+
+@chunk[<replace-in-instance>
+       (!inline-temp-nodes/instance field-type)
+       #;(tmpl-replace-in-instance (Let (id-~> second-step-marker-expander)
+                                        field-type)
+                                   <second-pass-replace>)]
+
+Where @tc[second-step-marker-expander] (in the input type
+to @tc[replace-in-instance]) expands to the temporary marker
+produced by the first step.
+
+@chunk[<second-step-marker-expander>
+       ;; TODO: should use Let or replace-in-type, instead of defining the node
+       ;; globally like this.
+       (define-type node (name/first-step node))
+       …
+       (define-type mapping/node-marker result-type)
+       …
+       ;; TODO ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;TODO;^^;;;;;;;;;;;;;;;;;;;;;;;;;;;;
        (define-type-expander (second-step-marker-expander stx)
          (syntax-parse stx
            ;; TODO: should be ~literal
@@ -168,13 +218,18 @@ plain list.
            ;; TODO: should fall-back to outer definition of ~>, if any?
            ))]
 
+Replacing a marker node is as simple as extracting the
+contents of its single field.
+
 @chunk[<second-pass-replace>
        [mapping/node-marker
         <fully-replaced-mapping/result-type>
         (graph #:? mapping/node)
-        (λ ([m : (first-graph mapping/node)])
+        (λ ([m : (first-pass mapping/node)])
           (get m val))]
        …]
+
+@subsection{Fully-inlined type}
 
 The result of recursively inlining the temporary mapping nodes may be a
 recursive type:
@@ -184,46 +239,174 @@ recursive type:
        (m-a : (Listof (~> m-b)) …)
        (m-b : (Listof (~> m-a)) …)]
 
-Since we prefer to not deal with infinite recursive structures (they could be
-built using @tc[make-reader-graph], but this would not fit well with the rest of
-our framework), we do not allow type cycles unless they go through a
-user-defined node like @tc[a] or @tc[b] (by opposition to first-pass mapping
-nodes like @tc[ma/node] or @tc[mb/node]).
+Since we prefer to not deal with the possible cyclic data
+(that could be built using @tc[make-reader-graph]), we do
+not allow type cycles unless they go through a user-defined
+node like @tc[a] or @tc[b] (by opposition to first-pass
+mapping nodes like @tc[ma/node] or @tc[mb/node]).
 
 The result type of inlining the temporary mapping nodes can be obtained by
-inlining the types in the same way:
+inlining the types in a way similar to what is done for the instance:
+
+We replace (using the @tc[~>] syntax expander) the
+occurrences of @tc[(~> some-mapping)] with a marker
+identifier, so that it can be matched against by 
+@tc[tmpl-replace-in-instance] and
+@tc[tmpl-replace-in-type].
 
 @CHUNK[<inline-temp-nodes>
        (define (inline-temp-nodes/type t seen)
-         (quasitemplate
-          (tmpl-replace-in-type (Let ~> second-step-marker-expander t)
-            [mapping/node-marker
-             (meta-eval
-              (if (free-id-set-member? #,t #,seen)
-                  (raise-syntax-error "Cycle in types!")
-                  (#,inline-temp-nodes/type result-type
-                                            #,(free-id-set-add t seen))))]
-            …)))
+         (printf ">>> type ~a\n" (syntax->datum #'t))
+         (let ((rslt
+                (quasitemplate
+                 (tmpl-replace-in-type (Let (id-~> second-step-marker-expander) #,t)
+                   [mapping/node-marker
+                    (meta-eval
+                     (if (free-id-set-member? #,t #,seen)
+                         (raise-syntax-error 'define-graph/rich-returns
+                                             (~a "Cycles in types are not allowed."
+                                                 " The following types were already"
+                                                 " inlined: " seen ", and " t
+                                                 " appeared a second time.")
+                                             t)
+                         (#,inline-temp-nodes/type result-type
+                                                   #,(free-id-set-add t seen))))]
+                   …))
+                ))
+           (printf "<<< type ~a\n" (syntax->datum #'t))
+           rslt))
        
        (define (inline-temp-nodes/instance t seen)
-         (quasitemplate
-          (tmpl-fold-instance (Let ~> second-step-marker-expander t)
-            [mapping/node-marker
-             (meta-eval
-              (#,inline-temp-nodes/type result-type
-                                        (free-id-set-add #,t #,seen)))
-             (first-pass #:? mapping/node)
-             (if (free-id-set-member? t seen)
-                 (raise-syntax-error "Cycle in types!")
-                 (inline-temp-nodes/instance result-type
-                                             (free-id-set-add t seen)))]
-            …
-            [node/from-first-pass
-             (name #:placeholder node) ; new type
-             (first-pass #:? node)
-             node] ;; call constructor
-            …)))]
+         (printf ">>> inst ~a\n" (syntax->datum t))
+         (define/with-syntax (inlined-result-type …)
+           (stx-map (λ (result-type)
+                      (inline-temp-nodes/type result-type
+                                              (free-id-set-add seen t)))
+                    #'(result-type …)))
+         
+         (define (replacement result-type mapping/node)
+           #`[mapping/node-marker
+              (inline-temp-nodes/type result-type
+                                      (free-id-set-add #,seen #,t))
+              (first-pass #:? mapping/node)
+              (if (free-id-set-member? t seen)
+                  (raise-syntax-error 'define-graph/rich-returns
+                                      (~a "Cycles in types are not allowed."
+                                          " The following types were already"
+                                          " inlined: " #,seen ", and " #,t
+                                          " appeared a second time.")
+                                      t)
+                  (inline-temp-nodes/instance result-type
+                                              (free-id-set-add seen t)))]
+           …
+           (let ((rslt
+                  (replace-in-type #'(Let (id-~> second-step-marker-expander) #,t)
+                                   (stx-map replacement
+                                            #'([result-type mapping/node] …))
+                                   #;[node* ;; generated by the first pass
+                                      (name #:placeholder node*) ; new type
+                                      (first-pass #:? node*)
+                                      node*] ;; call constructor
+                                   #;…))
+                 ))
+           (printf "<<< inst ~a\n" (syntax->datum t))
+           rslt))
+       
+       (define-template-metafunction (!inline-temp-nodes/instance stx)
+         (syntax-case stx ()
+           [(_ t)
+            (inline-temp-nodes/instance #'t (immutable-free-id-set))]))]
 
+----------------------
+
+
+
+
+
+@CHUNK[<step2>
+       ;       #,(step2-introducer
+       ;          (quasitemplate
+       #,(quasitemplate/debug name
+           (define-graph name;#,(step2-introducer #'name)
+             #:definitions [<second-step-~>-expander>
+                            <second-step-marker-expander>
+                            <inline-type>
+                            <inline-instance>]
+             [node [field c (Let [id-~> ~>-to-result-type] field-type)] …
+              [(node/extract/mapping [from : (name/first-step node)])
+               <inlined-node>]]
+             …))]
+
+We create the inlined-node by inlining the temporary nodes
+in all of its fields:
+
+@chunk[<inlined-node>
+       (node ((inline-instance field-type ()) (get from field))
+             …)]
+
+To inline the temporary nodes in the instance, we use 
+@tc[replace-in-instance], and call the inline-instance
+recursively:
+
+@chunk[<inline-instance>
+       (define-syntax (inline-instance stx)
+         (dbg
+          ("inline-instance" stx)
+          (syntax-parse stx
+            [(_ i-t (~and seen (:id (… …))))
+             <inline-check-seen>
+             (replace-in-instance #'(Let (id-~> second-step-marker-expander) i-t)
+                                  #'(<inline-instance-replacement>
+                                     <inline-instance-nodes>))])))]
+
+@chunk[<inline-type>
+       (define-type-expander (inline-type stx)
+         (dbg
+          ("inline-type" stx)
+          (syntax-parse stx
+            [(_ i-t (~and seen (:id (… …))))
+             <inline-check-seen>
+             (replace-in-type #'(Let (id-~> second-step-marker-expander) i-t)
+                              #'(<inline-type-replacement>
+                                 <inline-type-nodes>))])))]
+
+@chunk[<inline-instance-replacement>
+       [mapping/node-marker                                   ;; from
+        (inline-type result-type (mapping/node . seen))       ;; to
+        (first-pass #:? mapping/node)                         ;; pred?
+        (inline-instance result-type (mapping/node . seen))]  ;; fun
+       …]
+
+@chunk[<inline-instance-nodes>
+       [node                     ;; generated by the first pass
+        (name #:placeholder node) ;; new type
+        (first-pass #:? node)
+        node/extract/mapping]    ;; call mapping
+       …]
+
+@chunk[<inline-type-replacement>
+       [mapping/node-marker                                   ;; from
+        (inline-type result-type (mapping/node . seen))]      ;; to
+       …]
+
+@chunk[<inline-type-nodes>
+       [node ;; generated by the first pass
+        (name #:placeholder node)] ;; new type
+       …]
+
+We detect the possibility of unbounded recursion when
+inlining nodes by remembering the ones alreday traversed.
+
+@chunk[<inline-check-seen>
+       (let ([seen-list (syntax->list #'seen)])
+         (when (and (not (null? seen-list))
+                    (member (car seen-list) (cdr seen-list) free-identifier=?))
+           (raise-syntax-error 'define-graph/rich-returns
+                               (~a "Cycles in types are not allowed."
+                                   " The following types were already inlined: "
+                                   (syntax->datum #'seen)
+                                   ", but " #'t " appeared a second time.")
+                               #'t)))]
 
 ----------------------
 
@@ -239,9 +422,10 @@ encapsulating the result types of mappings.
          (syntax-parse stx
            [(_ (~datum mapping)) ;; TODO: should be ~literal
             (template
-             (U (first-step #:placeholder mapping/node)
+             (U (name/first-step #:placeholder mapping/node)
+                Nothing
                 (tmpl-replace-in-type result-type
-                  [node (first-step #:placeholder node)]
+                  [node (name/first-step #:placeholder node)]
                   …)))]
            …
            ;; TODO: should fall-back to outer definition of ~>, if any.
@@ -253,8 +437,8 @@ encapsulating the result types of mappings.
            …
            ;; TODO: should fall-back to outer definition of ~>, if any.
            )
-         #;(U (first-step #:placeholder m-streets4/node)
-              (Listof (first-step #:placeholder Street))))]
+         #;(U (name/first-step #:placeholder m-streets4/node)
+              (Listof (name/first-step #:placeholder Street))))]
 
 @; TODO: replace-in-type doesn't work wfell here, we need to define a
 @; type-expander.
@@ -271,7 +455,9 @@ encapsulating the result types of mappings.
                               racket/syntax
                               (submod "../lib/low.rkt" untyped)
                               "rewrite-type.lp2.rkt" #|debug|#
-                              syntax/id-set)
+                              syntax/id-set
+                              racket/format
+                              mischief/transform)
                   (rename-in "../lib/low.rkt" [~> threading:~>])
                   "graph.lp2.rkt"
                   "get.lp2.rkt"
@@ -289,6 +475,15 @@ encapsulating the result types of mappings.
          
          (require (for-syntax racket/pretty))
          
+         ;<pass-2-mapping-body>
+         (begin-for-syntax
+           (define-syntax-rule (dbg log . body)
+             (begin
+               (display ">>> ")(displayln (list . log))
+               (let ((res (let () . body)))
+                 (display "<<< ")(displayln (list . log))
+                 (display "<<<= ")(displayln res)
+                 res))))
          <graph-rich-return>)]
 
 @chunk[<module-test>

@@ -83,8 +83,6 @@ else.
 
 @chunk[<apply-type-expander>
        (define (apply-type-expander type-expander-stx stx)
-         (displayln type-expander-stx)
-         (displayln (syntax->datum type-expander-stx))
          (let ([type-expander (syntax-local-value type-expander-stx)])
            (((get-prop:type-expander-value type-expander) type-expander) stx)))]
 
@@ -184,7 +182,8 @@ else.
 
 @CHUNK[<define-type-expander>
        (define-syntax/parse (define-type-expander (name:id arg:id) . body)
-         #'(define-syntax name (type-expander (λ (arg) . body))))]
+         #`(define-syntax name
+             (type-expander #,(syntax/loc stx (λ (arg) . body)))))]
 
 @subsection{Tests for @racket[expand-type]}
 

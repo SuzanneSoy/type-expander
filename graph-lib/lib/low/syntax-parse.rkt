@@ -39,6 +39,11 @@
            (for-meta 2 racket/base racket/syntax)
            racket/stxparam)
   
+  ;(require "typed-untyped.rkt")
+  ;(require-typed/untyped "backtrace.rkt")
+  (require (for-syntax "backtrace.rkt")
+           "backtrace.rkt")
+  
   (define-syntax ~maybe
     (pattern-expander
      (λ (stx)
@@ -105,15 +110,17 @@
   
   (define-simple-macro (define-syntax/parse (name . args) body0 . body)
     (define-syntax (name stx2)
-      (syntax-parameterize ([stx (make-rename-transformer #'stx2)])
-        (syntax-parse stx2
-          [(_ . args) body0 . body]))))
+      (with-backtrace (syntax->datum stx2)
+        (syntax-parameterize ([stx (make-rename-transformer #'stx2)])
+          (syntax-parse stx2
+            [(_ . args) body0 . body])))))
   
   (define-simple-macro (λ/syntax-parse args . body)
     (λ (stx2)
-      (syntax-parameterize ([stx (make-rename-transformer #'stx2)])
-        (syntax-parse stx2
-          [args . body]))))
+      (with-backtrace (syntax->datum stx2)
+        (syntax-parameterize ([stx (make-rename-transformer #'stx2)])
+          (syntax-parse stx2
+            [args . body])))))
   
   ;; λstx
   (begin
