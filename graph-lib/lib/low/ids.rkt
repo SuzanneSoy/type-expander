@@ -39,6 +39,7 @@
   (require (only-in racket/syntax define/with-syntax)
            (only-in syntax/stx stx-map)
            (for-syntax racket/base
+                       racket/format
                        racket/syntax
                        syntax/parse
                        syntax/parse/experimental/template))
@@ -151,10 +152,15 @@
       
       ;; New features (arrows and #:first) special-cased for now
       ;; TODO: make these features more general.
-      [(_ format:simple-format base:dotted #:first-base first-base)
+      [(_ format:simple-format base:dotted
+          #:first-base first-base
+          (~optional (~seq #:prefix prefix)))
        #:with first (format-id #'first-base (syntax-e #'format) #'first-base)
        (let ([first-base-len (identifier-length #'first-base)])
-         (syntax-cons-property #'(define-temp-ids format base #:first first)
+         (syntax-cons-property (template
+                                (define-temp-ids format base
+                                  #:first first
+                                  (?? (?@ #:prefix prefix))))
                                'sub-range-binders
                                (list
                                 (if (> (attribute format.left-len) 0)
@@ -186,21 +192,26 @@
       
       [(_ format:simple-format
           base:dotted
-          (~optional (~seq #:first first)))
+          (~optional (~seq #:first first))
+          (~optional (~seq #:prefix prefix)))
        (let* ([base-len (string-length (symbol->string (syntax-e #'base.id)))])
          (define/with-syntax pat
            (format-id #'base.id (syntax-e #'format) #'base.id))
          (define/with-syntax pat-dotted ((attribute base.make-dotted) #'pat))
          
          (define/with-syntax format-temp-ids*
-           ((attribute base.wrap) #'(compose car
-                                             (curry format-temp-ids format)
-                                             generate-temporary)
+           ((attribute base.wrap) (template
+                                   (compose car
+                                            (?? (curry format-temp-ids
+                                                       (~a "~a:" format)
+                                                       prefix)
+                                                (curry format-temp-ids
+                                                       format))
+                                            generate-temporary))
                                   (λ (x deepest?)
                                     (if deepest?
                                         x
                                         #`(curry stx-map #,x)))))
-         
          (syntax-cons-property
           (template (begin (define/with-syntax pat-dotted
                              (format-temp-ids* #'base))

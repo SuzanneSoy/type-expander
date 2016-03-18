@@ -210,24 +210,25 @@ We derive identifiers for these based on the @tc[node] name:
        ;(define/with-syntax (node/promise-type …)
        ;  (stx-map syntax-local-introduce #'(node …)))
        
-       (define-temp-ids "~a/promise-type" (node …))
-       (define-temp-ids "~a/constructor" (node …) #:first-base root)
-       (define-temp-ids "~a?" (node …))
+       (define-temp-ids "~a/promise-type" (node …) #:prefix #'name)
+       (define-temp-ids "~a/constructor" (node …) #:first-base root
+          #:prefix #'name)
+       (define-temp-ids "~a?" (node …) #:prefix #'name)
        
-       (define-temp-ids "~a/make-placeholder" (node …))
-       (define-temp-ids "~a/make-placeholder-type" (node …))
-       (define-temp-ids "~a/placeholder-struct" (node …))
-       (define-temp-ids "~a/placeholder-type" (node …))
+       (define-temp-ids "~a/make-placeholder" (node …) #:prefix #'name)
+       (define-temp-ids "~a/make-placeholder-type" (node …) #:prefix #'name)
+       (define-temp-ids "~a/placeholder-struct" (node …) #:prefix #'name)
+       (define-temp-ids "~a/placeholder-type" (node …) #:prefix #'name)
        
-       (define-temp-ids "~a/incomplete-type" (node …))
-       (define-temp-ids "~a/make-incomplete" (node …))
-       (define-temp-ids "~a/make-incomplete-type" (node …))
-       (define-temp-ids "~a/incomplete-tag" (node …))
-       (define-temp-ids "~a/incomplete-type" ((field …) …))
+       (define-temp-ids "~a/incomplete-type" (node …) #:prefix #'name)
+       (define-temp-ids "~a/make-incomplete" (node …) #:prefix #'name)
+       (define-temp-ids "~a/make-incomplete-type" (node …) #:prefix #'name)
+       (define-temp-ids "~a/incomplete-tag" (node …) #:prefix #'name)
+       (define-temp-ids "~a/incomplete-type" ((field …) …) #:prefix #'name)
        
        (define-temp-ids "~a/with-promises" (node …) #:first-base root)
        
-       (define-temp-ids "~a/index-type" (node …))]
+       (define-temp-ids "~a/index-type" (node …) #:prefix #'name)]
 
 @chunk[<pass-to-second-step>
        (node/promise-type …)
@@ -256,20 +257,24 @@ We derive identifiers for these based on the @tc[node] name:
        (define/with-syntax ((root-param-type …) . _) #'((param-type …) …))
        (define-temp-ids "~a/main-constructor" name)
        
-       (define-temp-ids "~a/placeholder-queue" (node …))
+       (define-temp-ids "~a/placeholder-queue" (node …) #:prefix #'name)
        
-       (define-temp-ids "~a/with-indices-type" (node …))
-       (define-temp-ids "~a/make-with-indices" (node …))
-       (define-temp-ids "~a/with-indices-tag" (node …))
+       (define-temp-ids "~a/with-indices-type" (node …) #:prefix #'name)
+       (define-temp-ids "~a/make-with-indices" (node …) #:prefix #'name)
+       (define-temp-ids "~a/with-indices-tag" (node …) #:prefix #'name)
        (define-temp-ids "~a/with-indices→with-promises" (node …)
-         #:first-base root)
+         #:first-base root
+         #:prefix #'name)
+       (define-temp-ids "~a/with-promises-type" ((field …) …) #:prefix #'name)
        
-       (define-temp-ids "~a/mapping-function" (node …))
-       (define-temp-ids "~a/mapping-function-type" (node …))
+       (define-temp-ids "~a/mapping-function" (node …) #:prefix #'name)
+       (define-temp-ids "~a/mapping-function-type" (node …) #:prefix #'name)
        
-       (define-temp-ids "~a/database" (node …) #:first-base root)
+       (define-temp-ids "~a/database" (node …)
+         #:first-base root
+         #:prefix #'name)
        
-       (define-temp-ids "~a/value" ((field …) …))]
+       (define-temp-ids "~a/value" ((field …) …) #:prefix #'name)]
 
 @subsection{A versatile identifier: the graph's name}
 
@@ -745,6 +750,8 @@ via @tc[(g Street)].
        (λ (stx)
          (syntax-parse stx
            [(_ (~datum node)) #'node/promise-type] …
+           [(_ (~datum node) (~datum field))
+            (template <field/with-promises-type>)] … …
            [(_ #:incomplete (~datum node)) #'node/incomplete-type] …
            [(_ #:make-incomplete (~datum node))
             #'(→ field/incomplete-type … node/incomplete-type)] …
