@@ -108,10 +108,11 @@ for a structure.
 @CHUNK[<tagged?>
        (define-syntax/parse (tagged? tag (~maybe #:with-struct with-struct)
                                      field …)
-         #'(λ (v) (and (constructor? tag (?? (?@ #:with-struct with-struct)) v)
-                       (promise? (constructor-values v))
-                       ((structure? field …)
-                        (force (constructor-values v))))))]
+         (template
+          (λ (v) (and (constructor? tag (?? (?@ #:with-struct with-struct)) v)
+                      (promise? (constructor-values v))
+                      ((structure? field …)
+                       (force (constructor-values v)))))))]
 
 @section{Tests}
 

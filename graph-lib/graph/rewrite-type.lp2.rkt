@@ -84,7 +84,7 @@ set of known type constructors like @tc[List] or @tc[Pairof], and recursively
 calls itself on the components of the type.
 
 @CHUNK[<replace-in-type>
-       (define-for-syntax (replace-in-type t r)
+       (define (replace-in-type t r)
          (define (recursive-replace new-t) (replace-in-type new-t r))
          (define/with-syntax ([from to] ...) r)
          #;(displayln (format "~a\n=> ~a"
@@ -143,7 +143,7 @@ with an internal definition for @tc[recursive-replace]. The case of unions is
 offloaded to a separate subroutine.
 
 @CHUNK[<replace-in-instance>
-       (define-for-syntax (replace-in-instance val t r)
+       (define (replace-in-instance val t r)
          (parameterize-push-stx ([current-replacement
                                   `(replace-in-instance ,val ,t ,r)])
                                 (define/with-syntax ([from to fun] ...) r)
@@ -401,7 +401,7 @@ functions is undefined.
 @subsection{The code}
 
 @CHUNK[<fold-instance>
-       (define-for-syntax (fold-instance whole-type stx-acc-type r)
+       (define (fold-instance whole-type stx-acc-type r)
          (parameterize-push-stx ([current-replacement
                                   `(fold-instance ,whole-type ,stx-acc-type ,r)])
                                 (define/with-syntax acc-type stx-acc-type)
@@ -559,12 +559,12 @@ functions is undefined.
           (show-backtrace)
           (displayln (current-replacement))
           (raise-syntax-error
-             'replace-in-type
-             (~a "Type-fold-replace on untagged Unions isn't supported yet: "
-                 (syntax->datum ta)
-                 " in "
-                 (syntax->datum #'whole))
-             ta)])]
+           'replace-in-type
+           (~a "Type-fold-replace on untagged Unions isn't supported yet: "
+               (syntax->datum ta)
+               " in "
+               (syntax->datum #'whole))
+           ta)])]
 
 For cases of the union which are a tagged list, we use a simple guard, and call
 @tc[recursive-replace] on the whole @tc[(List 'tag b ...)] type.
@@ -593,17 +593,17 @@ better consistency between the behaviour of @tc[replace-in-instance] and
 efficient than the separate implementation.
 
 @CHUNK[<replace-in-instance2>
-       (define-for-syntax (replace-in-instance2 t r)
-         (define/with-syntax ([from to pred? fun] ...) r)
-         #`(λ ([val : #,(expand-type t)])
-             (first-value
-              (#,(fold-instance t
-                                #'Void
-                                #'([from to pred? (λ ([x : from] [acc : Void])
-                                                    (values (fun x) acc))]
-                                   ...))
-               val
-               (void)))))]
+       (define replace-in-instance2 (lambda/debug (t r)
+                                                  (define/with-syntax ([from to pred? fun] ...) r)
+                                                  #`(λ ([val : #,(expand-type t)])
+                                                      (first-value
+                                                       (#,(fold-instance t
+                                                                         #'Void
+                                                                         #'([from to pred? (λ ([x : from] [acc : Void])
+                                                                                             (values (fun x) acc))]
+                                                                            ...))
+                                                        val
+                                                        (void))))))]
 
 @section{Conclusion}
 
@@ -654,50 +654,55 @@ These metafunctions just extract the arguments for @tc[replace-in-type] and
 
 @CHUNK[<*>
        (begin
-         (module main typed/racket
+         (module main racket/base
            (require
-             (for-syntax syntax/parse
-                         racket/syntax
-                         racket/format
-                         syntax/parse/experimental/template
-                         racket/sequence
-                         (submod "../lib/low.rkt" untyped)
-                         (only-in "../type-expander/type-expander.lp2.rkt"
-                                  expand-type)
-                         "meta-struct.rkt"
-                         "../lib/low/backtrace.rkt")
-             "../type-expander/multi-id.lp2.rkt"
-             "../type-expander/type-expander.lp2.rkt"
-             "../lib/low.rkt")
-           (begin-for-syntax (provide replace-in-type
-                                      ;replace-in-instance
-                                      fold-instance
-                                      (rename-out [replace-in-instance2
-                                                   replace-in-instance])
-                                      tmpl-replace-in-type
-                                      tmpl-fold-instance
-                                      tmpl-replace-in-instance))
+             syntax/parse
+             racket/syntax
+             racket/format
+             syntax/parse/experimental/template
+             racket/sequence
+             (submod "../lib/low.rkt" untyped)
+             (only-in "../type-expander/type-expander.lp2.rkt"
+                      expand-type)
+             "meta-struct.rkt"
+             "../lib/low/backtrace.rkt"
+             debug
+             racket/require
+             (for-template (subtract-in
+                            typed/racket
+                            "../type-expander/type-expander.lp2.rkt")
+                           "../type-expander/multi-id.lp2.rkt"
+                           "../type-expander/type-expander.lp2.rkt"
+                           "../lib/low.rkt"))
+           (provide replace-in-type
+                    ;replace-in-instance
+                    fold-instance
+                    (rename-out [replace-in-instance2
+                                 replace-in-instance])
+                    tmpl-replace-in-type
+                    tmpl-fold-instance
+                    tmpl-replace-in-instance)
            
-           (begin-for-syntax
-             (define current-replacement (make-parameter #'()))
-             ;; TODO: move to lib
-             (require (for-syntax racket/base))
-             (define-syntax-rule (parameterize-push ([p val] ...) . body)
-               (parameterize ([p (cons val (p))] ...) . body))
-             (define-syntax-rule (parameterize-push-stx ([p val] ...) . body)
-               (parameterize ([p #`(#,val . #,(p))] ...) . body)))
+           
+           (define current-replacement (make-parameter #'()))
+           ;; TODO: move to lib
+           (require (for-syntax racket/base))
+           (define-syntax-rule (parameterize-push ([p val] ...) . body)
+             (parameterize ([p (cons val (p))] ...) . body))
+           (define-syntax-rule (parameterize-push-stx ([p val] ...) . body)
+             (parameterize ([p #`(#,val . #,(p))] ...) . body))
            
            <replace-in-type>
            <replace-in-instance>
            <replace-in-instance2>
            <fold-instance>
-           (begin-for-syntax <template-metafunctions>))
+           <template-metafunctions>)
          
          (require 'main)
          (provide (all-from-out 'main))
          
          (module* test typed/racket
-           (require (submod "..")
+           (require (for-syntax (submod ".."))
                     typed/rackunit
                     "../type-expander/multi-id.lp2.rkt"
                     "../type-expander/type-expander.lp2.rkt")

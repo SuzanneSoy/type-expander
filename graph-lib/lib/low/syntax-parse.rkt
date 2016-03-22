@@ -25,6 +25,8 @@
            ~or-bug
            define-simple-macro
            λstx
+           ;template/loc
+           ;quasitemplate/loc
            template/debug
            quasitemplate/debug
            meta-eval)
@@ -133,6 +135,16 @@
       (require typed/rackunit)
       (check-equal? (syntax->datum ((λstx (foo bar) #'(foo bar)) #'a #'b))
                     (syntax->datum #'(a b)))))
+  
+  ;; template/loc
+  (begin
+    (define-syntax-rule (template/loc loc . tmpl)
+      (quasisyntax/loc loc #,(template . tmpl))))
+
+  ;; quasitemplate/loc
+  (begin
+    (define-syntax-rule (quasitemplate/loc loc . tmpl)
+      (quasisyntax/loc loc #,(quasitemplate . tmpl))))
   
   ;; template/debug
   (begin

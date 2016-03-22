@@ -4,8 +4,7 @@
   (require (submod "graph.lp2.rkt" test))
   (require "get.lp2.rkt")
   (require "map.rkt")
-  (require "structure.lp2.rkt")
-  (require "variant.lp2.rkt")
+  (require "adt.lp2.rkt")
   (require "../lib/low.rkt")
   (require "../type-expander/type-expander.lp2.rkt")
   

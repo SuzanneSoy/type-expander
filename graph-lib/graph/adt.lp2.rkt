@@ -113,6 +113,7 @@ whose single value is a promise for a structure)@note{This
                     constructor?
                     constructor-values
                     tagged
+                    tagged?
                     define-tagged
                     variant
                     define-variant

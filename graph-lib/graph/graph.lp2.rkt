@@ -313,7 +313,8 @@ The graph name will be used in several ways:
                     ;; so we should wrap the nodes in a tag, which contains a
                     ;; promise, instead of the opposite (tag inside promise).
                     [(_ #:? (~datum node))
-                     (syntax/loc stx node?)]
+                     ((λ (v) (display "graph node?")(displayln v) v)
+                      (syntax/loc stx node?))] ;;;;;;;;;;;;;;;TODO: implement node? properly here! FB case 107
                     …
                     [(_ . rest)
                      (syntax/loc stx (root/constructor . rest))]))
@@ -568,7 +569,9 @@ library. We replace all occurrences of a @tc[node] name with a @tc[Promise] for
 that node's @tc[with-promises] type.
 
 @CHUNK[<define-promise-type/first-step>
-       (define-constructor node/promise-type #:private
+       (define-constructor node/promise-type
+         #:private
+         #:? node?
          (Promise node/with-promises))]
 @CHUNK[<define-with-promises>
        (define-plain-structure node/with-promises
@@ -750,8 +753,8 @@ via @tc[(g Street)].
        (λ (stx)
          (syntax-parse stx
            [(_ (~datum node)) #'node/promise-type] …
-           [(_ (~datum node) (~datum field))
-            (template <field/with-promises-type>)] … …
+           ;[(_ (~datum node) (~datum field))
+           ; (template <field/with-promises-type>)] … …
            [(_ #:incomplete (~datum node)) #'node/incomplete-type] …
            [(_ #:make-incomplete (~datum node))
             #'(→ field/incomplete-type … node/incomplete-type)] …

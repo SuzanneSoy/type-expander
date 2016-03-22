@@ -30,7 +30,7 @@ types, it wouldn't be clear what fields the remaining type parameters affect).
 
 A call to @tc[(structure)] with no field, is ambiguous: it could return a
 constructor function, or an instance. We added two optional keywords,
-@tc[#:instance] and @tc[#:constructor], to disambiguate. They can also be used
+@tc[#:instance] and @tc[#:make-instance], to disambiguate. They can also be used
 when fields with or without values are provided, so that macros don't need to
 handle the empty structure as a special case.
 
@@ -38,8 +38,8 @@ handle the empty structure as a special case.
        (define-splicing-syntax-class structure-args-stx-class
          (pattern
           (~or (~seq #:instance (~parse (field … value …) #'()))
-               (~seq #:constructor (~parse (field …) #'()))
-               (~seq (~maybe #:constructor ~!)
+               (~seq #:make-instance (~parse (field …) #'()))
+               (~seq (~maybe #:make-instance ~!)
                      (~or (~seq (~or-bug [field:id] field:id) …+)
                           (~seq [field:id (~and C :colon) type:expr] …+)))
                (~seq (~maybe #:instance ~!)
@@ -51,8 +51,8 @@ handle the empty structure as a special case.
        (begin-for-syntax <structure-args-stx-class>)
        
        (define-multi-id structure
-         #:type-expander structure-type-expander
-         #:match-expander structure-match-expander
+         #:type-expander <type-expander>
+         #:match-expander <match-expander>
          #:call
          (λ (stx)
            (syntax-parse stx
@@ -68,11 +68,11 @@ handle the empty structure as a special case.
        (let ()
          (define-structure empty-st)
          (define-structure stA [a Number])
-         (check-equal?: (empty-st) ((structure #:constructor)))
+         (check-equal?: (empty-st) ((structure #:make-instance)))
          (check-not-equal?: (empty-st) (structure [a 1]))
-         (check-not-equal?: (structure #:constructor) (structure [a 1]))
+         (check-not-equal?: (structure #:make-instance) (structure [a 1]))
          (check-not-equal?: (empty-st) (stA 1))
-         (check-not-equal?: (structure #:constructor) (stA 1)))
+         (check-not-equal?: (structure #:make-instance) (stA 1)))
        #;(let ()
            (define-structure st [a Number] [b String])
            (define-structure stA [a Number])
@@ -453,16 +453,14 @@ The fields in @tc[fields→stx-name-alist] are already sorted.
            (pattern field:id #:with (pat ...) #'())))]
 
 @chunk[<match-expander>
-       (define-for-syntax (structure-match-expander stx)
-         (syntax-parse stx
-           [(_ :match-field-or-field-pat ...)
-            (if (check-remember-fields #'(field ...))
-                (let ()
-                  (define/with-syntax name (fields→stx-name #'(field ...)))
-                  (define/with-syntax ([sorted-field sorted-pat ...] ...)
-                    (sort-car-fields #'((field pat ...) ...)))
-                  #'(name (and sorted-field sorted-pat ...) ...))
-                <match-expander-remember-error>)]))]
+       (λ/syntax-parse (_ :match-field-or-field-pat ...)
+         (if (check-remember-fields #'(field ...))
+             (let ()
+               (define/with-syntax name (fields→stx-name #'(field ...)))
+               (define/with-syntax ([sorted-field sorted-pat ...] ...)
+                 (sort-car-fields #'((field pat ...) ...)))
+               #'(name (and sorted-field sorted-pat ...) ...))
+             <match-expander-remember-error>))]
 
 If we just return @racket[(remember-all-errors list stx #'(field ...))] when a
 recompilation is needed, then the identifier @tc[delayed-error-please-recompile]
@@ -506,7 +504,7 @@ instead of needing an extra recompilation.
 @subsection{Type-expander}
 
 @CHUNK[<type-expander>
-       (define-for-syntax (structure-type-expander stx)
+       (λ (stx)
          (syntax-parse stx
            [(_ (~or-bug [field:id] field:id) …)
             (if (check-remember-fields #'(field ...))
@@ -577,7 +575,7 @@ its arguments across compilations, and adds them to the file
            
            (begin-for-syntax
              (provide structure-args-stx-class))
-
+           
            <structure-top>
            
            <check-remember-fields>
@@ -595,8 +593,6 @@ its arguments across compilations, and adds them to the file
            <syntax-class-for-match>
            <structure-supertype>
            <structure-supertype*>
-           <match-expander>
-           <type-expander>
            
            <structure?>
            

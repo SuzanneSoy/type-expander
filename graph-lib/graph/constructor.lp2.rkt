@@ -129,6 +129,7 @@ otherwise):
                                        (datum->syntax #f constructor-name))
                                       constructor-name→stx-name/alist))])
                  . body)
+               ;; TODO: set srcloc of fallback to stx on the next line:
                (remember-all-errors2 fallback constructor-name)))]
 
 @section{@racket[constructor]}
@@ -191,7 +192,7 @@ instance:
          (syntax-parse stx
            [(_ constructor-name (~maybe #:with-struct with-struct) v)
             (quasisyntax/loc stx
-              (#,(syntax/loc stx
+              (#,(template/loc stx
                    (Constructor-predicate? constructor-name
                                            (?? (?@ #:with-struct with-struct))))
                v))]

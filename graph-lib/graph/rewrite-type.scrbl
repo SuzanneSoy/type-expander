@@ -38,7 +38,7 @@ new type.
  to the new type, using the provided replacement functions
  for each part.}
 
-@defform[#:kind "function"
+@defform[#:kind "procedure"
          (replace-in-type old-type #'([from to] …))
          #:contracts ([old-type type]
                       [from identifier?]
@@ -47,7 +47,7 @@ new type.
  @racket[old-type], with all occurrences of @racket[from]
  replaced with @racket[to] in the type.}
 
-@defform[#:kind "function"
+@defform[#:kind "procedure"
          (replace-in-instance old-type #'([from to pred? fun] …))
          #:contracts ([old-type type]
                       [from identifier?]

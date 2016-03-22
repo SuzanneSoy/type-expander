@@ -6,7 +6,7 @@
 
 ;(current-directory "..")
 
-(run! (list (find-executable-path-or-fail "sh")
+#;(run! (list (find-executable-path-or-fail "sh")
             "-c"
             @string-append{
  found_long_lines=0
