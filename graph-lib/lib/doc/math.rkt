@@ -21,6 +21,8 @@
 
 (require scriblib/render-cond)
 
+(require "unicode-chars.sty.rkt")
+
 (define setup-math
   (compound-paragraph
    (style #f (list))
@@ -45,7 +47,7 @@
        %\overfullrule=2cm
        \usepackage[scaled=0.7]{beramono}
        \usepackage{newunicodechar}
-       \newunicodechar{ᵢ}{\ensuremath{_1}}
+       %\newunicodechar{ᵢ}{\ensuremath{_1}}
        
        \usepackage{xcolor}
        \hypersetup{
@@ -55,6 +57,8 @@
         citecolor={blue!50!black},
         urlcolor={blue!80!black},
        }
+       
+       @unicode-chars
        }))))
        "")]
      [else (paragraph (style #f (list)) "")]))))

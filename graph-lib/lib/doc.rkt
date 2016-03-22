@@ -24,13 +24,15 @@
 (require (only-in scribble/core make-style)
          (only-in scribble/html-properties alt-tag attributes))
 (define (remote-image src alt)
-  (elem
-   #:style
-   (make-style #f
-               (list (alt-tag "img")
-                     (attributes
-                      `((src . ,src)
-                        (alt . ,alt)))))))
+  (cond-element
+   [html (elem
+          #:style
+          (make-style #f
+                      (list (alt-tag "img")
+                            (attributes
+                             `((src . ,src)
+                               (alt . ,alt))))))]
+   [else (elem)]))
 
 ;; ==== hybrid footnotes/margin-note ====
 (provide note)
