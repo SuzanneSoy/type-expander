@@ -161,14 +161,19 @@ else.
                  #,(expand-type #'T (bind-type-vars #'(TVar ...) env)))]
            [((~literal Rec) R:id T:expr)
             #`(Rec R #,(expand-type #'T (bind-type-vars #'(R) env)))]
-           [((~commit (~datum Let)) [V:id E:id] T:expr)
+           [((~commit (~datum Let)) bindings T:expr)
             ;; TODO: ~literal instead of ~datum
-            ;; TODO: ~commit  when we find Let, so that syntax errors are not
-            ;; interpreted as an arbitrary call.
+            (syntax-parse #'bindings
             ;; TODO : for now we only allow aliasing (which means E is an id),
             ;; not on-the-fly declaration of type expanders. This would require
             ;; us to (expand) them.
-            #`#,(expand-type #'T (let-type-todo #'V #'E env))]
+              [[V:id E:id] ;; TODO: remove the single-binding clause case in Let
+               #`#,(expand-type #'T (let-type-todo #'V #'E env))]
+              [()
+               #`#,(expand-type #'T env)]
+              [([V₀:id E₀:id] [Vᵢ:id Eᵢ:id] …)
+               #`#,(expand-type #'(Let ([Vᵢ Eᵢ] …) T)
+                                (let-type-todo #'V₀ #'E₀ env))])]
            [((~literal quote) T) (expand-quasiquote 'quote 1 env #'T)]
            [((~literal quasiquote) T) (expand-quasiquote 'quasiquote 1 env #'T)]
            [((~literal syntax) T) (expand-quasiquote 'syntax 1 env #'T)]

@@ -1,4 +1,4 @@
-#lang debug scribble/lp2
+#lang scribble/lp2
 @(require "../lib/doc.rkt")
 @doc-lib-setup
 @(require racket/format)
@@ -593,17 +593,17 @@ better consistency between the behaviour of @tc[replace-in-instance] and
 efficient than the separate implementation.
 
 @CHUNK[<replace-in-instance2>
-       (define replace-in-instance2 (lambda/debug (t r)
-                                                  (define/with-syntax ([from to pred? fun] ...) r)
-                                                  #`(λ ([val : #,(expand-type t)])
-                                                      (first-value
-                                                       (#,(fold-instance t
-                                                                         #'Void
-                                                                         #'([from to pred? (λ ([x : from] [acc : Void])
-                                                                                             (values (fun x) acc))]
-                                                                            ...))
-                                                        val
-                                                        (void))))))]
+       (define (replace-in-instance2 t r)
+         (define/with-syntax ([from to pred? fun] ...) r)
+         #`(λ ([val : #,(expand-type t)])
+             (first-value
+              (#,(fold-instance t
+                                #'Void
+                                #'([from to pred? (λ ([x : from] [acc : Void])
+                                                    (values (fun x) acc))]
+                                   …))
+               val
+               (void)))))]
 
 @section{Conclusion}
 
@@ -618,12 +618,12 @@ one for @tc[replace-in-type]:
          (parameterize-push-stx ([current-replacement stx])
                                 (syntax-parse stx
                                   #:context `(tmpl-replace-in-type-6 ,(current-replacement))
-                                  [(_ (~optional (~and debug? #:debug)) type:expr [from to] …)
-                                   (when (attribute debug?)
+                                  [(_ (~optkw #:debug) type:expr [from to] …)
+                                   (when (attribute debug)
                                      (displayln (format "~a" stx)))
                                    (let ([res #`#,(replace-in-type #'type
                                                                    #'([from to] …))])
-                                     (when (attribute debug?)
+                                     (when (attribute debug)
                                        (displayln (format "=> ~a" res)))
                                      res)])))]
 
@@ -666,7 +666,6 @@ These metafunctions just extract the arguments for @tc[replace-in-type] and
                       expand-type)
              "meta-struct.rkt"
              "../lib/low/backtrace.rkt"
-             debug
              racket/require
              (for-template (subtract-in
                             typed/racket

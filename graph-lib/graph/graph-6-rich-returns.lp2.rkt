@@ -119,26 +119,27 @@ plain list.
          (define-temp-ids "~a/node-marker2" (mapping …))
          (define-temp-ids "~a/from-first-pass" (node …))
          (define-temp-ids "second-step-~a/node-of-first" (mapping …))
+         (define-temp-ids "second-step-~a-of-first" (node …))
          ;(define step2-introducer (make-syntax-introducer))
          ;(define/with-syntax id-~> (datum->syntax #'name '~>))
          ;(define/with-syntax introduced-~> (datum->syntax #'name '~>))
          (quasitemplate/debug debug
            (begin
              #,(dbg
-          ("first-pass" stx)
-          (quasitemplate
-           (define-graph name/first-step
-               #:definitions [<first-pass-type-expander>]
-               [node [field c (Let [id-~> first-step-expander2] field-type)] …
-                [(node/simple-mapping [field c field-type] …)
-                 ;<first-pass-field-type>] …)
-                 (node field …)]] …
-               [mapping/node [returned cm result-type]
-                [(mapping [param cp param-type] …)
-                 (mapping/node
-                  (let ([node node/simple-mapping] …)
-                    . body))]]
-               …)))
+                ("first-pass" stx)
+                (quasitemplate
+                 (define-graph name/first-step
+                   #:definitions [<first-pass-type-expander>]
+                   [node [field c (Let [id-~> first-step-expander2] field-type)] …
+                    [(node/simple-mapping [field c field-type] …)
+                     ;<first-pass-field-type>] …)
+                     (node field …)]] …
+                   [mapping/node [returned cm result-type]
+                    [(mapping [param cp param-type] …)
+                     (mapping/node
+                      (let ([node node/simple-mapping] …)
+                        . body))]]
+                   …)))
              ;; TODO: how to return something else than a node??
              ;; Possibility 1: add a #:main function to define-graph, which can
              ;; call (make-root).
@@ -205,13 +206,18 @@ produced by the first step.
          (name/first-step mapping/node))
        …
        
+       (define-type second-step-node-of-first
+         (name/first-step node))
+       …
+       
        (define-type-expander (second-step-marker2-expander stx)
          (syntax-parse stx
            ;; TODO: should be ~literal
            [(_ (~datum mapping)) #'(U second-step-mapping/node-of-first
                                       (tmpl-replace-in-type result-type
                                         [mapping/node (name/first-step mapping/node)]
-                                        [node (name/first-step node)]))] …
+                                        [node (name/first-step node)]))]
+           …
            ;; TODO: should fall-back to outer definition of ~>, if any?
            ))]
 
@@ -266,8 +272,8 @@ in all of its fields:
 
 @chunk[<inlined-node>
        ;; inline from the field-type of the old node.
-       (node ((inline-instance field-type;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-                               ()) (get from field))
+       (node ((inline-instance* field-type;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                                ()) (get from field))
              …)]
 
 @subsection{Inlining instances}
@@ -280,41 +286,52 @@ recursively:
 (foo bar (U m-street (Listof Street)) baz quux)
 
 @CHUNK[<inline-instance>
+       (define-syntax (inline-instance* stx)
+         (dbg
+          ("inline-instance*" stx)
+          (syntax-parse stx
+            [(_ i-ty seen)
+             (define/with-syntax replt
+               (replace-in-type #'(Let (id-~> second-step-marker2-expander) i-ty)
+                                #'([node second-step-node-of-first]
+                                   …)))
+             (displayln (list "replt=" #'replt))
+             #'(inline-instance replt seen)])))
+       
        (define-syntax (inline-instance stx)
          (dbg
           ("inline-instance" stx)
           (syntax-parse stx
             [(_ i-t (~and seen (:id (… …))))
-             (define/with-syntax typp #'(Let (id-~> second-step-marker2-expander) i-t))
+             (define/with-syntax typp #'i-t)
              (define/with-syntax repl (replace-in-instance #'typp
                                                            #'(<inline-instance-replacement>
                                                               <inline-instance-nodes>)))
              (displayln (list "i-t=" #'typp))
              <inline-check-seen>
-             #'(λ ([x : (Let (id-~> second-step-marker2-expander) i-t)])
+             #'(λ ([x : i-t])
                  ;(
-                  repl
-                  ;x)
+                 repl
+                 ;x)
                  (error "NIY2"))
              #;(replace-in-instance #'(Let (id-~> second-step-marker2-expander) i-t)
                                     #'(<inline-instance-replacement>
                                        <inline-instance-nodes>))])))]
 
 @chunk[<inline-instance-replacement>
-       [second-step-mapping/node-of-first                     ;; from
-        ;(inline-type result-type (mapping/node . seen))       ;; to
-        Symbol ;; DEBUG
-        (name/first-step #:? mapping/node)                    ;; pred?
-        #;(inline-instance result-type (mapping/node . seen))
-        (λ _ (error "NIY4"))]  ;; fun
+       [second-step-mapping/node-of-first                       ;; from
+        (inline-type* result-type (mapping/node . seen))        ;; to
+        (name/first-step #:? mapping/node)                      ;; pred?
+        (λ ([x : second-step-mapping/node-of-first])            ;; fun
+          ((inline-instance* result-type (mapping/node . seen))
+           (get x returned)))]
        …]
 
 @chunk[<inline-instance-nodes>
-       [node                       ;; from   ;; generated by the first pass
-        (name #:placeholder node)  ;; to     ;; new type
-        (name/first-step #:? node) ;; pred?
-        #;node/extract/mapping
-        (λ _ (error "NIY3"))]      ;; fun    ;; call mapping
+       [second-step-node-of-first       ;; node of first step   ;; from
+        (name #:placeholder node)       ;; new type             ;; to
+        (name/first-step #:? node)                              ;; pred?
+        node/extract/mapping]           ;; call mapping         ;; fun
        …]
 
 @subsection{Inlining types}
@@ -429,13 +446,24 @@ which does not allow variants of (~> …).
 ----
 
 @chunk[<inline-type>
+       (define-type-expander (inline-type* stx)
+         (dbg
+          ("inline-type" stx)
+          (syntax-parse stx
+            [(_ i-tyy (~and seen (:id (… …))))
+             (define/with-syntax replt
+               ;; Same as above in inline-instance*, TODO: factor it out.
+               (replace-in-type #'(Let (id-~> second-step-marker2-expander) i-tyy)
+                                #'([node second-step-node-of-first]
+                                   …)))
+             #'(inline-type replt seen)])))
        (define-type-expander (inline-type stx)
          (dbg
           ("inline-type" stx)
           (syntax-parse stx
             [(_ i-t (~and seen (:id (… …))))
              <inline-check-seen>
-             (replace-in-type #'(Let (id-~> second-step-marker-expander) i-t)
+             (replace-in-type #'(Let ([id-~> second-step-marker-expander]) i-t)
                               #'(<inline-type-replacement>
                                  <inline-type-nodes>))])))]
 
@@ -446,7 +474,7 @@ which does not allow variants of (~> …).
        …]
 
 @chunk[<inline-type-nodes>
-       [node ;; generated by the first pass
+       [second-step-node-of-first ;; generated by the first pass
         (name #:placeholder node)] ;; new type
        …]
 

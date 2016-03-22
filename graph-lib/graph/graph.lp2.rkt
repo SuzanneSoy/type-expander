@@ -212,7 +212,7 @@ We derive identifiers for these based on the @tc[node] name:
        
        (define-temp-ids "~a/promise-type" (node …) #:prefix #'name)
        (define-temp-ids "~a/constructor" (node …) #:first-base root
-          #:prefix #'name)
+         #:prefix #'name)
        (define-temp-ids "~a?" (node …) #:prefix #'name)
        
        (define-temp-ids "~a/make-placeholder" (node …) #:prefix #'name)
@@ -313,8 +313,7 @@ The graph name will be used in several ways:
                     ;; so we should wrap the nodes in a tag, which contains a
                     ;; promise, instead of the opposite (tag inside promise).
                     [(_ #:? (~datum node))
-                     ((λ (v) (display "graph node?")(displayln v) v)
-                      (syntax/loc stx node?))] ;;;;;;;;;;;;;;;TODO: implement node? properly here! FB case 107
+                     (syntax/loc stx node?)] ;;;;;;;;;;;;;;;TODO: implement node? properly here! FB case 107
                     …
                     [(_ . rest)
                      (syntax/loc stx (root/constructor . rest))]))
