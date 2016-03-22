@@ -20,9 +20,6 @@
 (frozen (~>))
 |#
 
-
-(require "../lib/debug-syntax.rkt")
-
 (define-type blob String)
 (define-type-expander (bubble stx) #'String)
 
