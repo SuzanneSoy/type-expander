@@ -33,7 +33,7 @@
   (map: (compose (curry map (λget owner)) (λget houses …)) (get g streets))
   
   (get '((1 2) (3)) … …)
-  (structure-get (cadr (force g)) people)
+  (uniform-get g people)
   (get g people)
   (get g streets cadr houses car owner name)
   ((λget people) g)
