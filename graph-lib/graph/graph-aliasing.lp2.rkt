@@ -11,7 +11,7 @@
 
 When declaring a graph, the names of its nodes and mappings
 as well as those of the graph it is based on may collide. We
-try here to provide reasonnable defaults indicating which
+try here to provide reasonable defaults indicating which
 name should refer to what at each point.
 
 @chunk[<example>

@@ -114,24 +114,6 @@ for a structure.
                       ((structure? field …)
                        (force (constructor-values v)))))))]
 
-@section{Tests}
-
-@chunk[<test-tagged>
-       (check-equal?: (match (ann (tagged t1 [x 1] [y "b"])
-                                  (tagged t1 [x : Number] [y : String]))
-                        [(tagged t1 [x a] [y b]) (list 'ok b a)]
-                        [_ #f])
-                      '(ok "b" 1))]
-
-@chunk[<test-tagged>
-       (check-equal?: (match (ann (tagged foo [x "o"] [y 3] [z 'z])
-                                  (tagged foo
-                                          [x String]
-                                          [z 'z]
-                                          [y Fixnum]))
-                        [(tagged foo z x y) (list z y x)])
-                      '(z 3 "o"))]
-
 @section{Conclusion}
 
 @chunk[<*>
@@ -159,10 +141,4 @@ for a structure.
            <tagged?>)
          
          (require 'main)
-         (provide (all-from-out 'main))
-         
-         (module* test typed/racket
-           (require (submod "..")
-                    "../lib/low.rkt"
-                    "../type-expander/type-expander.lp2.rkt")
-           <test-tagged>))]
+         (provide (all-from-out 'main)))]

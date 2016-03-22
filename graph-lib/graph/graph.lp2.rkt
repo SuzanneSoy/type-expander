@@ -821,7 +821,7 @@ not match the one from @tc[typed/racket]
                   (only-in "adt.lp2.rkt" uniform-get)
                   "../type-expander/type-expander.lp2.rkt")
          
-         (provide g)
+         (provide g gr gr-simple)
          <use-example>
          <type-example>
          

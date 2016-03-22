@@ -3,6 +3,7 @@
 (define-typed/untyped-modules #:no-test
   ;; TODO: these won't expand types in the ann.
   (provide check-equal?:
+           check-true:
            check-not-equal?:
            check-ann)
   
@@ -52,6 +53,26 @@
                          (untyped:check-true
                           (equal? (?? (ann actual type) actual)
                                   expected))))))
+
+  (define-syntax/parse
+    (check-true: actual
+                 (~optional message:expr))
+    (quasitemplate
+     (with-check-info* (list (make-check-actual (format "~s" actual))
+                             (make-check-expected (format "~s" #t))
+                             (make-check-name 'check-equal?:)
+                             (make-check-params
+                              (format "~s" `(,actual)))
+                             (make-check-location '(#,(syntax-source stx)
+                                                    #,(syntax-line stx)
+                                                    #,(syntax-column stx)
+                                                    #,(syntax-position stx)
+                                                    #,(syntax-span stx)))
+                             (make-check-expression '#,(syntax->datum stx)))
+                       (λ ()
+                         (untyped:check-true
+                          ;; TODO: do we really need the (not (not …)) here?
+                          (not (not actual)))))))
   
   (define-syntax/parse
     (check-not-equal?: actual

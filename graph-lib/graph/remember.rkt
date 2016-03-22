@@ -28,6 +28,8 @@
        (group-by (inst car Symbol Any) all-remembered-list)))
 
 (define-list-values all-remembered-list : (Listof (Pairof Symbol Any)))
+;; All the items below are quoted and aggregated into all-remembered-list.
+;; The lines below are automatically added by remember-lib.
 (structure a b c)
 (structure a b c d)
 (structure a b c y)

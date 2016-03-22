@@ -571,12 +571,12 @@ encapsulating the result types of mappings.
          <graph-rich-return>)]
 
 @chunk[<module-test>
-       (module* test typed/racket
-         (require (submod "..")
-                  typed/rackunit)
-         
-         ;;<test-graph-rich-return>
-         )]
+       (module test-syntax racket
+         (provide tests)
+         (define tests
+           (quote-syntax
+            (begin
+              <test-graph-rich-return>))))]
 
 @chunk[<*>
        (begin

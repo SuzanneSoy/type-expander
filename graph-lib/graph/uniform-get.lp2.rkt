@@ -69,10 +69,4 @@ retrieves the desired field from the structure.
            <uniform-get>)
          
          (require 'main)
-         (provide (all-from-out 'main))
-         
-         (module* test typed/racket
-           (require (submod "..")
-                    "../lib/low.rkt"
-                    "../type-expander/type-expander.lp2.rkt")
-           ))]
+         (provide (all-from-out 'main)))]
