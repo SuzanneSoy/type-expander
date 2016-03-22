@@ -12,4 +12,5 @@ clean:
 
 .PHONY: build-dep
 build-dep:
-	raco pkg install --deps search-auto --update-deps --skip-installed alexis-util cover cover-coveralls debug
+	# datatype is only used as an example in the docs.
+	raco pkg install --deps search-auto --update-deps --skip-installed alexis-util cover cover-coveralls debug datatype
