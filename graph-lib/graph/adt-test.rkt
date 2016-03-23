@@ -1,7 +1,7 @@
 #lang typed/racket
 
 (module test typed/racket
-  (require (submod "graph.lp2.rkt" test))
+  (require (submod "graph-test.rkt" test))
   (require "adt.lp2.rkt")
   (require "../lib/low.rkt")
   (require "../type-expander/type-expander.lp2.rkt")

@@ -770,14 +770,13 @@ We will be able to use this type expander in function types, for example:
        (define (type-example [x : (gr Street)])
          : (gr Street)
          x)
-       (check-equal?:
-        (let* ([v1 (car
-                    (uniform-get g streets))]
-               [v2 (ann (type-example v1) (gr Street))]
-               [v3 (uniform-get v2 sname)])
-          v3)
-        : String
-        "Ada Street")]
+       (check-equal?: (let* ([v1 (car
+                                  (uniform-get g streets))]
+                             [v2 (ann (type-example v1) (gr Street))]
+                             [v3 (uniform-get v2 sname)])
+                        v3)
+                      : String
+                      "Ada Street")]
 
 @section{Putting it all together}
 
@@ -815,20 +814,13 @@ therefore the @tc[:] bound in the @tc[graph] macro with @tc[:colon] would
 not match the one from @tc[typed/racket]
 
 @chunk[<module-test>
-       (module* test typed/racket
-         (require (submod "..")
-                  (only-in "../lib/low.rkt" cars cdrs check-equal?:)
-                  (only-in "adt.lp2.rkt" uniform-get)
-                  "../type-expander/type-expander.lp2.rkt")
-         
-         (provide g gr gr-simple)
-         <use-example>
-         <type-example>
-         
-         (define-graph gr-simple
-           [Fountain [water : (Listof Symbol)]
-            [(m-fountain [mountain : Symbol])
-             (Fountain (list mountain mountain))]]))]
+       (module test-syntax racket
+         (provide tests)
+         (define tests
+           (quote-syntax
+            (begin
+              <use-example>
+              <type-example>))))]
 
 The whole file, finally:
 

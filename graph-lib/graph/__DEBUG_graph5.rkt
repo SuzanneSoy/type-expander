@@ -12,7 +12,7 @@
 
 #|
 (module mm typed/racket
-  (require ;(submod "graph.lp2.rkt" test)
+  (require ;(submod "graph-test.rkt" test)
     "graph.lp2.rkt"
     "../type-expander/type-expander.lp2.rkt")
   

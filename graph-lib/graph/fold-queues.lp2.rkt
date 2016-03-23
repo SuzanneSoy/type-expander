@@ -234,19 +234,10 @@ position in the vector equal to the index associated to it in the hash table:
          
          <fold-queue-multi-sets-immutable-tags>)]
 
-@chunk[<module-test>
-       (module* test typed/racket
-         (require (submod "..")
-                  typed/rackunit)
-         
-         #| TODO: tests |#)]
-
 @chunk[<*>
        (begin
          <module-main>
          
          (require 'main)
-         (provide (all-from-out 'main))
-         
-         <module-test>)]
+         (provide (all-from-out 'main)))]
 

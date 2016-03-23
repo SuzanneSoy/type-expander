@@ -3,7 +3,7 @@
 (module test typed/racket
   (require "map.rkt"
            (submod "map.rkt" private-tests))
-  (require (submod "graph.lp2.rkt" test)
+  (require (submod "graph-test.rkt" test)
            "get.lp2.rkt"
            "map.rkt"
            "../lib/low.rkt"
