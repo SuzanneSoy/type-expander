@@ -213,6 +213,10 @@ We derive identifiers for these based on the @tc[node] name:
        (define-temp-ids "~a/promise-type" (node …) #:prefix #'name)
        (define-temp-ids "~a/constructor" (node …) #:first-base root
          #:prefix #'name)
+       (define-temp-ids "~a/multi-constructor" name)
+       ;; node/multi-rest must not use #:prefix, because it is used as a syntax
+       ;; pattern, and syntax-parse trips over the ":".
+       (define-temp-ids "~a/multi-rest" (node …))
        (define-temp-ids "~a?" (node …) #:prefix #'name)
        
        (define-temp-ids "~a/make-placeholder" (node …) #:prefix #'name)
@@ -233,6 +237,8 @@ We derive identifiers for these based on the @tc[node] name:
 @chunk[<pass-to-second-step>
        (node/promise-type …)
        (node/constructor …)
+       name/multi-constructor
+       (node/multi-rest …)
        root/constructor
        (node? …)
        
@@ -256,6 +262,7 @@ We derive identifiers for these based on the @tc[node] name:
        (define/with-syntax ((root-param …) . _) #'((param …) …))
        (define/with-syntax ((root-param-type …) . _) #'((param-type …) …))
        (define-temp-ids "~a/main-constructor" name)
+       (define-temp-ids "~a/multi-indices" (node …))
        
        (define-temp-ids "~a/placeholder-queue" (node …) #:prefix #'name)
        
@@ -309,6 +316,10 @@ The graph name will be used in several ways:
                     [(_ #:root (~datum node) . rest)
                      (syntax/loc stx (node/constructor . rest))]
                     …
+                    
+                    [(_ #:roots [(~datum node) node/multi-rest] …)
+                     (syntax/loc stx
+                       (name/multi-constructor node/multi-rest …))]
                     ;; TODO: TR has issues with occurrence typing and promises,
                     ;; so we should wrap the nodes in a tag, which contains a
                     ;; promise, instead of the opposite (tag inside promise).
@@ -417,9 +428,14 @@ It will be called from the first step with the following syntax:
                              (List (Vectorof node/with-indices-type) …))
                           …))
              (define (fq queue-name placeholder)
-               <fold-queues>)
+               (cond
+                 [(eq? queue-name 'node/placeholder-queue)
+                  (second-value <fold-queues>)]
+                 …))
              
-             <constructors>)))]
+             <constructors>
+             <multi-constructor>
+             )))]
 
 We shall define a graph constructor for each node type, which accepts the
 arguments for that node's mapping, and generates a graph rooted in the resulting
@@ -429,12 +445,39 @@ node.
        (begin
          (: node/constructor (→ param-type … node/promise-type))
          (define (node/constructor param …)
-           (match-let ([(list node/database …)
-                        (fq 'node/placeholder-queue
-                            (node/make-placeholder param …))])
-             (begin <define-with-indices→with-promises>) …
-             (node/with-indices→with-promises (vector-ref node/database 0)))))
+           (% (node/database …) = (fq 'node/placeholder-queue
+                                      (node/make-placeholder param …))
+              (begin <define-with-indices→with-promises>) …
+              (node/with-indices→with-promises (vector-ref node/database 0)))))
        …]
+
+@chunk[<multi-constructor>
+       (: name/multi-constructor (→ (Listof (List param-type …))
+                               …
+                               (List (Listof node/promise-type) …)))
+       (define (name/multi-constructor node/multi-rest …)
+         (% (node/multi-indices …) (node/database …) = <fold-queues2>
+            in
+            (begin <define-with-indices→with-promises>) …
+            (list (map (λ ([idx : Index])
+                         (node/with-indices→with-promises
+                          (vector-ref node/database idx)))
+                       node/multi-indices)
+                  …)))]
+
+@chunk[<fold-queues2>
+       (fold-queues
+        ([node/placeholder-queue
+          (map (λ ([args : (List param-type …)])
+                 (apply node/make-placeholder args))
+               node/multi-rest)]
+         …)
+        [(node/placeholder-queue [e : <fold-queue-type-element>]
+                                 [Δ-queues : Δ-Queues]
+                                 enqueue)
+         : <fold-queue-type-result>
+         <fold-queue-body>]
+        …)]
 
 
 @section{Injecting the first placeholder in the queue}
@@ -495,8 +538,7 @@ two values: the result of processing the element, and the latest version of
 @tc[Δ-queues], which stores the new elements to be added to the queue.
 
 @chunk[<fold-queues>
-       (fold-queues #:root queue-name
-                    placeholder
+       (fold-queues ([node/placeholder-queue (list placeholder)])
                     [(node/placeholder-queue [e : <fold-queue-type-element>]
                                              [Δ-queues : Δ-Queues]
                                              enqueue)

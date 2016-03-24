@@ -178,3 +178,8 @@
 (constructor . mb/incomplete)
 (constructor . ma/incomplete)
 (constructor . ma/incomplete)
+(structure sym)
+(structure err)
+(structure sym)
+(structure ctr water)
+(structure ctr water)

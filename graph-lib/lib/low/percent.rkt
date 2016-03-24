@@ -1,9 +1,10 @@
 #lang typed/racket
 (require "typed-untyped.rkt")
 (define-typed/untyped-modules #:no-test
-  (provide % define%)
+  (provide % define% in)
 
   (require (for-syntax syntax/parse))
+  (require "in.rkt")
   
   #|(define-syntax (% stx)
   (syntax-parse stx #:literals (= → :)
@@ -23,13 +24,13 @@
                #:with expanded #'(cons x.expanded rest.expanded)))
     (define-splicing-syntax-class %assignment
       #:attributes ([pat.expanded 1] [expr 0])
-      #:literals (= →)
-      (pattern (~seq (~and maybe-pat (~not (~or = →))) ... (~datum =) expr:expr)
+      #:literals (= in)
+      (pattern (~seq (~and maybe-pat (~not (~or = in))) ... (~datum =) expr:expr)
                #:with [pat:%pat ...] #'(maybe-pat ...))))
   
   (define-syntax (% stx)
-    (syntax-parse stx #:literals (= →)
-      [(_ :%assignment ... (~optional (~literal →)) . body)
+    (syntax-parse stx #:literals (= in)
+      [(_ :%assignment ... (~optional (~literal in)) . body)
        #'(match-let*-values ([(pat.expanded ...) expr] ...) . body)]))
   
   (begin-for-syntax
