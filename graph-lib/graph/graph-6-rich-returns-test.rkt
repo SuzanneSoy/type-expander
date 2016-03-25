@@ -1,5 +1,9 @@
 #lang typed/racket
 
+(module test-stx racket
+    ;(inline-type* ????)
+    )
+
 (module test typed/racket
   (require (for-syntax (submod "graph-6-rich-returns.lp2.rkt" test-syntax)
                        syntax/strip-context))
@@ -12,4 +16,5 @@
            typed/rackunit)
   
   ;(insert-tests);; TODO: FIXME
-  )
+  
+  (require (submod ".." test-stx)))

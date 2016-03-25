@@ -188,7 +188,10 @@ produced by the first step.
        …
        |#
        (define-type mapping/node-marker
-         (U (name/first-step mapping/node)
+         (tmpl-replace-in-type result-type
+           [mapping/node mapping/node-marker] ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;TODO: test: I'm unsure here
+           [node (name #:placeholder City)])
+         #;(U (name/first-step mapping/node)
             (tmpl-replace-in-type result-type
               [mapping/node (name/first-step mapping/node)]
               [node (name/first-step node)])))
@@ -214,9 +217,9 @@ produced by the first step.
          (syntax-parse stx
            ;; TODO: should be ~literal
            [(_ (~datum mapping)) #'(U second-step-mapping/node-of-first
-                                      (tmpl-replace-in-type result-type
-                                        [mapping/node (name/first-step mapping/node)]
-                                        [node (name/first-step node)]))]
+                                      result-type #;(tmpl-replace-in-type result-type
+                                                      [mapping/node (name/first-step mapping/node)]
+                                                      [node (name/first-step node)]))]
            …
            ;; TODO: should fall-back to outer definition of ~>, if any?
            ))]
@@ -281,10 +284,6 @@ To inline the temporary nodes in the instance, we use
 @tc[replace-in-instance], and call the inline-instance
 recursively:
 
-;; HERE, we should expand a type of the shape:
-
-(foo bar (U m-street (Listof Street)) baz quux)
-
 @CHUNK[<inline-instance>
        (define-syntax (inline-instance* stx)
          (dbg
@@ -309,18 +308,16 @@ recursively:
                                                               <inline-instance-nodes>)))
              (displayln (list "i-t=" #'typp))
              <inline-check-seen>
-             #'(λ ([x : i-t])
-                 ;(
-                 repl
-                 ;x)
-                 (error "NIY2"))
-             #;(replace-in-instance #'(Let (id-~> second-step-marker2-expander) i-t)
-                                    #'(<inline-instance-replacement>
-                                       <inline-instance-nodes>))])))]
+             #'repl
+             #;#'(λ ([x : i-t])
+                 : (inline-type* i-t seen)
+                 (ann (repl x)
+                      (inline-type* i-t seen "HERE"))
+                 #;(error "NIY2"))])))]
 
 @chunk[<inline-instance-replacement>
        [second-step-mapping/node-of-first                       ;; from
-        (inline-type* result-type (mapping/node . seen))        ;; to
+        (inline-type* result-type (mapping/node . seen) "RESSSS")  ;; to
         (name/first-step #:? mapping/node)                      ;; pred?
         (λ ([x : second-step-mapping/node-of-first])            ;; fun
           ((inline-instance* result-type (mapping/node . seen))
@@ -333,6 +330,20 @@ recursively:
         (name/first-step #:? node)                              ;; pred?
         node/extract/mapping]           ;; call mapping         ;; fun
        …]
+
+@subsection{Inlining instances, at the top}
+
+We need to inline the mapping nodes between the root mapping node and the first
+layer of actual nodes. We do this in three steps:
+
+@itemlist[
+ @item{First, we replace the actual nodes with
+  placeholders, which contain just an index, and aggregate
+  these nodes in lists (one per node type)}
+ @item{Then, we create the second-pass graph, using these
+  nodes as the roots}
+ @item{Finally, we replace the placeholders with the
+  second-pass nodes returned by the graph.}]
 
 @subsection{Inlining types}
 
@@ -448,12 +459,15 @@ which does not allow variants of (~> …).
 @chunk[<inline-type>
        (define-type-expander (inline-type* stx)
          (dbg
-          ("inline-type" stx)
+          ("inline-type*" stx)
           (syntax-parse stx
-            [(_ i-tyy (~and seen (:id (… …))))
+            [(_ i-tyy (~and seen (:id (… …))) (~optional msg))
+             (when (attribute msg)
+               (displayln (syntax-e #'msg)))
              (define/with-syntax replt
                ;; Same as above in inline-instance*, TODO: factor it out.
-               (replace-in-type #'(Let (id-~> second-step-marker2-expander) i-tyy)
+               #'i-tyy
+               #;(replace-in-type #'(Let (id-~> second-step-marker-expander) i-tyy)
                                 #'([node second-step-node-of-first]
                                    …)))
              #'(inline-type replt seen)])))
@@ -469,12 +483,12 @@ which does not allow variants of (~> …).
 
 
 @chunk[<inline-type-replacement>
-       [mapping/node-marker                                   ;; from
-        (inline-type result-type (mapping/node . seen))]      ;; to
+       [second-step-mapping/node-of-first ;mapping/node-marker                                   ;; from
+        (inline-type* result-type (mapping/node . seen))]     ;; to
        …]
 
 @chunk[<inline-type-nodes>
-       [second-step-node-of-first ;; generated by the first pass
+       [node ;second-step-node-of-first ;; generated by the first pass
         (name #:placeholder node)] ;; new type
        …]
 
@@ -566,7 +580,7 @@ encapsulating the result types of mappings.
                (display ">>> ")(displayln (list . log))
                (let ((res (let () . body)))
                  (display "<<< ")(displayln (list . log))
-                 (display "<<<= ")(display (car (list . log)))(displayln res)
+                 (display "<<<= ")(display (car (list . log)))(display res)(displayln ".")
                  res))))
          <graph-rich-return>)]
 

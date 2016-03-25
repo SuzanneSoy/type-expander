@@ -84,10 +84,10 @@ set of known type constructors like @tc[List] or @tc[Pairof], and recursively
 calls itself on the components of the type.
 
 @CHUNK[<replace-in-type>
-       (define (replace-in-type t r)
+       (define/debug (replace-in-type t r)
          (define (recursive-replace new-t) (replace-in-type new-t r))
          (define/with-syntax ([from to] ...) r)
-         #;(displayln (format "~a\n=> ~a"
+         (displayln (format "~a\n=> ~a"
                               (syntax->datum t)
                               (syntax->datum (expand-type t))))
          (syntax-parse (expand-type t)
@@ -554,6 +554,7 @@ These metafunctions just extract the arguments for @tc[replace-in-type] and
              "meta-struct.rkt"
              "../lib/low/backtrace.rkt"
              racket/require
+             debug ;; DEBUG
              (for-template (subtract-in
                             typed/racket
                             "../type-expander/type-expander.lp2.rkt")
