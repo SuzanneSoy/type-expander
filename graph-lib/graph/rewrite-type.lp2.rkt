@@ -84,12 +84,12 @@ set of known type constructors like @tc[List] or @tc[Pairof], and recursively
 calls itself on the components of the type.
 
 @CHUNK[<replace-in-type>
-       (define/debug (replace-in-type t r)
+       (define (replace-in-type t r)
          (define (recursive-replace new-t) (replace-in-type new-t r))
          (define/with-syntax ([from to] ...) r)
-         (displayln (format "~a\n=> ~a"
-                              (syntax->datum t)
-                              (syntax->datum (expand-type t))))
+         ;(displayln (format "~a\n=> ~a"
+         ;                     (syntax->datum t)
+         ;                     (syntax->datum (expand-type t))))
          (syntax-parse (expand-type t)
            #:context #'(replace-in-type t r)
            <replace-in-type-substitute>
