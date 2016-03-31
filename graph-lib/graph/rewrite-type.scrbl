@@ -62,3 +62,28 @@ new type.
  @racket[from] type. @racket[fun] should accept instances of
  the @racket[from] type, and return instances of the 
  @racket[to] type.}
+
+@defform[#:kind "procedure"
+         (fold-instance old-type
+                        accumulator-type
+                        #'([from to pred? fun] …))
+         #:contracts ([old-type type]
+                      [accumulator-type type]
+                      [from identifier?]
+                      [to type]
+                      [pred? predicate?]
+                      [fun (→ from acc (values to acc))])]{
+ Produces the syntax for the syntax for a function from 
+ @racket[old-type] to the new type, transforming all parts
+ of the data structure which satisfy @racket[pred?] using 
+ @racket[fun]. The generated function takes as a second
+ argument an initial value for the accumulator. The
+ accumulator is passed to @racket[fun] and the one returned
+ is used as the accumulator for the next call. No guarantee
+ is made on the order of traversal.
+
+ @racket[pred?] should return true if and only
+ if the data pased as an argument is an instance of the 
+ @racket[from] type. @racket[fun] should accept instances of
+ the @racket[from] type, and return instances of the 
+ @racket[to] type.}

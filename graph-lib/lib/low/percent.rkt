@@ -3,8 +3,10 @@
 (define-typed/untyped-modules #:no-test
   (provide % define% in)
 
-  (require (for-syntax syntax/parse))
-  (require "in.rkt")
+  (require (for-syntax syntax/parse
+                       "typed-untyped.rkt")
+           "in.rkt")
+  (begin-for-syntax (require-typed/untyped "aliases.rkt"))
   
   #|(define-syntax (% stx)
   (syntax-parse stx #:literals (= → :)
@@ -21,7 +23,9 @@
       (pattern ()
                #:with expanded #'(list))
       (pattern (x:%pat . rest:%pat)
-               #:with expanded #'(cons x.expanded rest.expanded)))
+               #:with expanded #'(cons x.expanded rest.expanded))
+      (pattern #(x:%pat …)
+               #:with expanded #'(vector x.expanded …)))
     (define-splicing-syntax-class %assignment
       #:attributes ([pat.expanded 1] [expr 0])
       #:literals (= in)

@@ -453,16 +453,17 @@ node.
 
 @chunk[<multi-constructor>
        (: name/multi-constructor (→ (Listof (List param-type …))
-                               …
-                               (List (Listof node/promise-type) …)))
+                                    …
+                                    (List (Vectorof node/promise-type) …)))
        (define (name/multi-constructor node/multi-rest …)
          (% (node/multi-indices …) (node/database …) = <fold-queues2>
             in
             (begin <define-with-indices→with-promises>) …
-            (list (map (λ ([idx : Index])
-                         (node/with-indices→with-promises
-                          (vector-ref node/database idx)))
-                       node/multi-indices)
+            (list (list->vector
+                   (map (λ ([idx : Index])
+                          (node/with-indices→with-promises
+                           (vector-ref node/database idx)))
+                        node/multi-indices))
                   …)))]
 
 @chunk[<fold-queues2>

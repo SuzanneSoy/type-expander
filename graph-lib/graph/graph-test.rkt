@@ -32,7 +32,7 @@
   ;; Check that the two requests for (splash) give the same node:
   ;; Also, (n2) is disconnected from the rest of the graph.
   (check-true:
-   (% ((a b c d) (e) ())
+   (% (#(a b c d) #(e) #())
       = (gr-simple #:roots
                    [Fountain '((splash) (splish) (splash) (soak))]
                    [Node2 '((n2))]

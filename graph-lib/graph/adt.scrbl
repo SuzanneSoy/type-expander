@@ -6,6 +6,7 @@
 @doc-lib-setup
 
 @defform[#:kind "type expander"
+         #:literals (:)
          (tagged tag field-desc)
          #:grammar
          [(tag Identifier)
@@ -32,7 +33,8 @@
          (tagged)]{
 }
 
-@defform*[((tagged maybe-instance tag just-field …)
+@defform*[#:literals (:)
+          ((tagged maybe-instance tag just-field …)
            (tagged maybe-make-instance tag field+value …))
           #:grammar
           [(maybe-instance (code:line)
@@ -72,7 +74,8 @@
 
 @defform[(tagged? tag
                   #:with-struct with-struct
-                  field)]{
+                  field)
+         #:contracts ([with-struct struct-type?])]{
  The @racket[#:with-struct] option is reserved for internal
  use. It is used by @racket[#:private] and 
  @racket[#:uninterned] in @racket[define-contructor] and 
