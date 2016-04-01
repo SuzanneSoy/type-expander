@@ -1,6 +1,7 @@
 [![Build Status,](https://img.shields.io/travis/jsmaniac/phc/master.svg)](https://travis-ci.org/jsmaniac/phc)
 [![Coverage Status,](https://img.shields.io/coveralls/jsmaniac/phc/master.svg)](https://coveralls.io/github/jsmaniac/phc)
-[![Online Documentation.](https://img.shields.io/badge/docs-online-brightgreen.svg)](http://jsmaniac.github.io/phc/)
+[![Build Stats,](https://img.shields.io/badge/build-stats-blue.svg)](http://jsmaniac.github.io/travis-stats/#jsmaniac/phc)
+[![Online Documentation.](https://img.shields.io/badge/docs-online-blue.svg)](http://jsmaniac.github.io/phc/)
 
 This project is written in Typed/Racket using Literate Programming. See the
 [online documentation](http://jsmaniac.github.io/phc/) if you want to dig into
