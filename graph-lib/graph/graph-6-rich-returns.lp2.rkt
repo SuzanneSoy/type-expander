@@ -109,6 +109,7 @@ plain list.
 @CHUNK[<graph-rich-return>
        (define-syntax/parse <signature>
          (define/with-syntax (node* …) #'(node …))
+         (define/with-syntax ([root/field-type …] . _) #'([field-type …] …))
          (define-temp-ids "~a/first-step" name)
          (define-temp-ids "first-step-expander2" name)
          (define-temp-ids "top1-accumulator-type" name)
@@ -196,7 +197,7 @@ produced by the first step.
        (define-type mapping/node-marker
          (tmpl-replace-in-type result-type
            [mapping/node mapping/node-marker] ;;;;;;;TODO: test: I'm unsure here
-           [node (name #:placeholder City)])
+           [node (name #:placeholder node)])
          #;(U (name/first-step mapping/node)
               (tmpl-replace-in-type result-type
                 [mapping/node (name/first-step mapping/node)]
@@ -218,15 +219,27 @@ produced by the first step.
        (define-type second-step-node-of-first
          (name/first-step node))
        …
-       
+
+       ;; TODO: we should take care here: inside result-type, node names get
+       ;; bound to the identifier from the second graph, whereas semantically
+       ;; they denote nodes from the first graph. Since they get rewritten as
+       ;; second-step-node-of-first almost immediately it doesn't cause any
+       ;; problem, but it's a nasty gotcha. Hoisintg this out of the
+       ;; second graph definition should be enough. This probably happens in
+       ;; another couple of places too.
        (define-type-expander (second-step-marker2-expander stx)
          (syntax-parse stx
            ;; TODO: should be ~literal
            [(_ (~datum mapping))
-            #'(U second-step-mapping/node-of-first
-                 result-type #;(tmpl-replace-in-type result-type
-                                 [mapping/node (name/first-step mapping/node)]
-                                 [node (name/first-step node)]))]
+            (syntax-local-introduce
+             #'(U second-step-mapping/node-of-first
+                  result-type
+                  
+                  ; <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<THIS WORKED
+                  
+                  #;(tmpl-replace-in-type result-type
+                      [mapping/node (name/first-step mapping/node)]
+                      [node (name/first-step node)])))]
            …
            ;; TODO: should fall-back to outer definition of ~>, if any?
            ))]
@@ -275,14 +288,17 @@ identifier, so that it can be matched against by
              [node [field c (Let [id-~> ~>-to-result-type] field-type)] …
               [(node/extract/mapping [from : (name/first-step node)])
                <inlined-node>]]
-             …))]
+             …))
+       
+       <inline-instance-top1-types>
+       <inline-instance-top1>
+       <outer-inline>]
 
 We create the inlined-node by inlining the temporary nodes
 in all of its fields:
 
 @chunk[<inlined-node>
-       ;; inline from the field-type of the old node.
-       (node ((inline-instance* field-type;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+       (node ((inline-instance* field-type
                                 ()) (get from field))
              …)]
 
@@ -297,6 +313,20 @@ recursively:
           ("inline-instance*" stx)
           (syntax-parse stx
             [(_ i-ty seen)
+             #;(syntax-case (expand-type #'(Let
+                                            (~>
+                                             second-step-marker2-expander)
+                                            (~> m-streets))) ()
+                 [(a_U
+                   a_second-step-m-streets19/node-of-first
+                   (a_Listof a_Street))
+                  (syntax-case #'([node second-step-node-of-first] …) ()
+                    [((_ _)
+                      (b_Street b_second-step-Street21-of-first))
+                     (begin
+                       (displayln #'a_Street)
+                       (displayln #'b_Street)
+                       (displayln (free-identifier=? #'a_Street #'b_Street)))])])
              (define/with-syntax replt
                (replace-in-type #'(Let (id-~> second-step-marker2-expander)
                                        i-ty)
@@ -317,7 +347,7 @@ recursively:
 
 @chunk[<inline-instance-replacement>
        [second-step-mapping/node-of-first                       ;; from
-        (inline-type result-type (mapping/node . seen))        ;; to
+        (inline-type result-type (mapping/node . seen))         ;; to
         (name/first-step #:? mapping/node)                      ;; pred?
         (λ ([x : second-step-mapping/node-of-first])            ;; fun
           ((inline-instance* result-type (mapping/node . seen))
@@ -347,6 +377,11 @@ layer of actual nodes. We do this in three steps:
  @item{Finally, we replace the placeholders with the
   second-pass nodes returned by the graph.}]
 
+@CHUNK[<outer-inline>
+       (inline-instance-top1* root/field-type;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                              ())
+       …]
+
 @CHUNK[<inline-instance-top1-types>
        (define-constructor mapping/node-index
          #:private
@@ -357,9 +392,19 @@ layer of actual nodes. We do this in three steps:
        …
        
        (define-type top1-accumulator-type
-         (pairof Index ;; max
-                 (list (listof (name/first-step node))
-                       …)))]
+         (Pairof Index ;; max
+                 (List (Listof (Pairof mapping/node-index (name/first-step node))) ;; AListof
+                       …)))
+
+       (define-type-expander (second-step-marker2-top-expander stx)
+         (syntax-parse stx
+           [(_ (~datum mapping))
+            (syntax-local-introduce
+             #'(U second-step-mapping/node-of-first
+                  result-type))]
+           …
+           ;; TODO: should fall-back to outer definition of ~>, if any?
+           ))]
 
 @CHUNK[<inline-instance-top1>
        (define-syntax (inline-instance-top1* stx)
@@ -367,12 +412,28 @@ layer of actual nodes. We do this in three steps:
           ("inline-instance-top1*" stx)
           (syntax-parse stx
             [(_ i-ty seen)
+             #;(syntax-case (expand-type #'(Let
+                                            (~>
+                                             second-step-marker2-top-expander)
+                                            (~> m-streets))) ()
+                 [(a_U
+                   a_second-step-m-streets19/node-of-first
+                   (a_Listof a_Street))
+                  (syntax-case #'([node second-step-node-of-first] …) ()
+                    [((_ _)
+                      (b_Street b_second-step-Street21-of-first))
+                     (begin
+                       (displayln #'a_Street)
+                       (displayln #'b_Street)
+                       (displayln (free-identifier=? #'a_Street #'b_Street)))])])
+             (displayln (list "~~~norepl=" #'(Let (id-~> second-step-marker2-top-expander)
+                                                  i-ty)))
              (define/with-syntax replt
-               (replace-in-type #'(Let (id-~> second-step-marker2-expander)
+               (replace-in-type #'(Let (id-~> second-step-marker2-top-expander)
                                        i-ty)
                                 #'([node second-step-node-of-first]
                                    …)))
-             (displayln (list "replt=" #'replt))
+             (displayln (list "replt-top=" #'replt))
              #'(inline-instance-top1 replt seen)])))
        
        (define-syntax (inline-instance-top1 stx)
@@ -389,13 +450,16 @@ layer of actual nodes. We do this in three steps:
 
 @chunk[<inline-instance-top1-replacement>
        [second-step-mapping/node-of-first                             ;; from
-        (inline-type result-type (mapping/node . seen))               ;; to
+        Any;(inline-type result-type (mapping/node . seen))               ;; to
         (name/first-step #:? mapping/node)                            ;; pred?
         (λ ([x : second-step-mapping/node-of-first]                   ;; fun
             [acc : top1-accumulator-type])
-          (values ((inline-instance-top1* result-type (mapping/node . seen))
-                   (get x returned))
-                  ACC))]
+          (% inlined new-acc
+             = ((inline-instance-top1* result-type (mapping/node . seen))
+                (get x returned)
+                acc)
+             in
+             (values inlined new-acc)))]
        …]
 
 @chunk[<inline-instance-top1-nodes>
@@ -408,11 +472,13 @@ layer of actual nodes. We do this in three steps:
           : (values mapping/node-index-marker
                     top1-accumulator-type)
           (% (idx . (node/accumulator …)) = acc
-             
+             new-index = (mapping/node-index idx)
              in
-             (values PLACEHOLDER
-                     (cons (add1 idx)
-                           (NEW-NDS …)))))]
+             (values new-index
+                     (let ([node/accumulator (cons (cons new-index x)
+                                                   node/accumulator)])
+                       (cons (assert (add1 idx) index?)
+                             (list node/accumulator …))))))]
        …]
 
 @chunk[<inline-instance-top2>
@@ -666,7 +732,8 @@ encapsulating the result types of mappings.
                               "rewrite-type.lp2.rkt" #|debug|#
                               syntax/id-set
                               racket/format
-                              mischief/transform)
+                              mischief/transform
+                              (submod "../type-expander/type-expander.lp2.rkt" expander))
                   (rename-in "../lib/low.rkt" [~> threading:~>])
                   "graph.lp2.rkt"
                   "get.lp2.rkt"
@@ -689,11 +756,11 @@ encapsulating the result types of mappings.
          (begin-for-syntax
            (define-syntax-rule (dbg log . body)
              (begin
-               ;(display ">>> ")(displayln (list . log))
+               (display ">>> ")(displayln (list . log))
                (let ((res (let () . body)))
-                 ;(display "<<< ")(displayln (list . log))
-                 ;(display "<<<= ")(display (car (list . log)))
-                 ;(display res)(displayln ".")
+                 (display "<<< ")(displayln (list . log))
+                 (display "<<<= ")(display (car (list . log)))
+                 (display res)(displayln ".")
                  res))))
          <graph-rich-return>)]
 
