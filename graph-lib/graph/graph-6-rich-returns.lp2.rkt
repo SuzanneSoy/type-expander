@@ -109,7 +109,6 @@ plain list.
 @CHUNK[<graph-rich-return>
        (define-syntax/parse <signature>
          (define/with-syntax (node* …) #'(node …))
-         (define/with-syntax ([root/field-type …] . _) #'([field-type …] …))
          (define-temp-ids "~a/first-step" name)
          (define-temp-ids "first-step-expander2" name)
          (define-temp-ids "top1-accumulator-type" name)
@@ -219,7 +218,7 @@ produced by the first step.
        (define-type second-step-node-of-first
          (name/first-step node))
        …
-
+       
        ;; TODO: we should take care here: inside result-type, node names get
        ;; bound to the identifier from the second graph, whereas semantically
        ;; they denote nodes from the first graph. Since they get rewritten as
@@ -290,6 +289,7 @@ identifier, so that it can be matched against by
                <inlined-node>]]
              …))
        
+       <inline-type-top1>
        <inline-instance-top1-types>
        <inline-instance-top1>
        <outer-inline>]
@@ -313,20 +313,6 @@ recursively:
           ("inline-instance*" stx)
           (syntax-parse stx
             [(_ i-ty seen)
-             #;(syntax-case (expand-type #'(Let
-                                            (~>
-                                             second-step-marker2-expander)
-                                            (~> m-streets))) ()
-                 [(a_U
-                   a_second-step-m-streets19/node-of-first
-                   (a_Listof a_Street))
-                  (syntax-case #'([node second-step-node-of-first] …) ()
-                    [((_ _)
-                      (b_Street b_second-step-Street21-of-first))
-                     (begin
-                       (displayln #'a_Street)
-                       (displayln #'b_Street)
-                       (displayln (free-identifier=? #'a_Street #'b_Street)))])])
              (define/with-syntax replt
                (replace-in-type #'(Let (id-~> second-step-marker2-expander)
                                        i-ty)
@@ -346,19 +332,19 @@ recursively:
                                      <inline-instance-nodes>))])))]
 
 @chunk[<inline-instance-replacement>
-       [second-step-mapping/node-of-first                       ;; from
-        (inline-type result-type (mapping/node . seen))         ;; to
-        (name/first-step #:? mapping/node)                      ;; pred?
-        (λ ([x : second-step-mapping/node-of-first])            ;; fun
+       [second-step-mapping/node-of-first                             ;; from
+        (inline-type result-type (mapping/node . seen))               ;; to
+        (name/first-step #:? mapping/node)                            ;; pred?
+        (λ ([x : second-step-mapping/node-of-first])                  ;; fun
           ((inline-instance* result-type (mapping/node . seen))
            (get x returned)))]
        …]
 
 @chunk[<inline-instance-nodes>
-       [second-step-node-of-first       ;; node of first step   ;; from
-        (name #:placeholder node)       ;; new type             ;; to
-        (name/first-step #:? node)                              ;; pred?
-        node/extract/mapping]           ;; call mapping         ;; fun
+       [second-step-node-of-first             ;; node of first step   ;; from
+        (name #:placeholder node)             ;; new type             ;; to
+        (name/first-step #:? node)                                    ;; pred?
+        node/extract/mapping]                 ;; call mapping         ;; fun
        …]
 
 @subsection{Inlining instances, at the top}
@@ -378,7 +364,7 @@ layer of actual nodes. We do this in three steps:
   second-pass nodes returned by the graph.}]
 
 @CHUNK[<outer-inline>
-       (inline-instance-top1* root/field-type;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+       (inline-instance-top1* result-type ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
                               ())
        …]
 
@@ -393,9 +379,9 @@ layer of actual nodes. We do this in three steps:
        
        (define-type top1-accumulator-type
          (Pairof Index ;; max
-                 (List (Listof (Pairof mapping/node-index (name/first-step node))) ;; AListof
+                 (List (AListof mapping/node-index (name/first-step node))
                        …)))
-
+       
        (define-type-expander (second-step-marker2-top-expander stx)
          (syntax-parse stx
            [(_ (~datum mapping))
@@ -412,22 +398,6 @@ layer of actual nodes. We do this in three steps:
           ("inline-instance-top1*" stx)
           (syntax-parse stx
             [(_ i-ty seen)
-             #;(syntax-case (expand-type #'(Let
-                                            (~>
-                                             second-step-marker2-top-expander)
-                                            (~> m-streets))) ()
-                 [(a_U
-                   a_second-step-m-streets19/node-of-first
-                   (a_Listof a_Street))
-                  (syntax-case #'([node second-step-node-of-first] …) ()
-                    [((_ _)
-                      (b_Street b_second-step-Street21-of-first))
-                     (begin
-                       (displayln #'a_Street)
-                       (displayln #'b_Street)
-                       (displayln (free-identifier=? #'a_Street #'b_Street)))])])
-             (displayln (list "~~~norepl=" #'(Let (id-~> second-step-marker2-top-expander)
-                                                  i-ty)))
              (define/with-syntax replt
                (replace-in-type #'(Let (id-~> second-step-marker2-top-expander)
                                        i-ty)
@@ -450,7 +420,7 @@ layer of actual nodes. We do this in three steps:
 
 @chunk[<inline-instance-top1-replacement>
        [second-step-mapping/node-of-first                             ;; from
-        Any;(inline-type result-type (mapping/node . seen))               ;; to
+        (inline-type-top1 result-type (mapping/node . seen))          ;; to
         (name/first-step #:? mapping/node)                            ;; pred?
         (λ ([x : second-step-mapping/node-of-first]                   ;; fun
             [acc : top1-accumulator-type])
@@ -463,11 +433,10 @@ layer of actual nodes. We do this in three steps:
        …]
 
 @chunk[<inline-instance-top1-nodes>
-       [second-step-node-of-first       ;; node of first step   ;; from
-        mapping/node-index-marker       ;; new type             ;; to
-        (name/first-step #:? node)                              ;; pred?
-        ;node/extract/mapping]           ;; call mapping         ;; fun
-        (λ ([x : second-step-node-of-first]
+       [second-step-node-of-first             ;; node of first step   ;; from
+        mapping/node-index-marker             ;; new type             ;; to
+        (name/first-step #:? node)                                    ;; pred?
+        (λ ([x : second-step-node-of-first]   ;; record the old node  ;; fun
             [acc : top1-accumulator-type])
           : (values mapping/node-index-marker
                     top1-accumulator-type)
@@ -481,6 +450,28 @@ layer of actual nodes. We do this in three steps:
                              (list node/accumulator …))))))]
        …]
 
+@chunk[<inline-type-top1>
+       (define-type-expander (inline-type-top1 stx)
+         (dbg
+          ("inline-type-top1" stx)
+          (syntax-parse stx
+            [(_ i-t (~and seen (:id (… …))))
+             <inline-check-seen>
+             (replace-in-type #'(Let ([id-~> second-step-marker-expander]) i-t)
+                              #'(<inline-type-top1-replacement>
+                                 <inline-type-top1-nodes>))])))]
+
+
+@chunk[<inline-type-top1-replacement>
+       [second-step-mapping/node-of-first                             ;; from
+        (inline-type-top1 result-type (mapping/node . seen))]         ;; to
+       …]
+
+@chunk[<inline-type-top1-nodes>
+       [node ;second-step-node-of-first ;; generated by the first pass
+        mapping/node-index] ;; new type
+       …]
+
 @chunk[<inline-instance-top2>
        ;; Call the second step graph constructor:
        (name #:roots (ann (cdr LAST-ACCUMULATOR)
@@ -488,10 +479,10 @@ layer of actual nodes. We do this in three steps:
 
 @chunk[<inline-instance-top3>
        (replace-in-instance #'TYPE??
-                            #'([mapping/node-index                 ;; from
-                                (name node)                        ;; to
-                                mapping/node-index?                ;; pred?
-                                (λ ([idx : mapping/node-index])    ;; fun
+                            #'([mapping/node-index                    ;; from
+                                (name node)                           ;; to
+                                mapping/node-index?                   ;; pred?
+                                (λ ([idx : mapping/node-index])       ;; fun
                                   (VECTOR-REF ??? (constructor-values idx)))
                                 ]))]
 
@@ -732,8 +723,7 @@ encapsulating the result types of mappings.
                               "rewrite-type.lp2.rkt" #|debug|#
                               syntax/id-set
                               racket/format
-                              mischief/transform
-                              (submod "../type-expander/type-expander.lp2.rkt" expander))
+                              mischief/transform)
                   (rename-in "../lib/low.rkt" [~> threading:~>])
                   "graph.lp2.rkt"
                   "get.lp2.rkt"
@@ -747,9 +737,7 @@ encapsulating the result types of mappings.
                   racket/splicing)
          (provide define-graph/rich-return
                   (for-syntax dbg) ;; DEBUG
-                  ); ~>)
-         
-         ;(define-syntax-parameter ~> (make-rename-transformer #'threading:~>))
+                  )
          
          (require (for-syntax racket/pretty))
          

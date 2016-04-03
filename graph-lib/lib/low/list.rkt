@@ -3,7 +3,10 @@
 (define-typed/untyped-modules #:no-test
   (provide indexof
            replace-first
-           map+fold)
+           map+fold
+           AListof)
+
+  (define-type (AListof K V) (Listof (Pairof K V)))
   
   (: indexof (∀ (A B) (→ A (Listof B) (→ A B Any) (U #f Integer))))
   (define (indexof elt lst [compare equal?])
