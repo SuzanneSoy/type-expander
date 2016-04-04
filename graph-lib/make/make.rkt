@@ -227,7 +227,7 @@
         "-j" "8"
         ,@(exclude-dirs rkt-files (list "make/"))))
 
-(run! `(,(find-executable-path-or-fail "raco")
+#;(run! `(,(find-executable-path-or-fail "raco")
         "cover"
         "-d" "docs/coverage"
         "-s" "doc"
