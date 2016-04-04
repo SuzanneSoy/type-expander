@@ -3,12 +3,15 @@
 (define unicode-chars
   @string-append|<<<{
 \makeatletter
-% Must be loaded after MnSymbol!!! MnSymbol improperly defines × and ¬ in such a way that they don't work in math mode.
+% Must be loaded after MnSymbol!!! MnSymbol improperly defines × and ¬ in such a
+%   way that they don't work in math mode.
 % definition of some characters, for use with
 % \usepackage[utf8]{inputenc}
 % \usepackage[T1]{fontenc}
 % Author: Christoph Lange <math.semantic.web@gmail.com>
-% Some math characters taken from John Wickerson's MathUnicode.sty (http://tex.stackexchange.com/questions/110042/entering-unicode-math-symbols-into-latex-direct-from-keyboard-on-a-mac)
+% Some math characters taken from John Wickerson's MathUnicode.sty
+%  (http://tex.stackexchange.com/questions/110042/
+%     entering-unicode-math-symbols-into-latex-direct-from-keyboard-on-a-mac)
 % https://github.com/clange/latex
 \NeedsTeXFormat{LaTeX2e}[1999/12/01]
 \ProvidesPackage{unicode-chars}[2013/10/08]
@@ -24,7 +27,8 @@
 \catcode`\^^a0=13\relax\def {~}%                                   " " (nbsp)
 \catcode`\^^a3=13\relax\def£{\pounds}%                             £
 \catcode`\^^ae=13\relax\def®{\textsuperscript{\textregistered}}%   ®
-\catcode`\^^af=13\relax\def¯{\ensuremath{^-}}%                     ¯ % macron (overline, overbar)
+% macron: overline, overbar
+\catcode`\^^af=13\relax\def¯{\ensuremath{^-}}%                     ¯ % macron
 % \catcode`\^^f1=13\relax\defñ{\~{n}}%                               ñ
 % Declared by MnSymbol:
 % \catcode`\^^d7=13\relax\def×{\ensuremath{\times}}%                 ×
@@ -51,13 +55,15 @@
 \DeclareUnicodeCharacter{03A1}{\ensuremath{\Rho}}%                 Ρ
 \DeclareUnicodeCharacter{2190}{\ensuremath{\leftarrow}}%           ←
 \DeclareUnicodeCharacter{2192}{\ensuremath{\rightarrow}}%          →
-% 2192: \textrightarrow is not available in all fonts, and we need the right arrow in math mode
+% 2192: \textrightarrow is not available in all fonts,
+% and we need the right arrow in math mode
 \DeclareUnicodeCharacter{2193}{\ensuremath{\downarrow}}%           ↓
 \DeclareUnicodeCharacter{2194}{\ensuremath{\leftrightarrow}}%      ↔
 \DeclareUnicodeCharacter{21A6}{\ensuremath{\mapsto}}%              ↦
 \DeclareUnicodeCharacter{21C0}{\ensuremath{\rightharpoonup}}%      ⇀
 \DeclareUnicodeCharacter{21D2}{\ensuremath{\Rightarrow}}%          ⇒
-\DeclareUnicodeCharacter{2200}{\ensuremath{\operatorname{\forall}}}%              ∀ % Georges — added \operatorname{}
+% Georges — added \operatorname{} in ∀ .
+\DeclareUnicodeCharacter{2200}{\ensuremath{\operatorname{\forall}}}% ∀
 \DeclareUnicodeCharacter{2203}{\ensuremath{\exists}}%              ∃
 \DeclareUnicodeCharacter{2208}{\ensuremath{\in}}%                  ∈
 \DeclareUnicodeCharacter{2209}{\ensuremath{\not\in}}%              ∉
@@ -161,7 +167,11 @@
 % \DeclareUnicodeCharacter{2026}{\ensuremath{\dots}}%                …
 
 % Generated from ~/.XCompose using:
-% cat /tmp/cal.txt | cut -d '"' -f 2- | tr '"' ' ' | cut -d ' ' -f 1,6 | while IFS=' ' read a b; do echo "\\DeclareUnicodeCharacter{$(printf "%X" "'$a")}{\\\\ensuremath{\\mathcal{$b}}}%         $a"; done
+% cat /tmp/cal.txt | cut -d '"' -f 2- | tr '"' ' ' | cut -d ' ' -f 1,6 \
+% | while IFS=' ' read a b; do
+%   echo -n "\\DeclareUnicodeCharacter{$(printf "%X" "'$a")}"
+%   echo "{\\\\ensuremath{\\mathcal{$b}}}%         $a";
+% done
 
 \DeclareUnicodeCharacter{1D49C}{\ensuremath{\mathcal{A}}}%         𝒜
 \DeclareUnicodeCharacter{212C}{\ensuremath{\mathcal{B}}}%          ℬ

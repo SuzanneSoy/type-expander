@@ -29,7 +29,8 @@
     (define-splicing-syntax-class %assignment
       #:attributes ([pat.expanded 1] [expr 0])
       #:literals (= in)
-      (pattern (~seq (~and maybe-pat (~not (~or = in))) ... (~datum =) expr:expr)
+      (pattern (~seq (~and maybe-pat (~not (~or = in))) ...
+                     (~datum =) expr:expr)
                #:with [pat:%pat ...] #'(maybe-pat ...))))
   
   (define-syntax (% stx)

@@ -320,11 +320,9 @@ The graph name will be used in several ways:
                     [(_ #:roots [(~datum node) node/multi-rest] …)
                      (syntax/loc stx
                        (name/multi-constructor node/multi-rest …))]
-                    ;; TODO: TR has issues with occurrence typing and promises,
-                    ;; so we should wrap the nodes in a tag, which contains a
-                    ;; promise, instead of the opposite (tag inside promise).
                     [(_ #:? (~datum node))
-                     (syntax/loc stx node?)] ;;;;;;;;;;;;;;;TODO: implement node? properly here! FB case 107
+                     ;; TODO: implement node? properly here! FB case 107
+                     (syntax/loc stx node?)]
                     …
                     [(_ . rest)
                      (syntax/loc stx (root/constructor . rest))]))
