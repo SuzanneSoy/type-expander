@@ -96,18 +96,12 @@
   
   (define (format-temp-ids format . vs)
     ;; Introduce the binding in a fresh scope.
-    (apply format-ids (λ _ ((make-syntax-introducer) #'())) format vs))
-  
-  ;; Also in ==== syntax.rkt ====, once we split into multiple files, require it
-  (begin-for-syntax
-    (define (syntax-cons-property stx key v)
-      (let ([orig (syntax-property stx key)])
-        (syntax-property stx key (cons v (or orig '()))))))
-  
-  ;; Also in ==== syntax.rkt ====, once we split into multiple files, require it
-  (begin-for-syntax
-    (define (identifier-length id) (string-length (symbol->string
-                                                   (syntax-e id)))))
+    (apply format-ids
+           (λ _ ((make-syntax-introducer) (if (syntax? format) format #'())))
+           format
+           vs))
+
+  (require (for-syntax (submod "stx.rkt" untyped)))
   
   (begin-for-syntax
     (define-syntax-class dotted
