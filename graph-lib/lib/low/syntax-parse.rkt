@@ -9,7 +9,7 @@
   (define-syntax-parameter stx
     (lambda (call-stx)
       (raise-syntax-error
-       (syntax-e call-stx)
+       'stx
        "Can only be used in define-syntax/parse or λ/syntax-parse"
        call-stx))))
 

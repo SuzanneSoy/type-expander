@@ -843,9 +843,7 @@ We will be able to use this type expander in function types, for example:
          ;(begin-for-syntax
          ;<multiassoc-syntax>)
          
-         (provide define-graph
-                  define-graph-second-step ; DEBUG
-                  )
+         (provide define-graph)
          <first-step>
          <second-step>)]
 

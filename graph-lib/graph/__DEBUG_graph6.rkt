@@ -3,7 +3,6 @@
 (module test-~>-bound typed/racket
   (require "graph-6-rich-returns.lp2.rkt"
            "../lib/low.rkt"
-           ;"graph.lp2.rkt"
            "get.lp2.rkt"
            "../type-expander/type-expander.lp2.rkt")
   
@@ -46,8 +45,10 @@
 
 (module test-~>-unbound typed/racket
   (require "graph-6-rich-returns.lp2.rkt"
+           (only-in "../lib/low.rkt"
+                    check-equal?:
+                    …)
            "get.lp2.rkt"
-           typed/rackunit
            "../type-expander/type-expander.lp2.rkt")
   
   (define-type blob String)
@@ -66,10 +67,10 @@
      : (Listof Street)
      (map Street snames)])
   
-  (check-equal? (let ([l (grr3 '(("a" "b" "c") ("d")))])
-                  (list (get (car l) streets … sname)
-                        (get (cadr l) streets … sname)))
-                '(("a" "b" "c") ("d")))
+  (check-equal?: (let ([l (grr3 '(("a" "b" "c") ("d")))])
+                   (list (get (car l) streets … sname)
+                         (get (cadr l) streets … sname)))
+                 '(("a" "b" "c") ("d")))
   
   ;; Check that there are no collisions:
   ;; Same as above with just the graph name changed

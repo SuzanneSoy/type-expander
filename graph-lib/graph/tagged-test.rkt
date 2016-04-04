@@ -16,4 +16,7 @@
                                      [z 'z]
                                      [y Fixnum]))
                    [(tagged foo z x y) (list z y x)])
-                 '(z 3 "o")))
+                 '(z 3 "o"))
+
+  (define-type ma (tagged ma (fav String) (faa ma) (fab mb)))
+  (define-type mb (tagged mb (fbv String) (fba ma))))
