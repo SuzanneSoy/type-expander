@@ -33,9 +33,9 @@ before_install:
 - latex newunicodechar.ins
 - mkdir -p "$latex_home/tex/latex/newunicodechar"
 - mv newunicodechar.sty "$latex_home/tex/latex/newunicodechar"
-#- echo "Temporary switch to my fork of cover:"
-#- git clone https://github.com/jsmaniac/cover.git -b fix-relative-html-links ~/cover-tool/cover
-#- (cd ~/cover-tool/cover; raco pkg install --deps search-auto --update-deps --skip-installed)
+- echo "Temporary switch to my fork of cover:"
+- git clone https://github.com/jsmaniac/cover.git -b fix-div-by-zero--issue-118 ~/cover-tool/cover
+- (cd ~/cover-tool/cover; raco pkg install --deps search-auto --update-deps --skip-installed)
 
 cache:
   apt: true
@@ -47,6 +47,7 @@ install:
 - make build-dep
 
 script:
+- racket --version
 - make
 
 after_success:

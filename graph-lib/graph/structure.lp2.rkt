@@ -30,7 +30,7 @@ types, it wouldn't be clear what fields the remaining type parameters affect).
 
 A call to @tc[(structure)] with no field, is ambiguous: it could return a
 constructor function, or an instance. We added two optional keywords,
-@tc[#:instance] and @tc[#:constructor], to disambiguate. They can also be used
+@tc[#:instance] and @tc[#:make-instance], to disambiguate. They can also be used
 when fields with or without values are provided, so that macros don't need to
 handle the empty structure as a special case.
 
@@ -38,8 +38,8 @@ handle the empty structure as a special case.
        (define-splicing-syntax-class structure-args-stx-class
          (pattern
           (~or (~seq #:instance (~parse (field … value …) #'()))
-               (~seq #:constructor (~parse (field …) #'()))
-               (~seq (~maybe #:constructor ~!)
+               (~seq #:make-instance (~parse (field …) #'()))
+               (~seq (~maybe #:make-instance ~!)
                      (~or (~seq (~or-bug [field:id] field:id) …+)
                           (~seq [field:id (~and C :colon) type:expr] …+)))
                (~seq (~maybe #:instance ~!)
@@ -51,8 +51,8 @@ handle the empty structure as a special case.
        (begin-for-syntax <structure-args-stx-class>)
        
        (define-multi-id structure
-         #:type-expander structure-type-expander
-         #:match-expander structure-match-expander
+         #:type-expander <type-expander>
+         #:match-expander <match-expander>
          #:call
          (λ (stx)
            (syntax-parse stx
@@ -63,42 +63,6 @@ handle the empty structure as a special case.
                (template (?? (ct value …) ct))
                'disappeared-use (stx-map syntax-local-introduce
                                          (template ((?? (?@ (C …)))))))])))]
-
-@chunk[<test-structure>
-       (let ()
-         (define-structure empty-st)
-         (define-structure stA [a Number])
-         (check-equal?: (empty-st) ((structure #:constructor)))
-         (check-not-equal?: (empty-st) (structure [a 1]))
-         (check-not-equal?: (structure #:constructor) (structure [a 1]))
-         (check-not-equal?: (empty-st) (stA 1))
-         (check-not-equal?: (structure #:constructor) (stA 1)))
-       #;(let ()
-           (define-structure st [a Number] [b String])
-           (define-structure stA [a Number])
-           (define-structure stABC [a Number] [b String] [c Number])
-           (define st1 (st 1 "b"))
-           (define st2 (st 2 "b"))
-           (define sta (stA 1))
-           (define st3 (stABC 1 "b" 3))
-           
-           (check-equal?-classes:
-            [#:name st1
-             st1
-             (structure [a 1] [b "b"])
-             (structure [a : Number 1] [b : String "b"])
-             ((structure [a : Number] [b : String]) 1 "b")
-             (structure [a : Any 1] [b : Any "b"])
-             ((structure [a : Any] [b : Any]) 1 "b")
-             ((structure [a] [b]) 1 "b")
-             ((structure a b) 1 "b")
-             ((structure [a] b) 1 "b")]
-            [(structure [a "1"] [b 'b])
-             (structure [a : String "1"] [b : Symbol 'b])
-             (structure [a : Any "1"] [b : Any 'b])]
-            [st2]
-            [sta]
-            [st3]))]
 
 @chunk[<define-structure>
        (define-syntax (define-structure stx)
@@ -126,73 +90,6 @@ handle the empty structure as a special case.
                  (match x
                    [(structure [field _] …) #t]
                    [_ #f]))))]))]
-
-
-@chunk[<test-define-structure>
-       (define-structure empty-st)
-       (define-structure st [a Number] [b String])
-       (define-structure st2 [b String] [a Number] #:? custom-is-st2?)
-       (define-structure st3 [c String] [a Number] #:? custom-is-st3?)]
-
-Test constructor:
-
-@chunk[<test-define-structure>
-       (check-equal?: (empty-st) : empty-st (empty-st))
-       (check-equal?: (structure-get (st 1 "b") b) : String "b")
-       (check-equal?: (structure-get (st2 "a" 2) b) : String "a")]
-
-Test constructor, as id:
-
-@chunk[<test-define-structure>
-       (check-equal?: (structure-get (cadr (map st '(1 2 3) '("x" "y" "z"))) b)
-                      : String
-                      "y")
-       (check-equal?: (structure-get (cadr (map st2 '("d" "e" "f") '(1 2 3))) b)
-                      : String
-                      "e")]
-
-Test the type-expander:
-
-@chunk[<test-define-structure>
-       (check-equal? (structure-get (ann (st2 "g" 123) st2) b) "g")]
-
-Test the match-expander:
-
-@chunk[<test-define-structure>
-       (check-equal?: (match (st2 "h" 7) [(st x y) (cons x y)])
-                      : (Pairof Number String)
-                      '(7 . "h"))]
-
-Test equality:
-
-@chunk[<test-define-structure>
-       (check-equal? (ann (st 1 "i") st) (st 1 "i"))
-       (check-equal? (ann (st2 "j" 2) st2) (st2 "j" 2))
-       (check-equal? (ann (st 1 "k") st) (st2 "k" 1))]
-
-Test predicate:
-
-@chunk[<test-define-structure>
-       (check-equal? (st? (ann (st 1 "i") (U st st2))) #t)
-       (check-equal? (custom-is-st2? (ann (st 1 "i") (U st st2))) #t)
-       (check-equal? (custom-is-st3? (ann (st 1 "i") (U st st2))) #f)
-       (check-equal? (st? (ann (st 1 "i") (U Number st st2))) #t)
-       (check-equal? (st? (ann 1 (U Number st st2))) #f)
-       ;; Occurrence typing won't work well, if only because fields could be of
-       ;; a type for which TR doesn't know how to make-predicate.
-       #|(define (check-occurrence-typing [x : (U Number st st3)])
-         (if (st? x)
-             (match (ann x st) [(st the-a the-b) (cons the-b the-a)])
-             'other))
-       (check-equal?
-        (check-occurrence-typing (ann (st 1 "i") (U Number st st3)))
-        '("i" . 1))
-       (check-equal?
-        (check-occurrence-typing (ann (st2 "j" 2) (U Number st st3)))
-        'other)
-       (check-equal?
-        (check-occurrence-typing (ann 9 (U Number st st3)))
-        'other)|#]
 
 @section{Pre-declaring structs}
 
@@ -225,14 +122,15 @@ have access to all the types we care about, and fill the rest with @tc[∀] type
        (define-for-syntax (check-remember-fields fields)
          (check-remember-all 'structure (sort-fields fields)))]
 
-Since get-field is a macro, it should not care about the type of the field(s),
-and the code it expands to should be a @tc[cond] which only tests the field part
-of the structure.
+Since @tc[get-field] is a macro, it should not care about the type of the
+field(s), and the code it expands to should be a @tc[cond] which only tests the
+field part of the structure.
 
 @CHUNK[<declare-all-structs>
        (define-syntax/parse (declare-all-structs fields→stx-name-alist:id
                                                  (name field ...) ...)
-         #'(begin
+         (define-temp-ids "~a/T" ((field …) …))
+         #`(begin
              <struct-declarations>
              
              (define-for-syntax fields→stx-name-alist
@@ -283,10 +181,18 @@ associative list.
 The struct declarations are rather standard. We use @tc[#:transparent], so that
 @tc[equal?] compares instances memberwise.
 
+@chunk[<structure-top>
+       (struct StructureTop ())
+       (define-type StructureTopType StructureTop)]
+
 @; TODO: write “field : Tfield”, it's cleaner.
 @CHUNK[<struct-declarations>
-       (struct (field ...) name ([field : field] ...) #:transparent)
-       ...]
+       (struct (field/T …)
+         name
+         #,(syntax-local-introduce #'StructureTop)
+         ([field : field/T] …)
+         #:transparent)
+       …]
 
 @section{Constructor}
 
@@ -294,9 +200,9 @@ We provide a macro which returns an anonymous @tc[structure] constructor. It can
 be used to make @tc[structure] instances like this:
 
 @chunk[<test-make-structure-constructor>
-       (check-equal? (begin ((make-structure-constructor a b c) 1 "b" #t)
-                            'it-works)
-                     'it-works)]
+       (check-equal?: (begin ((make-structure-constructor a b c) 1 "b" #t)
+                             'it-works)
+                      'it-works)]
 
 To create such an instance, we use the underlying @tc[struct]'s constructor.
 First, we need to check if the list of fields was already remembered, in which
@@ -322,7 +228,7 @@ The fields in @tc[fields→stx-name-alist] are already sorted.
 
 @chunk[<fields→stx-name>
        (define-for-syntax (fields→stx-name fields)
-         (cdr (assoc (syntax->datum (datum->syntax #f (sort-fields fields)))
+         (cdr (assoc (to-datum (sort-fields fields))
                      fields→stx-name-alist)))]
 
 @subsection{Has-field}
@@ -414,17 +320,20 @@ The fields in @tc[fields→stx-name-alist] are already sorted.
              (structure-get v field)))]
 
 @chunk[<get-predicate>
-       (my-st-type-info-predicate (get-struct-info stx (cdr s)))]
+       (meta-struct-predicate (cdr s) #:srcloc stx)]
 
 @CHUNK[<get-field-accessor>
-       (list-ref (my-st-type-info-accessors (get-struct-info stx (cdr s)))
+       (list-ref (meta-struct-accessors (cdr s) #:srcloc stx)
                  (indexof (syntax->datum #'field) (reverse (car s))))]
 
-@chunk[<test-get-field>
-       (check-equal?:
-        (structure-get ((make-structure-constructor a b c d) 1 "b" 'val-c 4) c)
-        : 'val-c
-        'val-c)]
+@subsection{Predicate}
+
+@chunk[<structure?>
+       (define-syntax/parse (structure? field …)
+         (if (check-remember-fields #'(field ...))
+             (meta-struct-predicate (fields→stx-name #'(field ...))
+                                    #:srcloc stx)
+             (remember-all-errors #'list stx #'(field ...))))]
 
 @subsection{Match-expander}
 
@@ -435,16 +344,14 @@ The fields in @tc[fields→stx-name-alist] are already sorted.
            (pattern field:id #:with (pat ...) #'())))]
 
 @chunk[<match-expander>
-       (define-for-syntax (structure-match-expander stx)
-         (syntax-parse stx
-           [(_ :match-field-or-field-pat ...)
-            (if (check-remember-fields #'(field ...))
-                (let ()
-                  (define/with-syntax name (fields→stx-name #'(field ...)))
-                  (define/with-syntax ([sorted-field sorted-pat ...] ...)
-                    (sort-car-fields #'((field pat ...) ...)))
-                  #'(name (and sorted-field sorted-pat ...) ...))
-                <match-expander-remember-error>)]))]
+       (λ/syntax-parse (_ :match-field-or-field-pat ...)
+         (if (check-remember-fields #'(field ...))
+             (let ()
+               (define/with-syntax name (fields→stx-name #'(field ...)))
+               (define/with-syntax ([sorted-field sorted-pat ...] ...)
+                 (sort-car-fields #'((field pat ...) ...)))
+               #'(name (and sorted-field sorted-pat ...) ...))
+             <match-expander-remember-error>))]
 
 If we just return @racket[(remember-all-errors list stx #'(field ...))] when a
 recompilation is needed, then the identifier @tc[delayed-error-please-recompile]
@@ -464,55 +371,12 @@ instead of needing an extra recompilation.
        #`(app #,(remember-all-errors #'list stx #'(field ...))
               (and pat ...) ...)]
 
-@chunk[<test-match-expander>
-       (let ([test-match 
-              (λ ([val : Any])
-                (match val
-                  [(structure a b c y) (list a b c y)]
-                  [(structure d
-                              [a (? number?)]
-                              [c (? symbol?) 'value-c]
-                              [b bb (? string?)])
-                   (list a bb c d)]
-                  [else 'other]))])
-         (check-equal? (test-match
-                        ((make-structure-constructor a b c d) 1 "b" 'value-c 4))
-                       '(1 "b" value-c 4))
-         (check-equal? (test-match
-                        ((make-structure-constructor a b c y) 1 2 3 4))
-                       '(1 2 3 4))
-         (check-equal? (test-match 'bad) 'other))]
-
 @subsection{Anonymous type}
-
-@subsection{Accessing information about racket's structs at compile-time}
-@chunk[<my-st-type-info>
-       (begin-for-syntax
-         (struct my-st-type-info
-           (type-descriptor
-            constructor
-            predicate
-            accessors
-            mutators
-            super-type)
-           #:transparent))]
-
-@CHUNK[<struct-info>
-       (define-for-syntax (get-struct-info stx s)
-         (let* ([fail (λ () (raise-syntax-error 'get-struct-info
-                                                "not a structure definition"
-                                                stx
-                                                s))]
-                [v (if (identifier? s)
-                       (syntax-local-value s fail)
-                       (fail))]
-                [i (if (not (struct-info? v)) (fail) (extract-struct-info v))])
-           (apply my-st-type-info i)))]
 
 @subsection{Type-expander}
 
 @CHUNK[<type-expander>
-       (define-for-syntax (structure-type-expander stx)
+       (λ (stx)
          (syntax-parse stx
            [(_ (~or-bug [field:id] field:id) …)
             (if (check-remember-fields #'(field ...))
@@ -531,78 +395,17 @@ instead of needing an extra recompilation.
                       #`(#,(fields→stx-name #'(field ...)) sorted-type ...)))
                 (remember-all-errors #'U stx #'(field ...)))]))]
 
-@chunk[<test-type-expander>
-       (check-equal?
-        (structure-get (ann ((make-structure-constructor a b c) 1 "b" #t)
-                            (structure [a Number] [c Boolean] [b String]))
-                       b)
-        "b")]
-
 @section[#:tag "structure|remember"]{Closed-world assumption and global
  compilation}
 
 In order to be able to access elements in the list as deep as they can be, we
 need to know the length of the longest structure used in the whole program. 
 
-Knowing what structures exist and what elements they contain can only help, so
-we'll remember that instead.
-
-The @tc[remember-all] for-syntax function below memorizes its arguments across
-compilations, and adds them to the file “@code{remember.rkt}”:
-
-@CHUNK[<remember-all>
-       (require (for-syntax "remember.rkt"))
-       
-       (define-for-syntax (check-remember-all category value)
-         (let ([datum-value (syntax->datum (datum->syntax #f value))])
-           (if (not (member (cons category datum-value) all-remembered-list))
-               (let ((file-name (build-path (this-expression-source-directory)
-                                            "remember.rkt")))
-                 ;; Add the missing field names to all-fields.rkt
-                 (with-output-file [port file-name] #:exists 'append
-                                   (writeln (cons category datum-value) port))
-                 #f)
-               #t)))
-       
-       (define-for-syntax (remember-all-errors id fallback stx-list)
-         ;<remember-all-hard-error>
-         #`(#,id #,(for/list ([cause `(,@(syntax->list stx-list) ,fallback)])
-                     (syntax/loc cause delayed-error-please-recompile))))]
-
-@CHUNK[<remember-all-hard-error>
-       (raise-syntax-error
-        (car (syntax->datum stx))
-        (format "The fields ~a were added to ~a. Please recompile now."
-                (string-join (map symbol->string missing) ", ")
-                file-name)
-        #f
-        #f
-        (filter (λ (f) (not (member (syntax->datum f) all-fields)))
-                (syntax->list fields)))]
-
-We can, during subsequent compilations, retrieve the list of already-memorized
-fields for a given tag.
-
-@CHUNK[<get-remembered>
-       (define-for-syntax (get-remembered category)
-         (cdr (or (assoc category all-remembered-alist) '(_))))]
-
-If we start with an empty “@code{remember.rkt}” file, it will throw an error at
-each call with a not-yet-remembered value. In order to avoid that, we use the
-macro @tc[(delayed-error-please-recompile)], which expands to an undefined
-identifier @code{please-recompile}. That error is caught later, and gives a
-chance to more calls to @tc[remember-all] to be executed during macro-expansion.
-We define @tc[delayed-error-please-recompile] in a submodule, to minimize the
-chances that we could write a definition for that identifier.
-
-@CHUNK[<delayed-error-please-recompile>
-       (begin-for-syntax
-         (module m-please-recompile typed/racket
-           (define-syntax (delayed-error-please-recompile stx)
-             #'please-recompile)
-           (provide delayed-error-please-recompile))
-         
-         (require 'm-please-recompile))]
+Knowing what structures exist and what elements they
+contain can only help, so we'll remember that instead, using
+the @tc[remember-all] for-syntax function which memorizes
+its arguments across compilations, and adds them to the file
+“@code{remember.rkt}”.
 
 @section{Conclusion}
 
@@ -613,14 +416,14 @@ chances that we could write a definition for that identifier.
                                 racket/syntax
                                 syntax/parse
                                 syntax/parse/experimental/template
-                                mzlib/etc
                                 racket/struct-info
-                                syntax/stx
                                 racket/sequence
                                 ;; in-syntax on older versions:
                                 ;;;unstable/sequence
-                                "../lib/low-untyped.rkt"
-                                "../lib/low/multiassoc-syntax.rkt")
+                                (submod "../lib/low.rkt" untyped)
+                                "meta-struct.rkt"
+                                "remember-lib.rkt"
+                                mischief/transform)
                     "../lib/low.rkt"
                     "../type-expander/type-expander.lp2.rkt"
                     "../type-expander/multi-id.lp2.rkt")
@@ -630,13 +433,16 @@ chances that we could write a definition for that identifier.
                     λstructure-get
                     structure
                     structure-supertype
-                    structure-supertype*)
+                    structure-supertype*
+                    structure?
+                    (rename-out [StructureTopType StructureTop])
+                    StructureTop?)
            
            (begin-for-syntax
              (provide structure-args-stx-class))
            
-           <remember-all>
-           <get-remembered>
+           <structure-top>
+           
            <check-remember-fields>
            
            <named-sorted-structures>
@@ -645,18 +451,15 @@ chances that we could write a definition for that identifier.
            <declare-all-structs>
            <fields→stx-name>
            <make-structure-constructor>
-           <delayed-error-please-recompile>
            
-           <my-st-type-info>
-           <struct-info>
            <fields→supertypes>
            <get-field>
            
            <syntax-class-for-match>
            <structure-supertype>
            <structure-supertype*>
-           <match-expander>
-           <type-expander>
+           
+           <structure?>
            
            <structure>
            <define-structure>)
@@ -664,18 +467,11 @@ chances that we could write a definition for that identifier.
          (require 'main)
          (provide (all-from-out 'main))
          
-         (module* test typed/racket
-           (require (submod "..")
-                    "../lib/low.rkt"
-                    "../type-expander/type-expander.lp2.rkt"
-                    typed/rackunit)
-
-           <test-make-structure-constructor>
-           <test-get-field>
-           <test-match-expander>
-           <test-type-expander>
-           <test-structure>
-           <test-define-structure>))]
+         (module test-syntax racket
+           (provide tests)
+           (define tests
+             #'(begin
+                 <test-make-structure-constructor>))))]
 
 @section{Optimizing access to fields}
 

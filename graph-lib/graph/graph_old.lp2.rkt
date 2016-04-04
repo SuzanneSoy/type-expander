@@ -840,15 +840,13 @@ checker, unless it is absorbed by a larger type, like in
                                 syntax/parse/experimental/template
                                 racket/syntax
                                 racket/function
-                                syntax/stx
                                 racket/pretty
-                                "../lib/low-untyped.rkt"
+                                (submod "../lib/low.rkt" untyped)
                                 "../lib/untyped.rkt")
                     (prefix-in DEBUG-tr: typed/racket)
                     syntax/parse
                     "../lib/low.rkt"
-                    "structure.lp2.rkt"
-                    "variant.lp2.rkt"
+                    "adt.lp2.rkt"
                     "../type-expander/multi-id.lp2.rkt"
                     "../type-expander/type-expander.lp2.rkt")
            (provide make-graph-constructor
@@ -874,8 +872,7 @@ checker, unless it is absorbed by a larger type, like in
            <pre-declare-transform/link-request>
            (require syntax/parse
                     "../lib/low.rkt"
-                    "structure.lp2.rkt"
-                    "variant.lp2.rkt"
+                    "adt.lp2.rkt"
                     "../type-expander/multi-id.lp2.rkt"
                     "../type-expander/type-expander.lp2.rkt")
            ;;

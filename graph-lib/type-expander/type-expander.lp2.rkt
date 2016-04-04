@@ -87,150 +87,113 @@ else.
            (((get-prop:type-expander-value type-expander) type-expander) stx)))]
 
 @CHUNK[<bind-type-vars>
-       (define (bind-type-vars type-vars stx)
-         (let ([def-ctx (syntax-local-make-definition-context)]
-               [err-expr #'(λ _ (raise-syntax-error
-                                 "Type name used out of context"))])
-           (for ([var (syntax-parse type-vars
-                        [(v:id …) (syntax->list #'(v …))])])
-             (syntax-local-bind-syntaxes (list var) err-expr def-ctx))
-           (internal-definition-context-seal def-ctx)
-           (internal-definition-context-introduce def-ctx stx)))]
+       (define (bind-type-vars type-vars [env (make-immutable-free-id-table)])
+         (foldl (λ (v acc) (free-id-table-set acc v #f))
+                env
+                (syntax->list type-vars))
+         #;(let ([def-ctx (syntax-local-make-definition-context)]
+                 [err-expr #'(λ _ (raise-syntax-error
+                                   "Type name used out of context"))])
+             (for ([var (syntax-parse type-vars
+                          [(v:id …) (syntax->list #'(v …))])])
+               (syntax-local-bind-syntaxes (list var) err-expr def-ctx))
+             (internal-definition-context-seal def-ctx)
+             (internal-definition-context-introduce def-ctx stx 'add)))]
+
+@CHUNK[<let-type-todo>
+       (define (let-type-todo id expr env)
+         (free-id-table-set env id expr)
+         #;(let ([def-ctx (syntax-local-make-definition-context)])
+             (syntax-local-bind-syntaxes (list id)
+                                         #'(lambda _
+                                             (displayln 'expr)
+                                             (error "errr"))
+                                         def-ctx)
+             (internal-definition-context-seal def-ctx)
+             (internal-definition-context-introduce def-ctx stx)))]
 
 @CHUNK[<expand-type>
-       (define (expand-type stx)
-         (define-syntax-class type-expander
+       (define (expand-type stx [env (make-immutable-free-id-table)])
+         (define-syntax-class (type-expander env)
            (pattern (~var expander
-                          (static has-prop:type-expander? "a type expander"))))
-         (define-syntax-class type-expander-nested-application
+                          (static has-prop:type-expander? "a type expander"))
+                    #:when (not (dict-has-key? env #'expander))
+                    #:with code #'expander)
+           (pattern expander:id
+                    #:attr code (free-id-table-ref env #'expander (λ () #f))
+                    #:when (attribute code)))
+         (define-syntax-class (type-expander-nested-application env)
            #:attributes (expanded-once)
-           (pattern (~and expander-call-stx (:type-expander . args))
+           (pattern (~and expander-call-stx
+                          ((~var expander (type-expander env)) . args))
                     #:with expanded-once
-                    (apply-type-expander #'expander #'expander-call-stx))
-           (pattern (nested-application:type-expander-nested-application
+                    (apply-type-expander #'expander.code #'expander-call-stx))
+           (pattern ((~var nested-application
+                           (type-expander-nested-application env))
                      . args) ;; TODO: test
                     #:with expanded-once
-                    #'(nested-application.expanded-once . args)))
+                    #'(nested-application.expanded-once . args))
+           (pattern (~and xxx (~datum ~>))
+                    #:with expanded-once #'()
+                    #:when (display (format "dict =\n  "))
+                    #:when (displayln (dict->list env))
+                    #:when (displayln #'xxx)
+                    #:when (newline)
+                    #:when (pretty-write (map syntax-debug-info
+                                              (map car (dict->list env))))
+                    #:when (pretty-write (syntax-debug-info #'xxx))
+                    #:when #f))
          
          (define-syntax-class fa (pattern (~or (~literal ∀) (~literal All))))
          (syntax-parse stx
            [(~datum :) ;; TODO: This is a hack, we should use ~literal.
             #':]
-           [:type-expander
-            (expand-type (apply-type-expander #'expander #'expander))]
-           [:type-expander-nested-application
-            (expand-type #'expanded-once)]
+           [(~var expander (type-expander env))
+            (expand-type (apply-type-expander #'expander.code #'expander) env)]
+           [(~var nested-application (type-expander-nested-application env))
+            (expand-type #'nested-application.expanded-once env)]
            ;; TODO: find a more elegant way to write anonymous type expanders
            [(((~literal curry) T Arg1 …) . Args2)
-            (expand-type #'(T Arg1 … . Args2))]
+            (expand-type #'(T Arg1 … . Args2) env)]
            ;; TODO: handle the pattern (∀ (TVar ... ooo) T)
            [(∀:fa (TVar:id ...) T:expr)
-            #`(∀ (TVar ...) #,(expand-type (bind-type-vars #'(TVar ...) #'T)))]
+            #`(∀ (TVar ...)
+                 #,(expand-type #'T (bind-type-vars #'(TVar ...) env)))]
            [((~literal Rec) R:id T:expr)
-            #`(Rec R #,(expand-type (bind-type-vars #'(R) #'T)))]
-           [((~literal quote) T) (expand-quasiquote 'quote 1 #'T)]
-           [((~literal quasiquote) T) (expand-quasiquote 'quasiquote 1 #'T)]
-           [((~literal syntax) T) (expand-quasiquote 'syntax 1 #'T)]
-           [((~literal quasisyntax) T) (expand-quasiquote 'quasisyntax 1 #'T)]
+            #`(Rec R #,(expand-type #'T (bind-type-vars #'(R) env)))]
+           [((~commit (~datum Let)) bindings T:expr)
+            ;; TODO: ~literal instead of ~datum
+            (syntax-parse #'bindings
+            ;; TODO : for now we only allow aliasing (which means E is an id),
+            ;; not on-the-fly declaration of type expanders. This would require
+            ;; us to (expand) them.
+              [[V:id E:id] ;; TODO: remove the single-binding clause case in Let
+               #`#,(expand-type #'T (let-type-todo #'V #'E env))]
+              [()
+               #`#,(expand-type #'T env)]
+              [([V₀:id E₀:id] [Vᵢ:id Eᵢ:id] …)
+               #`#,(expand-type #'(Let ([Vᵢ Eᵢ] …) T)
+                                (let-type-todo #'V₀ #'E₀ env))])]
+           [((~literal quote) T) (expand-quasiquote 'quote 1 env #'T)]
+           [((~literal quasiquote) T) (expand-quasiquote 'quasiquote 1 env #'T)]
+           [((~literal syntax) T) (expand-quasiquote 'syntax 1 env #'T)]
+           [((~literal quasisyntax) T) (expand-quasiquote 'quasisyntax 1 env
+                                                          #'T)]
            [((~literal Struct) T)
-            #`(Struct #,(expand-type #'T))]
+            #`(Struct #,(expand-type #'T env))]
            [(T TArg ...)
-            #`(T #,@(stx-map expand-type #'(TArg ...)))]
+            #`(T #,@(stx-map (λ (a) (expand-type a env)) #'(TArg ...)))]
            [T #'T]))]
 
 @CHUNK[<define-type-expander>
        (define-syntax/parse (define-type-expander (name:id arg:id) . body)
-         #'(define-syntax name (type-expander (λ (arg) . body))))]
-
-@subsection{Tests for @racket[expand-type]}
-
-@CHUNK[<test-expand-type>
-       (require (for-syntax typed/rackunit
-                            syntax/parse))
-       
-       (define-syntax (test-expander stx)
-         (syntax-parse stx
-           [(_ type expanded-type)
-            (check-equal? (syntax->datum (expand-type #'type))
-                          (syntax->datum #'expanded-type))
-            #'(values)]))]
-
-Simple identity expander test, with a different case when used just as an
-identifier.
-
-@CHUNK[<test-expand-type>
-       (define-type-expander (id stx)
-         (syntax-case stx ()
-           [(_ t) #'t]
-           [x #'(∀ (A) (→ A A))]))
-       
-       (test-expander (id Number) Number)
-       (test-expander id (∀ (A) (→ A A)))]
-
-@CHUNK[<test-expand-type>
-       (define-type-expander (double stx)
-         (syntax-case stx ()
-           [(_ t) #'(id (Pairof (id t) t))]))
-       
-       (test-expander (∀ (A) (→ A (id (double (id A)))))
-                      (∀ (A) (→ A (Pairof A A))))
-
-       (test-expander (→ Any Boolean : (double (id A)))
-                      (→ Any Boolean : (Pairof A A)))]
-
-Curry expander arguments:
-
-@CHUNK[<test-expand-type>
-       (define-type-expander (CPairof stx)
-         (syntax-case stx ()
-           [(_ a) #'(curry Pairof a)]
-           [(_ a b) #'(Pairof a b)]))
-       
-       (test-expander (CPairof Number String)
-                      (Pairof Number String))
-       
-       (test-expander ((CPairof Number) String)
-                      (Pairof Number String))
-       
-       (check-equal?: (ann (ann '(1 . "b") (CPairof Number String))
-                           (Pairof Number String))
-                      '(1 . "b"))
-       
-       (check-equal?: (ann (ann '(1 . "c") ((CPairof Number) String))
-                           (Pairof Number String))
-                      '(1 . "c"))]
-
-Shadowing and @tc[∀] variables:
-
-@CHUNK[<test-expand-type>
-       (test-expander (∀ (id) (→ id))
-                      (∀ (id) (→ id)))
-       (test-expander (∀ (id2) (→ id))
-                      (∀ (id2) (→ (∀ (A) (→ A A)))))]
-
-@CHUNK[<test-expand-type>
-       (define-type-expander (Repeat stx)
-         (syntax-case stx ()
-           [(_ t n) #`(List #,@(map (λ (x) #'t)
-                                    (range (syntax->datum #'n))))]))
-       
-       (test-expander (Repeat Number 5)
-                      (List Number Number Number Number Number))]
-
-@CHUNK[<test-expand-type>
-       (: count-five-more (→ Number (Repeat Number 5)))
-       (define (count-five-more x)
-         (list (+ x 1) (+ x 2) (+ x 3) (+ x 4) (+ x 5)))
-       
-       (check-equal?: (count-five-more 3)
-                      '(4 5 6 7 8))
-       (check-equal?: (ann (count-five-more 15) (Repeat Number 5))
-                      '(16 17 18 19 20))]
+         #`(define-syntax name
+             (type-expander #,(syntax/loc stx (λ (arg) . body)))))]
 
 @section{Example type-expanders: quasiquote and quasisyntax}
 
 @CHUNK[<expand-quasiquote>
-       (define (expand-quasiquote mode depth stx)
+       (define (expand-quasiquote mode depth env stx)
          (define (wrap t)
            (if (or (eq? mode 'syntax) (eq? mode 'quasisyntax))
                #`(Syntaxof #,t)
@@ -239,7 +202,7 @@ Shadowing and @tc[∀] variables:
            (if (or (eq? mode 'syntax) (eq? mode 'quasisyntax))
                #`(Syntaxof (quote #,t))
                #`(quote #,t)))
-         (define expand-quasiquote-rec (curry expand-quasiquote mode depth))
+         (define expand-quasiquote-rec (curry expand-quasiquote mode depth env))
          (syntax-parse stx
            [((~literal quote) T)
             (wrap #`(List #,(wrap-quote #'quote)
@@ -247,14 +210,15 @@ Shadowing and @tc[∀] variables:
            [((~literal quasiquote) T)
             (wrap #`(List #,(wrap-quote #'quasiquote)
                           #,(if (eq? mode 'quasiquote)
-                                (expand-quasiquote mode (+ depth 1) #'T)
+                                (expand-quasiquote mode (+ depth 1) env #'T)
                                 (expand-quasiquote-rec #'T))))]
            [((~literal unquote) T)
             (if (eq? mode 'quasiquote)
                 (if (= depth 1)
-                    (expand-type #'T)
+                    (expand-type #'T env)
                     (wrap #`(List #,(wrap-quote #'unquote)
-                                  #,(expand-quasiquote mode (- depth 1) #'T))))
+                                  #,(expand-quasiquote mode (- depth 1) env
+                                                       #'T))))
                 (wrap #`(List #,(wrap-quote #'unquote)
                               #,(expand-quasiquote-rec #'T))))]
            [((~literal syntax) T)
@@ -263,14 +227,15 @@ Shadowing and @tc[∀] variables:
            [((~literal quasisyntax) T)
             (wrap #`(List #,(wrap-quote #'quasisyntax)
                           #,(if (eq? mode 'quasisyntax)
-                                (expand-quasiquote mode (+ depth 1) #'T)
+                                (expand-quasiquote mode (+ depth 1) env #'T)
                                 (expand-quasiquote-rec #'T))))]
            [((~literal unsyntax) T)
             (if (eq? mode 'quasisyntax)
                 (if (= depth 1)
-                    (expand-type #'T)
+                    (expand-type #'T env)
                     (wrap #`(List #,(wrap-quote #'unsyntax)
-                                  #,(expand-quasiquote mode (- depth 1) #'T))))
+                                  #,(expand-quasiquote mode (- depth 1) env
+                                                       #'T))))
                 (wrap #`(List #,(wrap-quote #'unsyntax)
                               #,(expand-quasiquote-rec #'T))))]
            ;; TODO For lists, we should consider the cases where syntax-e gives
@@ -296,7 +261,7 @@ Shadowing and @tc[∀] variables:
            [#t (wrap #'True)]
            [#t (wrap #'False)]
            [_ (raise-syntax-error 'expand-quasiquote
-                                  "Unknown quasiquote contents"
+                                  (format "Unknown quasiquote contents: ~a" stx)
                                   stx)]))]
 
 @section{Overloading @racket[typed/racket] forms}
@@ -315,7 +280,7 @@ variables in the result, we define two template metafunctions:
        (define-template-metafunction (tmpl-expand-type stx)
          (syntax-parse stx
            [(_ () t) (expand-type #'t)]
-           [(_ (tvar …) t) (expand-type (bind-type-vars #'(tvar …) #'t))]))]
+           [(_ (tvar …) t) (expand-type #'t (bind-type-vars #'(tvar …)))]))]
 
 @subsection{@racket[:]}
 
@@ -325,10 +290,6 @@ after expanding the type argument.
 @CHUNK[<:>
        (define-syntax/parse (new-: x:id t:expr)
          #`(: x #,(expand-type #'t)))]
-
-@CHUNK[<test-:>
-       (: c0 `(2 "abc" #,,(Pairof (U 'x 'y) (U 'y 'z)) #(1 "b" x) d))
-       (define c0 '(2 "abc" #,(x . z) #(1 "b" x) d))]
 
 @subsection[#:tag "type-expander|syntax-classes"]{syntax classes}
 
@@ -458,16 +419,6 @@ them.
                (tmpl-expand-type (?? (TVar ...) ()) type)
                . rest))]))]
 
-@chunk[<test-define-type>
-       (let ()
-         (define-type-expander (Repeat stx)
-           (syntax-case stx ()
-             [(_ t n) #`(List #,@(map (λ (x) #'t)
-                                      (range (syntax->datum #'n))))]))
-         
-         (define-type R5 (Repeat Number 5))
-         (check-equal?: (ann '(1 2 3 4 5) R5) '(1 2 3 4 5)))]
-
 @subsection{@racket[define]}
 
 @chunk[<define>
@@ -483,28 +434,6 @@ them.
                (?? (?@ : (tmpl-expand-type tvars.vars type)))
                e ...))]))]
 
-@CHUNK[<test-define>
-       (define d0
-         : `(2 "abc" #,,(Pairof (U 'x 'y) (U 'y 'z)) #(1 "b" x) d)
-         '(2 "abc" #,(x . z) #(1 "b" x) d))
-       (check-equal?: (ann d0 (List 2
-                                    "abc"
-                                    (List 'unsyntax
-                                          (Pairof (U 'x 'y) (U 'y 'z)))
-                                    (Vector 1 "b" 'x) 'd))
-                      '(2 "abc" (unsyntax (x . z)) #(1 "b" x) d))
-       
-       (: d1 (→ Number (→ Number Number)))
-       (define ((d1 [x : Number]) [y : Number]) : Number (+ x y))
-       (check-equal?: (ann ((d1 2) 3) Number) 5)
-       
-       (: d2 (→ Number (→ Number Number)))
-       (define ((d2 [x : Number]) [y : Number]) (+ x y))
-       (check-equal?: (ann ((d2 3) 4) Number) 7)
-       
-       (define #:∀ (T) ((d3 [x : T]) [y : T]) : (Pairof T T) (cons x y))
-       (check-equal?: (ann ((d3 'x) 'y) (Pairof Symbol Symbol)) '(x . y))]
-
 @subsection{@racket[lambda]}
 
 @CHUNK[<lambda>
@@ -517,18 +446,6 @@ them.
             (template (lambda (?@ . tvars) args.expanded
                         (?? (?@ : (tmpl-expand-type tvars.vars ret-type)))
                         e ...))]))]
-
-@CHUNK[<test-lambda>
-       (check-equal?: ((ann (lambda ([x : Number]) : Number (* x 2))
-                            (→ Number Number))
-                       3)
-                      6)
-       (check-equal?: ((ann (λ ([x : Number]) : Number (* x 2))
-                            (→ Number Number))
-                       3)
-                      6)
-       (check-equal?: ((λ x x) 1 2 3) '(1 2 3))
-       (check-equal?: ((λ #:∀ (A) [x : A ...*] : (Listof A) x) 1 2 3) '(1 2 3))]
 
 @subsection{@racket[struct]}
 
@@ -544,70 +461,6 @@ them.
                         ([field : (tmpl-expand-type tvars.vars type)] ...)
                         . rest))]))]
 
-@chunk[<test-struct>
-       (struct s0 ())
-       (struct s1 ([x : Number]))
-       (struct s2 ([x : Number] [y : Number]))
-       (struct s3 ([x : Number] [y : Number]) #:transparent)
-       (struct s4 () #:transparent)
-       (struct (A B) s5 ([x : A] [y : B]) #:transparent)
-       (struct (A B) s6 () #:transparent)
-       (struct s7 s2 ([z : String]) #:transparent)
-       (struct (A) s8 s3 ([z : A]) #:transparent)
-       (struct (A B C) s9 s5 ([z : C]) #:transparent)
-       (struct (A B C) s10 s2 ([z : C]) #:transparent)
-       (struct (A B C) s11 s5 ([z : C]))
-       
-       (check (λ (a b) (not (equal? a b))) (s0) (s0))
-       (check-equal?: (s1-x (s1 123)) 123)
-       (check-equal?: (s2-x (s2 2 3)) 2)
-       (check-equal?: (s2-y (s2 2 3)) 3)
-       (check-equal?: (s3-x (s3 4 5)) 4)
-       (check-equal?: (s3-y (s3 4 5)) 5)
-       (check-equal?: (s4) (s4))
-       (check-equal?: (s5-x (s5 6 7)) 6)
-       (check-equal?: (s5-y (s5 6 7)) 7)
-       (check-equal?: (s5 6 7) (s5 6 7))
-       (check-equal?: ((inst s5 Number String) 6 "g") (s5 6 "g"))
-       (check-equal?: (s6) (s6))
-       (check-equal?: ((inst s6 Number String)) (s6))
-       
-       ;(check-equal?: (s7-x (s7 -1 -2 "c") -1))
-       ;(check-equal?: (s7-y (s7 -1 -2 "c") -2))
-       (check-equal?: (s7-z (s7 -1 -2 "c")) "c")
-       (check-equal?: (s2-x (s7 -1 -2 "c")) -1)
-       (check-equal?: (s2-y (s7 -1 -2 "c")) -2)
-       (check-not-equal?: (s7 -1 -2 "c") (s7 -1 -2 "c"))
-       (check-not-exn (λ () (ann (s7 -1 -2 "c") s2)))
-       (check-true (s2? (s7 -1 -2 "c")))
-       
-       ;(check-equal?: (s8-x (s8 -1 -2 "c") -1))
-       ;(check-equal?: (s8-y (s8 -1 -2 "c") -2))
-       (check-equal?: (s8-z (s8 -1 -2 "c")) "c")
-       (check-equal?: (s3-x (s8 -1 -2 "c")) -1)
-       (check-equal?: (s3-y (s8 -1 -2 "c")) -2)
-       (check-equal?: (s8 -1 -2 "c") (s8 -1 -2 "c"))
-       (check-equal?: ((inst s8 String) -1 -2 "c") (s8 -1 -2 "c"))
-       (check-not-exn (λ () (ann ((inst s8 String) -1 -2 "c") s3)))
-       (check-true (s3? ((inst s8 String) -1 -2 "c")))
-       
-       ;(check-equal?: (s9-x (s9 8 9 10)) 8)
-       ;(check-equal?: (s9-y (s9 8 9 10)) 9)
-       (check-equal?: (s9-z (s9 8 9 10)) 10)
-       (check-equal?: (s5-x (s9 8 9 10)) 8)
-       (check-equal?: (s5-y (s9 8 9 10)) 9)
-       (check-equal?: (s9 8 9 10) (s9 8 9 10))
-       ;; Bug (to report)
-       ;(check-not-exn (λ () (ann ((inst s9 Number Symbol String) 8 'i "j")
-       ;                          (Struct s5))))
-       (check-not-exn (λ () (ann ((inst s9 Number Symbol String) 8 'i "j")
-                                 (s5 Number Symbol))))
-       (check-not-exn (λ () (ann ((inst s9 Number Symbol String) 8 'i "j")
-                                 (s5 Any Any))))
-       (check-true (s5? ((inst s9 Number Symbol String) -1 'i "j")))
-       (check-not-equal?: (s10 11 12 13) (s10 11 12 13))
-       (check-not-equal?: (s11 14 15 16) (s11 14 15 16))]
-
 @subsection{@racket[define-struct/exec]}
 
 @chunk[<define-struct/exec>
@@ -620,84 +473,11 @@ them.
                         ([field (?? (?@ : (tmpl-expand-type () type)))] ...)
                         [proc : (tmpl-expand-type () proc-type)]))]))]
 
-@chunk[<test-define-struct/exec>
-       (define TODO '(bug in version 20160114-9498bdd
-                          racket-6.4.0.1-i386-linux-precise.sh))
-       #|
-       (define-struct/exec se0 ()
-       ;[(λ (self v) (cons self v)) : (∀ (A) (→ se0 A (Pairof se0 A)))])
-       [(λ (self v) (cons self v)) : (→ se0 Any (Pairof se0 Any))])
-       (define-struct/exec se1 ([x : Number])
-       ;[(λ (self v) (cons self v)) : (∀ (A) (→ se0 A (Pairof se0 A)))])
-       [(λ (self v) (cons self v)) : (→ se1 Any (Pairof se1 Any))])
-       (define-struct/exec se2 ([x : Number] [y : Number])
-       [(λ (self v) (cons self v)) : (→ se2 Any (Pairof se2 Any))])
-       (define-struct/exec (se3 se2) ([z : String])
-       [(λ (self v w) (list self v w))
-       ;: (∀ (A B) (→ se3 A B (List se2 A B)))])
-       : (→ se3 Any Any (List se2 Any Any))])
-       (define-struct/exec (se4 se2) ([z : String])
-       [(λ (self v w) (list self v w))
-       ;: (∀ (A B) (→ se4 A B (List se2 A B)))])
-       : (→ se4 Any (→ Number Number) (List se2 Any (→ Number Number)))])
-       
-       (check (λ (a b) (not (equal? a b))) (se0) (se0))
-       (check-equal?: (cdr ((se0) 'a)) 'a)
-       (check-not-exn (λ () (ann (car ((se0) 'a)) se0)))
-       (check-true (se0? (car ((se0) 'a))))
-       
-       (check (λ (a b) (not (equal? a b))) (se1 123) (se1 123))
-       (check-equal?: (se1-x (se1 123)) 123)
-       (check-equal?: (se1-x (car ((se1 123) 'b))) 123)
-       (check-equal?: (cdr ((se1 123) 'b)) 'b)
-       (check-not-exn (λ () (ann (car ((se1 123) 'b)) se1)))
-       (check-true (se1? (car ((se1 123) 'b))))
-       
-       (check (λ (a b) (not (equal? a b))) (se2 2 3) (se2 2 3))
-       (check-equal?: (se2-x (se2 2 3)) 2)
-       (check-equal?: (se2-y (se2 2 3)) 3)
-       (check-equal?: (se2-x (car ((se2 2 3) 'c))) 2)
-       (check-equal?: (se2-y (car ((se2 2 3) 'c))) 3)
-       (check-equal?: (cdr ((se2 2 3) 'c)) 'c)
-       (check-not-exn (λ () (ann (car ((se2 2 3) 'c)) se2)))
-       (check-true (se2? (car ((se2 2 3) 'c))))
-       
-       (check (λ (a b) (not (equal? a b))) (se3 4 5 "f") (se3 4 5 "f"))
-       (check-equal?: (se2-x (se3 4 5 "f")) 4)
-       (check-equal?: (se2-y (se3 4 5 "f")) 5)
-       (check-equal?: (se3-z (se3 4 5 "f")) "f")
-       (check-equal?: (se2-x (car ((se3 4 5 "f") 'd 'e))) 4)
-       (check-equal?: (se2-y (car ((se3 4 5 "f") 'd 'e))) 5)
-       (check-equal?: (let ([ret : Any (car ((se3 4 5 "f") 'd 'e))])
-       (if (se3? ret)
-       (se3-z ret)
-       "wrong type!"))
-       "f")
-       (check-equal?: (cadr ((se3 4 5 "f") 'd 'e)) 'd)
-       (check-equal?: (caddr ((se3 4 5 "f") 'd 'e)) 'e)
-       (check-equal?: ((caddr ((se4 4 5 "f") 'd (λ ([x : Number]) (* x 2)))) 12)
-       24)
-       (check-not-exn (λ () (ann (car ((se3 4 5 "f") 'd 'e)) se2)))
-       (check-true (se2? (car ((se3 4 5 "f") 'd 'e))))
-       (check-true (se3? (car ((se3 4 5 "f") 'd 'e))))
-       |#]
-
 @subsection{@racket[ann]}
 
 @chunk[<ann>
        (define-syntax/parse (new-ann value:expr (~optional :colon) type:expr)
          (template (ann value (tmpl-expand-type () type))))]
-
-@chunk[<test-ann>
-       (let ()
-         (define-type-expander (Repeat stx)
-           (syntax-case stx ()
-             [(_ t n) #`(List #,@(map (λ (x) #'t)
-                                      (range (syntax->datum #'n))))]))
-         (check-equal?: (ann (ann '(1 2 3)
-                                  (Repeat Number 3))
-                             (List Number Number Number))
-                        '(1 2 3)))]
 
 @subsection{@racket[inst]}
 
@@ -708,25 +488,6 @@ them.
          (template (inst v (tmpl-expand-type () t) ...
                          (?? (?@ (tmpl-expand-type () last)
                                  (... ...) b)))))]
-
-@chunk[<test-inst>
-       (let ()
-         (define-type-expander (Repeat stx)
-           (syntax-case stx ()
-             [(_ t n) #`(List #,@(map (λ (x) #'t)
-                                      (range (syntax->datum #'n))))]))
-         
-         (: f (∀ (A B C D) (→ (Pairof A B) (Pairof C D) (List A C B D))))
-         (define (f x y) (list (car x) (car y) (cdr x) (cdr y)))
-         
-         (check-equal?: ((inst f
-                               (Repeat Number 3)
-                               (Repeat String 2)
-                               (Repeat 'x 1)
-                               (Repeat undefined-type 0))
-                         '((1 2 3) . ("a" "b"))
-                         '((x) . ()))
-                        '((1 2 3) (x) ("a" "b") ())))]
 
 @subsection{@racket[let]}
 
@@ -745,20 +506,6 @@ them.
             ([(?@ . name.expanded) e] ...)
             . rest)))]
 
-@chunk[<test-let>
-       (check-equal?: (let loop-id ([x 1])
-                        (if (equal? x 2)
-                            x
-                            (loop-id 2)))
-                      : Any
-                      2)
-       (check-equal?: (let () 'x) 'x)
-       (check-equal?: (ann (let #:∀ (T) ([a : T 3]
-                                         [b : (Pairof T T) '(5 . 7)])
-                             (cons a b))
-                           (Pairof Number (Pairof Number Number)))
-                      '(3 5 . 7))]
-
 @subsection{@racket[let*]}
 
 @chunk[<let*>
@@ -770,18 +517,6 @@ them.
          (template
           (let* ([(?@ . name.expanded) e] ...)
             . rest)))]
-
-@chunk[<test-let*>
-       (let ()
-         (define-type-expander (Repeat stx)
-           (syntax-case stx ()
-             [(_ t n) #`(List #,@(map (λ (x) #'t)
-                                      (range (syntax->datum #'n))))]))
-         
-         (check-equal?: (let* ([x* : (Repeat Number 3) '(1 2 3)]
-                               [y* : (Repeat Number 3) x*])
-                          y*)
-                        '(1 2 3)))]
 
 @subsection{@racket[let-values]}
 
@@ -795,48 +530,11 @@ them.
           (let-values ([(name.expanded ...) e] ...)
             . rest)))]
 
-@chunk[<test-let-values>
-       (let ()
-         (define-type-expander (Repeat stx)
-           (syntax-case stx ()
-             [(_ t n) #`(List #,@(map (λ (x) #'t)
-                                      (range (syntax->datum #'n))))]))
-         
-         (check-equal?: (ann (let-values
-                                 ([([x : (Repeat Number 3)])
-                                   (list 1 2 3)])
-                               (cdr x))
-                             (List Number Number))
-                        '(2 3))
-         
-         (check-equal?: (ann (let-values
-                                 ([([x : (Repeat Number 3)] [y : Number])
-                                   (values (list 1 2 3) 4)])
-                               (cons y x))
-                             (Pairof Number (List Number Number Number)))
-                        '(4 . (1 2 3)))
-         
-         (check-equal?: (ann (let-values
-                                 ([(x y)
-                                   (values (list 1 2 3) 4)])
-                               (cons y x))
-                             (Pairof Number (List Number Number Number)))
-                        '(4 . (1 2 3))))]
-
 @subsection{@racket[make-predicate]}
 
 @chunk[<make-predicate>
        (define-syntax/parse (new-make-predicate type:expr)
          (template (make-predicate (tmpl-expand-type () type))))]
-
-@chunk[<test-make-predicate>
-       (let ()
-         (define-type-expander (Repeat stx)
-           (syntax-case stx ()
-             [(_ t n) #`(List #,@(map (λ (x) #'t)
-                                      (range (syntax->datum #'n))))]))
-         (check-equal?: ((make-predicate (Repeat Number 3)) '(1 2 3)) #t)
-         (check-equal?: ((make-predicate (Repeat Number 3)) '(1 "b" 3)) #f))]
 
 @subsection[#:tag "type-expander|other-forms"]{Other @racket[typed/racket]
  forms}
@@ -998,9 +696,9 @@ in a separate module (that will be used only by macros, so it will be written in
        (module expander racket
          (require racket
                   syntax/parse
-                  syntax/stx
                   racket/format
-                  "../lib/low-untyped.rkt")
+                  syntax/id-table
+                  (submod "../lib/low.rkt" untyped))
          
          (require (for-template typed/racket))
          
@@ -1017,6 +715,7 @@ in a separate module (that will be used only by macros, so it will be written in
          <apply-type-expander>
          <expand-quasiquote>
          <bind-type-vars>
+         <let-type-todo>
          <expand-type>)]
 
 We can finally define the overloaded forms, as well as the extra
@@ -1028,7 +727,7 @@ We can finally define the overloaded forms, as well as the extra
                               racket/syntax
                               syntax/parse
                               syntax/parse/experimental/template
-                              "../lib/low-untyped.rkt")
+                              (submod "../lib/low.rkt" untyped))
                   "../lib/low.rkt")
          
          (require (submod ".." expander))
@@ -1074,35 +773,6 @@ We can finally define the overloaded forms, as well as the extra
          <make-predicate>
          <other-forms>)]
 
-And, last but not least, we will add a @tc[test] module.
-
-@chunk[<module-test>
-       (module* test typed/racket
-         ;; (require (submod ".." main)) must be on its own (or at least in
-         ;; first position), see this bug:
-         ;; https://github.com/racket/typed-racket/issues/292
-         (require (submod ".." main))
-         (require typed/rackunit
-                  "../lib/low.rkt"
-                  (for-syntax (submod ".." expander)
-                              racket/list
-                              "../lib/low-untyped.rkt"))
-         
-         <test-expand-type>
-         
-         <test-:>
-         <test-define-type>
-         <test-define>
-         <test-lambda>
-         <test-struct>
-         <test-define-struct/exec>
-         <test-ann>
-         <test-inst>
-         <test-let>
-         <test-let*>
-         <test-let-values>
-         <test-make-predicate>)]
-
 We can now assemble the modules in this order:
 
 @chunk[<*>
@@ -1112,6 +782,4 @@ We can now assemble the modules in this order:
          <module-main>
          
          (require 'main)
-         (provide (all-from-out 'main))
-         
-         <module-test>)]
+         (provide (all-from-out 'main)))]

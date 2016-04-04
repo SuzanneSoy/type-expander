@@ -1,0 +1,23 @@
+#lang racket
+
+(require (for-syntax syntax/parse))
+
+(define-syntax (define* stx)
+  ... expand types, uses free-identifier=? ...)
+
+(define-syntax (define-function-group stx)
+    (syntax-parse stx
+      [(_ ((~literal defun) (f-name arg ...) ret-type body) ...)
+       #`(begin (define-type-expander (return-type-of stx)
+                  (syntax-parse stx
+                    [(_ (~literal f-name)) #'ret-type] ...))
+                (define* (f-name arg ...) : ret-type
+                  body) ...)]))
+
+;; defines a type expander "return-type-of"
+(define-function-group
+  (defun (f1) (Listof String) '("a" "b"))
+  (defun (f2 [a : (return-type-of f1)] (length '("a" "b")))))
+
+;; defines another type expander "return-type-of"
+(define-function-group etc.)

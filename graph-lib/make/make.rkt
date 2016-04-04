@@ -6,9 +6,21 @@
 
 ;(current-directory "..")
 
+;; Build a copy, so that changing files midway doesn't break the build.
+;; Problem: the MathJax directory is huge, and copying it is a pain.
+#;(begin
+    (make-directory* "build")
+    (run! (list (find-executable-path-or-fail "find")
+                "."
+                "-maxdepth" "1"
+                "!" "-path" "."
+                "!" "-path" "./build"
+                "-exec" "cp" "-af" "{}" "./build/" ";"))
+    (current-directory "build"))
+
 (run! (list (find-executable-path-or-fail "sh")
-            "-c"
-            @string-append{
+              "-c"
+              @string-append{
  found_long_lines=0
  for i in `find \
  \( -path ./lib/doc/bracket -prune -and -false \) \
@@ -137,7 +149,8 @@
 
 (run! `(,(find-executable-path-or-fail "raco")
         "make"
-        "-j" "5"
+        "-v"
+        "-j" "3"
         ,@rkt-files))
 
 ;; Create root MathJax link, must be done before the others
@@ -214,7 +227,7 @@
         "-j" "8"
         ,@(exclude-dirs rkt-files (list "make/"))))
 
-(run! `(,(find-executable-path-or-fail "raco")
+#;(run! `(,(find-executable-path-or-fail "raco")
         "cover"
         "-d" "docs/coverage"
         "-s" "doc"

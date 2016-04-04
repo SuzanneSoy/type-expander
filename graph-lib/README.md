@@ -202,14 +202,10 @@ Library functions and utilities
   
   Utilities that complement racket and typed/racket's standard libraries.
 
-* `lib/low.rkt`
+* `lib/low.rkt` and `lib/low/*.rkt`
 
   Lower-level utilities that complement racket and typed/racket's standard
   libraries.
-
-* `lib/low-untyped.rkt`
-  
-  Wrapper around `lib/low.rkt` that allows using it from a untyped racket file.
 
 * `lib/untyped/for-star-list-star.rkt`
 
@@ -219,7 +215,8 @@ Library functions and utilities
 
 * `lib/untyped.rkt`
 
-  Aggregates `lib/low-untyped.rkt`, and `lib/untyped/for-star-list-star.rkt`.
+  Aggregates `(submod "lib/low.rkt" untyped)`, and
+  `lib/untyped/for-star-list-star.rkt`.
 
 * `lib/test-framework.rkt`
   

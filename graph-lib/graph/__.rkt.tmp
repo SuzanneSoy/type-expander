@@ -1,0 +1,31 @@
+#lang racket
+
+[<graph-example>
+       (define-graph g1
+         ;; Node types (same):
+         [(a [field₁ : (List Foo Bar n-mb/placeholder Baz Quux)]
+             [field₂ : (Pairof …c/placeholder …a/placeholder)])]
+         [(b [field₃] …)]
+         [(c [field₇] …)]
+
+         [(n-ma [val : a])]
+         ;[(n-ma1 [val : a])]
+         ;[(n-ma2 [val : a])]
+         [(n-mb [val : (Listof b)])]
+         [(n-mc [val : c])]
+         ;; Mappings: functions from external data to nodes
+         [m-n-ma1 (→ (Listof String) n-ma1)
+          (n-ma1/incomplete
+           (ma (… (m-n-mb some-data) …)
+               (cons (m-n-mc more-data)
+                     (m-n-ma2 other-data))))]
+         ;[m-n-ma2 (→ String Integer n-ma2) …]
+         [m-n-mb (→ Integer n-mb) …]
+         [m-n-mc (→ … n-mc) …]
+         [ma (→ arg1: (List Foo Bar n-mb/placeholder Baz Quux)
+                arg2: (Pairof n-mc/placeholder
+                              n-ma2/placeholder)
+                a)
+          (a/incomplete arg1 arg2)]
+         [mb (→ ? b) …]
+         [mc (→ ? c) …])]

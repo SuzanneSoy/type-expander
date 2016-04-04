@@ -35,7 +35,7 @@ these constructors:
 Notice the cycle in the type: a street contains houses, which are located on the
 same street.
 
-@subsubsection{A seed from which to unravel the graph: the root parameters}
+@subsubsection{A seed from which to grow the graph: the root parameters}
 
 In order to build a graph with that type, we start from the root parameters.
 Here, we will take a representation of the city as a list of
@@ -110,7 +110,6 @@ the root arguments as parameters.
 
 @chunk[<use-example>
        (define-graph gr <example-variants>)
-       #;(define g (gr <example-root>))
        (define g1 (gr <example-root>))
        (define g g1)]
 
@@ -150,15 +149,16 @@ implemented.
 
 @subsection{The macro's syntax}
 
-We use a simple syntax for @tc[define-graph], and make it more flexible through
-wrapper macros.
+We use a simple syntax for @tc[define-graph], and will later make it more
+flexible through wrapper macros.
 
 @chunk[<signature>
-       (define-graph name
-         (~optional (~and debug #:debug))
-         (~maybe #:definitions (extra-definition:expr …))
-         [node <field-signature> … <mapping-declaration>]
-         …)]
+       (define-graph . (~and main-args <main-macro-arguments>))]
+@chunk[<main-macro-arguments>
+       (name (~optional (~and debug #:debug))
+             (~maybe #:definitions (extra-definition:expr …))
+             [node <field-signature> … <mapping-declaration>]
+             …)]
 
 Where @tc[<field-signature>] is:
 
@@ -188,8 +188,8 @@ A single node name can refer to several types:
  @item{The @emph{with-indices} type, in which references to other node types
   must be replaced by an index into the results list for the target node's
   @racket[with-promises] type. For example,
-  @racket[[City (Listof (List 'Street/with-indices-tag2 Index))
-           (Listof (List 'Person/with-indices-tag2 Index))]].}
+  @racket[[City (Listof Street/index-type)
+           (Listof Person/index-type)]].}
  @item{The @emph{with-promises} type, in which references to other node types
   must be replaced by a @racket[Promise] for the target node's
   @racket[with-promises] type. For example,
@@ -200,39 +200,133 @@ A single node name can refer to several types:
 
 We derive identifiers for these based on the @tc[node] name:
 
-@;;;;
-@chunk[<define-ids>
+@; The syntax-local-introduce trick doesn't seem to work well here.
+@;  Street: identifier's binding is ambiguous
+@;   context...:
+@;   matching binding...:
+@;   matching binding...: in: Street
+
+@chunk[<define-ids/first-step>
+       ;(define/with-syntax (node/promise-type …)
+       ;  (stx-map syntax-local-introduce #'(node …)))
+       
+       (define-temp-ids "~a/promise-type" (node …) #:prefix #'name)
+       (define-temp-ids "~a/constructor" (node …) #:first-base root
+         #:prefix #'name)
+       (define-temp-ids "~a/multi-constructor" name)
+       ;; node/multi-rest must not use #:prefix, because it is used as a syntax
+       ;; pattern, and syntax-parse trips over the ":".
+       (define-temp-ids "~a/multi-rest" (node …))
+       (define-temp-ids "~a?" (node …) #:prefix #'name)
+       
+       (define-temp-ids "~a/make-placeholder" (node …) #:prefix #'name)
+       (define-temp-ids "~a/make-placeholder-type" (node …) #:prefix #'name)
+       (define-temp-ids "~a/placeholder-struct" (node …) #:prefix #'name)
+       (define-temp-ids "~a/placeholder-type" (node …) #:prefix #'name)
+       
+       (define-temp-ids "~a/incomplete-type" (node …) #:prefix #'name)
+       (define-temp-ids "~a/make-incomplete" (node …) #:prefix #'name)
+       (define-temp-ids "~a/make-incomplete-type" (node …) #:prefix #'name)
+       (define-temp-ids "~a/incomplete-tag" (node …) #:prefix #'name)
+       (define-temp-ids "~a/incomplete-type" ((field …) …) #:prefix #'name)
+       
+       (define-temp-ids "~a/with-promises" (node …) #:first-base root)
+       
+       (define-temp-ids "~a/index-type" (node …) #:prefix #'name)]
+
+@chunk[<pass-to-second-step>
+       (node/promise-type …)
+       (node/constructor …)
+       name/multi-constructor
+       (node/multi-rest …)
+       root/constructor
+       (node? …)
+       
+       (node/make-placeholder …)
+       (node/make-placeholder-type …)
+       (node/placeholder-struct …)
+       (node/placeholder-type …)
+       
+       (node/incomplete-type …)
+       (node/make-incomplete …)
+       (node/make-incomplete-type …)
+       (node/incomplete-tag …)
+       ((field/incomplete-type …) …)
+       
+       (node/with-promises …)
+       root/with-promises
+       
+       (node/index-type …)]
+
+@chunk[<define-ids/second-step>
        (define/with-syntax ((root-param …) . _) #'((param …) …))
        (define/with-syntax ((root-param-type …) . _) #'((param-type …) …))
-       
        (define-temp-ids "~a/main-constructor" name)
-       (define-temp-ids "~a/constructor" (node …) #:first-base root)
-       (define-temp-ids "~a/make-placeholder" (node …) #:first-base root)
-       (define-temp-ids "~a/placeholder-type" (node …))
-       (define-temp-ids "~a/placeholder-tag" (node …))
-       (define-temp-ids "~a/placeholder-queue" (node …))
+       (define-temp-ids "~a/multi-indices" (node …))
        
-       (define-temp-ids "~a/incomplete-type" (node …))
-       (define-temp-ids "~a/make-incomplete" (node …))
-       (define-temp-ids "~a/incomplete-tag" (node …))
+       (define-temp-ids "~a/placeholder-queue" (node …) #:prefix #'name)
        
-       (define-temp-ids "~a/with-indices-type" (node …))
-       (define-temp-ids "~a/make-with-indices" (node …))
-       (define-temp-ids "~a/with-indices-tag" (node …))
-       (define-temp-ids "~a/with-indices-tag2" (node …))
-       (define-temp-ids "~a/index-type" (node …))
+       (define-temp-ids "~a/with-indices-type" (node …) #:prefix #'name)
+       (define-temp-ids "~a/make-with-indices" (node …) #:prefix #'name)
+       (define-temp-ids "~a/with-indices-tag" (node …) #:prefix #'name)
        (define-temp-ids "~a/with-indices→with-promises" (node …)
-         #:first-base root)
+         #:first-base root
+         #:prefix #'name)
+       (define-temp-ids "~a/with-promises-type" ((field …) …) #:prefix #'name)
        
-       (define-temp-ids "~a/with-promises-type" (node …) #:first-base root)
-       (define-temp-ids "~a/make-with-promises" (node …))
-       (define-temp-ids "~a/with-promises-tag" (node …))
+       (define-temp-ids "~a/mapping-function" (node …) #:prefix #'name)
+       (define-temp-ids "~a/mapping-function-type" (node …) #:prefix #'name)
        
-       (define-temp-ids "~a/mapping-function" (node …))
+       (define-temp-ids "~a/database" (node …)
+         #:first-base root
+         #:prefix #'name)
        
-       (define-temp-ids "~a/database" (node …) #:first-base root)
-       
-       (define-temp-ids "~a/value" ((field …) …))]
+       (define-temp-ids "~a/value" ((field …) …) #:prefix #'name)]
+
+@subsection{A versatile identifier: the graph's name}
+
+@; TODO: only accept the syntax #:λroot, and provide the rest in wrapper macros.
+
+The graph name will be used in several ways:
+
+@itemlist[
+ @item{As the constructor for the root node, or another node. We allow both
+  invoking the constructor directly, or get the first-class procedure. Wrapper
+  macros will allow the syntax @racket[g.node] (and @racket[.g.node]) to refer
+  to the constructor for @racket[node].}
+ @item{As a type expander, to refer to the type of the nodes when outside the
+  @; TODO: secref
+  graph declaration. Wrapper macros will allow the syntax @racket[g.node] to
+  refer to @racket[node]'s type.}
+ @; TODO: @item{As a match expander}
+ ]
+
+@chunk[<define-multi-id>
+       (define-multi-id name
+         #:type-expander <graph-type-expander>
+         #:call (λ (stx)
+                  (syntax-parse stx
+                    ;; TODO: move this to a dot expander, so that writing
+                    ;; g.a gives a constructor for the a node of g, and
+                    ;; (g.a foo bar) or (let ((c .g.a)) (c foo bar)) both
+                    ;; call it
+                    [(_ #:λroot (~datum node))
+                     #'node/constructor]
+                    …
+                    [(_ #:root (~datum node) . rest)
+                     (syntax/loc stx (node/constructor . rest))]
+                    …
+                    
+                    [(_ #:roots [(~datum node) node/multi-rest] …)
+                     (syntax/loc stx
+                       (name/multi-constructor node/multi-rest …))]
+                    [(_ #:? (~datum node))
+                     ;; TODO: implement node? properly here! FB case 107
+                     (syntax/loc stx node?)]
+                    …
+                    [(_ . rest)
+                     (syntax/loc stx (root/constructor . rest))]))
+         #:id (λ (stx) #'root/constructor))]
 
 @subsection{Overview}
 
@@ -243,6 +337,149 @@ search inside instances of incomplete nodes, in order to extract the
 placehoders, and replace these parts with promises. The latter, @tc[fold-queue],
 will be used to process all the pending placeholders, with the possibility to
 enqueue more as new placeholders are discovered inside incomplete nodes.
+
+Our macro allows extra user-provided definitions (provided using the
+@tc[#:definitions] keyword). These definitons should have access to the
+identifiers for node constructors and mapping functions. However, these
+definitions may introduce macros (such as type-expanders) which must be made
+available to the mapping and node declarations. More specifically, our macro
+will run @tc[expand-type] on the fields' types, and should expand any
+type-expanders introduced by the extra user-provided definitions.
+
+To solve this chicken-and-egg problem, we use two steps: first we generate just
+enough code so that we can inject the extra user definitions. Then we call a
+second macro, which does the real work. When expanded, the second macro will
+have the extra user-provided definitions in its scope.
+
+@subsubsection{First step}
+
+The first step first introduce a few stubs using generated names, which won't be
+available outside the graph definition:
+
+@chunk[<first-step-definitions>
+       <define-multi-id>
+       
+       (begin <define-make-placeholder/first-step>) …
+       (begin <define-make-incomplete/first-step>) …
+       ;; TODO: Struct definitions have to be outside due to TR bug #192
+       ;; https://github.com/racket/typed-racket/issues/192
+       (begin <define-placeholder-struct/first-step>) …
+       (begin <define-index-struct/first-step>) …
+       (begin <define-promise-type/first-step>) …]
+
+It will then bind these generated names to identifiers which can be used in the
+scope of the graph declaration. There, we will first inject the user-supplied
+extra definitions, and a call to the second step macro:
+
+@chunk[<first-step-bindings>
+       (splicing-let ([mapping node/make-placeholder]
+                      …
+                      [node node/make-incomplete]
+                      …)
+         (?? (begin extra-definition …))
+         <call-second-step>)]
+
+The first step macro is defined as follows:
+
+@chunk[<first-step>
+       (define-syntax/parse <signature>
+         <define-ids/first-step>
+         (template/debug debug
+           ;; Can't use (let () …) because of TR bug #262
+           ;; https://github.com/racket/typed-racket/issues/262
+           (begin
+             <first-step-definitions>
+             <first-step-bindings>)))]
+
+@subsubsection{Second step}
+
+The second step will take a few extra arguments, to keep knowledge of the
+identifiers defined in the first step:
+
+@chunk[<signature-second-step>
+       (define-graph-second-step [<pass-to-second-step>]
+         <main-macro-arguments>)]
+
+It will be called from the first step with the following syntax:
+
+@chunk[<call-second-step>
+       (define-graph-second-step [<pass-to-second-step>]
+         main-args)]
+
+@chunk[<second-step>
+       (define-syntax/parse <signature-second-step>
+         <define-ids/second-step>
+         (template/debug debug
+           (begin
+             (begin <define-mapping-function>) …
+             
+             (begin <define-placeholder-type>) …
+             (begin <define-make-placeholder-type>) …
+             (begin <define-with-indices>) …
+             (begin <define-with-promises>) …
+             (begin (begin <define-field/incomplete-type>) …) …
+             (begin <define-incomplete-type>) …
+             
+             (begin <define-mapping-function-type>) …
+             
+             (: fq (case→ (→ 'node/placeholder-queue node/placeholder-type
+                             (List (Vectorof node/with-indices-type) …))
+                          …))
+             (define (fq queue-name placeholder)
+               (cond
+                 [(eq? queue-name 'node/placeholder-queue)
+                  (second-value <fold-queues>)]
+                 …))
+             
+             <constructors>
+             <multi-constructor>
+             )))]
+
+We shall define a graph constructor for each node type, which accepts the
+arguments for that node's mapping, and generates a graph rooted in the resulting
+node.
+
+@chunk[<constructors>
+       (begin
+         (: node/constructor (→ param-type … node/promise-type))
+         (define (node/constructor param …)
+           (% (node/database …) = (fq 'node/placeholder-queue
+                                      (node/make-placeholder param …))
+              (begin <define-with-indices→with-promises>) …
+              (node/with-indices→with-promises (vector-ref node/database 0)))))
+       …]
+
+@chunk[<multi-constructor>
+       (: name/multi-constructor (→ (Listof (List param-type …))
+                                    …
+                                    (List (Vectorof node/promise-type) …)))
+       (define (name/multi-constructor node/multi-rest …)
+         (% (node/multi-indices …) (node/database …) = <fold-queues2>
+            in
+            (begin <define-with-indices→with-promises>) …
+            (list (list->vector
+                   (map (λ ([idx : Index])
+                          (node/with-indices→with-promises
+                           (vector-ref node/database idx)))
+                        node/multi-indices))
+                  …)))]
+
+@chunk[<fold-queues2>
+       (fold-queues
+        ([node/placeholder-queue
+          (map (λ ([args : (List param-type …)])
+                 (apply node/make-placeholder args))
+               node/multi-rest)]
+         …)
+        [(node/placeholder-queue [e : <fold-queue-type-element>]
+                                 [Δ-queues : Δ-Queues]
+                                 enqueue)
+         : <fold-queue-type-result>
+         <fold-queue-body>]
+        …)]
+
+
+@section{Injecting the first placeholder in the queue}
 
 When the graph constructor is called with the arguments for the root parameters,
 it is equivalent to make and then resolve an initial placeholder. We will use a
@@ -300,8 +537,7 @@ two values: the result of processing the element, and the latest version of
 @tc[Δ-queues], which stores the new elements to be added to the queue.
 
 @chunk[<fold-queues>
-       (fold-queues #:root queue-name
-                    placeholder
+       (fold-queues ([node/placeholder-queue (list placeholder)])
                     [(node/placeholder-queue [e : <fold-queue-type-element>]
                                              [Δ-queues : Δ-Queues]
                                              enqueue)
@@ -313,8 +549,9 @@ two values: the result of processing the element, and the latest version of
 
 We start creating the root placeholder which we provide to @tc[fold-queues].
 
+@; TODO: this is wrong, since we now have a constructor for each node type.
 @chunk[<root-placeholder>
-       (root/make-placeholder root-param …)]
+       (node/make-placeholder root-param …)]
 
 To make the placeholder, we will need a @tc[node/make-placeholder] function for
 each @tc[node]. We first define the type of each placeholder (a list of
@@ -322,19 +559,23 @@ arguments, tagged with the @tc[node]'s name):
 
 @; TODO: maybe replace node types with placeholder types
 
+@chunk[<define-placeholder-struct/first-step>
+       (struct (A) node/placeholder-struct ([f : A]) #:transparent)]
 @chunk[<define-placeholder-type>
        (define-type node/placeholder-type
-         (List 'node/placeholder-tag
-               param-type …))]
+         (node/placeholder-struct (List param-type …)))]
 
 @; TODO: just use (variant [mapping param-type ...] ...)
 
 Then we define the @tc[node/make-placeholder] function:
 
-@chunk[<define-make-placeholder>
-       (: node/make-placeholder (→ param-type … node/placeholder-type))
+@chunk[<define-make-placeholder-type>
+       (define-type node/make-placeholder-type
+         (→ param-type … node/placeholder-type))]
+@chunk[<define-make-placeholder/first-step>
+       (: node/make-placeholder node/make-placeholder-type)
        (define (node/make-placeholder param …)
-         (list 'node/placeholder-tag param …))]
+         (node/placeholder-struct (list param …)))]
 
 @subsection{Making with-indices nodes}
 
@@ -345,9 +586,10 @@ indicates at which index in the queue's results the successor can be found.
 
 @; TODO: use a type-expander here, instead of a template metafunction.
 
-@CHUNK[<define-with-indices>
-       (define-type node/index-type (List 'node/with-indices-tag2 Index))
-       
+@chunk[<define-index-struct/first-step>
+       (struct node/index-type ([i : Index]) #:transparent)]
+
+@chunk[<define-with-indices>
        (define-type node/with-indices-type
          (List 'node/with-indices-tag <field/with-indices-type> …))
        
@@ -356,7 +598,7 @@ indicates at which index in the queue's results the successor can be found.
        (define (node/make-with-indices field …)
          (list 'node/with-indices-tag field …))]
 
-@CHUNK[<field/with-indices-type>
+@chunk[<field/with-indices-type>
        (tmpl-replace-in-type field-type [node node/index-type] …)]
 
 @subsection{Making with-promises nodes}
@@ -366,23 +608,18 @@ the @tc[tmpl-replace-in-type] template metafunction from the rewrite-type
 library. We replace all occurrences of a @tc[node] name with a @tc[Promise] for
 that node's @tc[with-promises] type.
 
-@; TODO: use a type-expander here, instead of a template metafunction.
-
+@CHUNK[<define-promise-type/first-step>
+       (define-constructor node/promise-type
+         #:private
+         #:? node?
+         (Promise node/with-promises))]
 @CHUNK[<define-with-promises>
-       (define-type node/with-promises-type
-         (tagged node/with-promises-tag
-                 [field : <field/with-promises-type>] …))
-       
-       (: node/make-with-promises (→ <field/with-promises-type> …
-                                     node/with-promises-type))
-       (define (node/make-with-promises field/value …)
-         (tagged node/with-promises-tag
-                 [field : <field/with-promises-type> field/value]
-                 …))]
+       (define-plain-structure node/with-promises
+         [field <field/with-promises-type>] …)]
 
 @CHUNK[<field/with-promises-type>
        (tmpl-replace-in-type field-type
-                             [node (Promise node/with-promises-type)] …)]
+         [node node/promise-type] …)]
 
 @subsection{Making incomplete nodes}
 
@@ -393,34 +630,38 @@ library. We replace all occurrences of a @tc[node] name with its
 
 @; TODO: use a type-expander here, instead of a template metafunction.
 
-@CHUNK[<define-incomplete>
+@chunk[<define-incomplete-type>
        (define-type node/incomplete-type
-         (List 'node/incomplete-tag <field/incomplete-type> …))
+         (List 'node/incomplete-tag field/incomplete-type …))
        
-       (: node/make-incomplete (→ <field/incomplete-type> …
-                                  node/incomplete-type))
+       (define-type node/make-incomplete-type
+         (→ field/incomplete-type … node/incomplete-type))]
+@chunk[<define-make-incomplete/first-step>
+       (: node/make-incomplete node/make-incomplete-type)
        (define (node/make-incomplete field …)
          (list 'node/incomplete-tag field …))]
 
-@CHUNK[<field/incomplete-type>
+@chunk[<define-field/incomplete-type>
+       (define-type field/incomplete-type <field/incomplete-type>)]
+
+@chunk[<field/incomplete-type>
        (tmpl-replace-in-type field-type
-                             [node node/placeholder-type] …)]
+         [node node/placeholder-type] …)]
 
 @subsection{Converting incomplete nodes to with-indices ones}
 
 @; TODO: we don't need that many annotations
 @chunk[<placeholder→with-indices-function>
        (λ ([p : node/placeholder-type] [Δ-acc : Δ-Queues])
-         : (values (List 'node/with-indices-tag2 Index) Δ-Queues)
+         : (values node/index-type Δ-Queues)
          (% index new-Δ-acc = (enqueue 'node/placeholder-queue p Δ-acc)
-            (values (list 'node/with-indices-tag2 index)
+            (values (node/index-type index)
                     new-Δ-acc)))]
 
 @chunk[<placeholder→with-indices-clause>
        [node/placeholder-type
-        (List 'node/with-indices-tag2 Index)
-        (λ (x) (and (pair? x)
-                    (eq? (car x) 'node/placeholder-tag)))
+        node/index-type
+        (struct-predicate node/placeholder-struct)
         <placeholder→with-indices-function>]]
 
 @subsubsection{Processing the placeholders}
@@ -432,20 +673,18 @@ library. We replace all occurrences of a @tc[node] name with its
 
 @; TODO: we don't need that many let etc., use % instead once everything works.
 @CHUNK[<fold-queue-body>
-       (let ([mapping-result (apply node/mapping-function (cdr e))])
-         (let ([f (tmpl-fold-instance (List <field-incomplete-type> …)
-                                      Δ-Queues
-                                      <placeholder→with-indices-clause> …)])
-           (let-values ([(r new-Δ-queues) (f (cdr mapping-result) Δ-queues)])
-             (values (apply node/make-with-indices r)
-                     new-Δ-queues))))]
+       (let ([mapping-result
+              (apply node/mapping-function
+                     ((struct-accessor node/placeholder-struct 0) e))]
+             [f (tmpl-fold-instance (List <field/incomplete-type> …)
+                  Δ-Queues
+                  <placeholder→with-indices-clause> …)])
+         (let-values ([(r new-Δ-queues) (f (cdr mapping-result) Δ-queues)])
+           (values (apply node/make-with-indices r)
+                   new-Δ-queues)))]
 
 Where @tc[<field-incomplete-type>] is the @tc[field-type] in which node types
-are replaced by placeholder types:
-
-@chunk[<field-incomplete-type>
-       (tmpl-replace-in-type field-type
-                             [node node/placeholder-type] …)]
+are replaced by placeholder types, as defined earlier.
 
 @subsection{The mapping functions}
 
@@ -454,14 +693,14 @@ important change: Instead of returning an @emph{ideal} node type, we expect them
 to return an @emph{incomplete} node type.
 
 @chunk[<define-mapping-function>
-       (: node/mapping-function (→ param-type … node/incomplete-type))
+       (: node/mapping-function node/mapping-function-type)
        (define node/mapping-function
-         (let ([mapping node/make-placeholder]
-               …
-               [node node/make-incomplete]
-               …)
-           (λ ([param : param-type] …) : node/incomplete-type
-             . mapping-body)))]
+         (ann (λ (param …) . mapping-body)
+              node/mapping-function-type))]
+
+@chunk[<define-mapping-function-type>
+       (define-type node/mapping-function-type
+         (→ param-type … node/incomplete-type))]
 
 @subsection{Returning a with-promises nodes}
 
@@ -509,11 +748,10 @@ because @hyperlink["https://github.com/racket/typed-racket/issues/159"]{it
 
 @chunk[<index→promise-clause>
        [node/index-type
-        (Promise node/with-promises-type)
-        (λ (x) (and (pair? x)
-                    (eq? (car x) 'node/with-indices-tag2)))
+        node/promise-type
+        (struct-predicate node/index-type)
         (λ ([tagged-index : node/index-type] [acc : Void])
-          : (values (Promise node/with-promises-type) Void)
+          : (values node/promise-type Void)
           (values <index→promise> acc))]]
 
 TODO: check what we are closing over in that promise.
@@ -522,24 +760,25 @@ database), as well as everything that the with-indices→with-promises function
 closes over.
 
 @chunk[<index→promise>
-       (let ([successor-with-index (vector-ref node/database
-                                               (cadr tagged-index))])
-         (delay (node/with-indices→with-promises successor-with-index)))]
+       (let ([successor-with-index
+              (vector-ref node/database ((struct-accessor node/index-type 0)
+                                         tagged-index))])
+         (node/with-indices→with-promises successor-with-index))]
 
 @chunk[<define-with-indices→with-promises>
        (: node/with-indices→with-promises (→ node/with-indices-type
-                                             node/with-promises-type))
+                                             node/promise-type))
        (define (node/with-indices→with-promises n)
-         (define f (tmpl-fold-instance (List <field-with-indices-type> …)
-                                       Void
-                                       <index→promise-clause> …))
-         (apply node/make-with-promises (first-value (f (cdr n) (void)))))]
+         (node/promise-type
+          (delay
+            (let ()
+              (define f (tmpl-fold-instance (List <field/with-indices-type> …)
+                          Void
+                          <index→promise-clause> …))
+              (apply node/with-promises (first-value (f (cdr n) (void))))))))]
 
 Where @tc[<field-with-indices-type>] is the @tc[field-type] in which node types
-are replaced by tagged indices:
-
-@chunk[<field-with-indices-type>
-       (tmpl-replace-in-type field-type [node node/index-type] …)]
+are replaced by tagged indices, as defined earlier.
 
 @;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -553,15 +792,17 @@ via @tc[(g Street)].
 @chunk[<graph-type-expander>
        (λ (stx)
          (syntax-parse stx
-           [(_ (~datum node)) #'node/with-promises-type] …
+           [(_ (~datum node)) #'node/promise-type] …
+           ;[(_ (~datum node) (~datum field))
+           ; (template <field/with-promises-type>)] … …
            [(_ #:incomplete (~datum node)) #'node/incomplete-type] …
            [(_ #:make-incomplete (~datum node))
-            #'(→ <field/incomplete-type> … node/incomplete-type)] …
+            #'(→ field/incomplete-type … node/incomplete-type)] …
            [(_ #:incomplete (~datum node) fld)
             (syntax-parse #'fld
-              [(~datum field) #'<field/incomplete-type>] …)] …
+              [(~datum field) #'field/incomplete-type] …)] …
            [(_ #:make-placeholder (~datum node))
-            #'(→ param-type … node/placeholder-type)] …
+            #'node/make-placeholder-type] …
            [(_ #:placeholder (~datum node)) #'node/placeholder-type] …))]
 
 We will be able to use this type expander in function types, for example:
@@ -570,102 +811,41 @@ We will be able to use this type expander in function types, for example:
        (define (type-example [x : (gr Street)])
          : (gr Street)
          x)
-       (check-equal?: (let* ([v1 (car (structure-get (cadr (force g)) streets))]
-                             [v2 (ann (type-example (force v1)) (gr Street))]
-                             [v3 (structure-get (cadr v2) sname)])
+       (check-equal?: (let* ([v1 (car
+                                  (uniform-get g streets))]
+                             [v2 (ann (type-example v1) (gr Street))]
+                             [v3 (uniform-get v2 sname)])
                         v3)
                       : String
                       "Ada Street")]
 
 @section{Putting it all together}
 
-@chunk[<define-graph>
-       (define-syntax/parse <signature>
-         <define-ids>
-         ((λ (x)
-            (when (attribute debug)
-              (pretty-write (syntax->datum x)))
-            x)
-          (template
-           ;(let ()
-           (begin
-             (begin <define-placeholder-type>) …
-             (begin <define-make-placeholder>) …
-             (begin <define-with-indices>) …
-             (begin <define-with-promises>) …
-             (begin <define-incomplete>) …
-             
-             (begin <define-mapping-function>) …
-             
-             (define-multi-id name
-               #:type-expander <graph-type-expander>
-               #:call (λ (stx)
-                        (syntax-parse stx
-                          ;; TODO: move this to a dot expander, so that writing
-                          ;; g.a gives a constructor for the a node of g, and
-                          ;; (g.a foo bar) or (let ((c .g.a)) (c foo bar)) both
-                          ;; call it
-                          [(_ #:λroot (~datum node))
-                           #'node/constructor]
-                          …
-                          [(_ #:root (~datum node) . rest)
-                           (syntax/loc stx (node/constructor . rest))]
-                          …
-                          [(_ . rest)
-                           (syntax/loc stx (root/constructor . rest))]))
-               #:id (λ (stx) #'root/constructor))
-             
-             (?? (splicing-let ([mapping node/make-placeholder]
-                                …
-                                [node node/make-incomplete]
-                                …)
-                   extra-definition
-                   …))
-             
-             (: fq (case→ (→ 'node/placeholder-queue node/placeholder-type
-                             (List (Vectorof node/with-indices-type) …))
-                          …))
-             (define (fq queue-name placeholder)
-               <fold-queues>)
-             
-             <constructors>))))]
-
-@chunk[<constructors>
-       (begin
-         (: node/constructor (→ param-type … (Promise node/with-promises-type)))
-         (define (node/constructor param …)
-           (match-let ([(list node/database …)
-                        (fq 'node/placeholder-queue
-                            (node/make-placeholder param …))])
-             (begin <define-with-indices→with-promises>) …
-             (delay (node/with-indices→with-promises
-                     (vector-ref node/database 0))))))
-       …]
-
 @chunk[<module-main>
        (module main typed/racket
          (require (for-syntax syntax/parse
                               racket/syntax
-                              syntax/stx
                               syntax/parse/experimental/template
                               racket/sequence
                               racket/pretty
                               "rewrite-type.lp2.rkt"
-                              "../lib/low-untyped.rkt")
+                              (submod "../lib/low.rkt" untyped)
+                              "meta-struct.rkt")
                   racket/splicing
                   "fold-queues.lp2.rkt"
                   "rewrite-type.lp2.rkt"
                   "../lib/low.rkt"
-                  "structure.lp2.rkt"
-                  "variant.lp2.rkt"
+                  "adt.lp2.rkt"
                   "../type-expander/type-expander.lp2.rkt"
-                  "../type-expander/multi-id.lp2.rkt")
+                  "../type-expander/multi-id.lp2.rkt"
+                  "meta-struct.rkt")
          
          ;(begin-for-syntax
          ;<multiassoc-syntax>)
          
          (provide define-graph)
-         <define-graph>)]
+         <first-step>
+         <second-step>)]
 
 In @tc[module-test], we have to require @tc[type-expander] because it provides a
 @tc[:] macro which is a different identifier than the one from typed/racket,
@@ -673,16 +853,13 @@ therefore the @tc[:] bound in the @tc[graph] macro with @tc[:colon] would
 not match the one from @tc[typed/racket]
 
 @chunk[<module-test>
-       (module* test typed/racket
-         (require (submod "..")
-                  (only-in "../lib/low.rkt" cars cdrs check-equal?:)
-                  (only-in "structure.lp2.rkt" structure-get)
-                  "../type-expander/type-expander.lp2.rkt"
-                  typed/rackunit)
-         
-         (provide g)
-         <use-example>
-         <type-example>)]
+       (module test-syntax racket
+         (provide tests)
+         (define tests
+           (quote-syntax
+            (begin
+              <use-example>
+              <type-example>))))]
 
 The whole file, finally:
 

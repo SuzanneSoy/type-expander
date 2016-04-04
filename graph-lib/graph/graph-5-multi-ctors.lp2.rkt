@@ -140,9 +140,6 @@ TODO: At the call site, use a macro and annotate the function (given by its
 name) with the right type, so that the user doesn't see all the types in the
 (U …). 
 
-@chunk[<test-graph-multi-ctor>
-       (check-equal? 42 42)]
-
 @section{Conclusion}
 
 @chunk[<module-main>
@@ -150,9 +147,7 @@ name) with the right type, so that the user doesn't see all the types in the
          (require (for-syntax syntax/parse
                               syntax/parse/experimental/template
                               racket/syntax
-                              syntax/stx
-                              "../lib/low-untyped.rkt"
-                              "../lib/low/multiassoc-syntax.rkt")
+                              (submod "../lib/low.rkt" untyped))
                   "../lib/low.rkt"
                   "graph.lp2.rkt"
                   "get.lp2.rkt"
@@ -170,18 +165,9 @@ name) with the right type, so that the user doesn't see all the types in the
          
          <graph-multi-ctor>)]
 
-@chunk[<module-test>
-       (module* test typed/racket
-         (require (submod "..")
-                  typed/rackunit)
-         
-         <test-graph-multi-ctor>)]
-
 @chunk[<*>
        (begin
          <module-main>
          
          (require 'main)
-         (provide (all-from-out 'main))
-         
-         <module-test>)]
+         (provide (all-from-out 'main)))]

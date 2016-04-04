@@ -11,16 +11,13 @@
 @section{Implementation}
 
 @chunk[<fold-queues-signature>
-       (fold-queues (~maybe #:root root-spec)
-                    root-value
+       (fold-queues ([root-name:id root-values:expr] …)
                     [(name [element :colon Element-Type]
                            [Δ-queues :colon Δ-Queues-Type-Name]
                            enqueue)
                      :colon Result-Type
                      . body]
-                    …
-                    (~parse (root-name . _)
-                            (template ((?? root-spec) 'name …))))]
+                    …)]
 
 @chunk[<enqueue-type>
        (case→ (→ 'name
@@ -36,7 +33,8 @@
 
 @chunk[<define-ids>
        (define-temp-ids "~a/process-element" (name …))
-       (define-temp-ids "~a/Δ-results-add" (name …))]
+       (define-temp-ids "~a/Δ-results-add" (name …))
+       (define-temp-ids "~a/index" (root-name …))]
 
 @chunk[<process-element-type>
        (∀ (Δ-Queues-Type-Name)
@@ -56,7 +54,7 @@
              …
              <Δ-hash2-definitions>
              <Δ-results-definitions>
-             <process-queues>)#|)|#)]
+             <process-queues>))]
 
 @subsection{Representation of the queues}
 
@@ -75,6 +73,7 @@ which tracks the length of the list (i.e. the first unallocated result index):
        <Δ-hash2-type>
        <Δ-hash2-empty>
        <Δ-hash2-enqueue>
+       <Δ-hash2-enqueue*>
        <Δ-hash2-dequeue>]
 
 @chunk[<Δ-hash2-queue-type>
@@ -209,8 +208,30 @@ position in the vector equal to the index associated to it in the hash table:
                  …
                  [else (Δ-results-to-vectors results)])))
        
-       (% index Δ-hash = (Δ-hash2-enqueue root-name root-value Δ-hash2-empty)
-          (process-queues Δ-hash Δ-results-empty))]
+       (let*-values ([(Δ-hash)
+                      Δ-hash2-empty]
+                     [(root-name/index Δ-hash)
+                      (Δ-hash2-enqueue* 'root-name root-values Δ-hash)]
+                    …)
+         (values (list root-name/index …)
+                 (process-queues Δ-hash Δ-results-empty)))]
+
+@chunk[<Δ-hash2-enqueue*>
+       (: Δ-hash2-enqueue* (case→ (→ 'name
+                                     (Listof Element-Type)
+                                     Δ-hash2-type
+                                     (values (Listof Index)
+                                             Δ-hash2-type))
+                                  …))
+       (define (Δ-hash2-enqueue* selector elts qs)
+         (if (null? elts)
+             (values (list) qs)
+             (cond [(eq? selector 'name)
+                    (% index qs2 = (Δ-hash2-enqueue selector (car elts) qs)
+                       indices qs3 = (Δ-hash2-enqueue* selector (cdr elts) qs2)
+                       (values (cons index indices)
+                               qs3))]
+                   …)))]
 
 @chunk[<process-queue>
        (% e name/queue = (Δ-hash2-dequeue name/queue) ;; to hide name/queue
@@ -226,7 +247,7 @@ position in the vector equal to the index associated to it in the hash table:
          (require (for-syntax syntax/parse
                               syntax/parse/experimental/template
                               racket/syntax
-                              "../lib/low-untyped.rkt")
+                              (submod "../lib/low.rkt" untyped))
                   "../lib/low.rkt"
                   "../type-expander/type-expander.lp2.rkt")
          
@@ -234,19 +255,10 @@ position in the vector equal to the index associated to it in the hash table:
          
          <fold-queue-multi-sets-immutable-tags>)]
 
-@chunk[<module-test>
-       (module* test typed/racket
-         (require (submod "..")
-                  typed/rackunit)
-         
-         #| TODO: tests |#)]
-
 @chunk[<*>
        (begin
          <module-main>
          
          (require 'main)
-         (provide (all-from-out 'main))
-         
-         <module-test>)]
+         (provide (all-from-out 'main)))]
 

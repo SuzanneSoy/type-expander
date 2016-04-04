@@ -50,8 +50,8 @@ scribble, see
        (module main typed/racket
          (require (for-syntax syntax/parse
                               racket/syntax
-                              "../../lib/low-untyped.rkt")
-                  "../../lib/low-untyped.rkt")
+                              (submod "../../lib/low.rkt" untyped))
+                  (submod "../../lib/low.rkt" untyped))
          (provide foo)
          
          <foo>
