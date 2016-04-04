@@ -86,6 +86,13 @@ Keywords: grammar, parser, template.
                     
                     (~sort key template ooo)
                     (~loc stxloc . template)
+                    ;; Like (template . template), but discards the first and
+                    ;; keeps just the second. If the first contains pattern
+                    ;; variables which are repeated, this has the effect of
+                    ;; repeating the second as many times as the first. Example:
+                    ;; #'(vector (~each some-pattern-var '()))
+                    ;; => (vector '() '() '() '() '())
+                    (~each template template)
                     
                     ;; escaped
                     (ddd escaped)
@@ -232,6 +239,12 @@ This can also be used to rename the @racket[parse] and
 @racket[tmpl] macros, if desired (for example, 
 @racket[tmpl] could be renamed to @racket[quasisyntax], or
 something similar).
+
+Otherwise, @racket[grammar/custom] could just @racket[set!]
+some for-syntax variable which stores the options. A second
+boolean for-syntax variable could be used to check if 
+@racket[grammar/custom] was called twice, and throw an error
+in that case.
 
 Or maybe we should just use units? Can they be customized in
 a similar way?

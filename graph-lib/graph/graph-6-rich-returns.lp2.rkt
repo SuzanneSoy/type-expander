@@ -112,6 +112,7 @@ plain list.
          (define-temp-ids "~a/first-step" name)
          (define-temp-ids "first-step-expander2" name)
          (define-temp-ids "top1-accumulator-type" name)
+         (define-temp-ids "~a/constructor-top2" (mapping …))
          (define-temp-ids "~a/accumulator" (node …))
          (define-temp-ids "~a/simple-mapping" (node …))
          (define-temp-ids "~a/node" (mapping …))
@@ -292,7 +293,8 @@ identifier, so that it can be matched against by
        <inline-type-top1>
        <inline-instance-top1-types>
        <inline-instance-top1>
-       <outer-inline>]
+       <outer-inline>
+       <inline-instance-top2>]
 
 We create the inlined-node by inlining the temporary nodes
 in all of its fields:
@@ -473,9 +475,23 @@ layer of actual nodes. We do this in three steps:
        …]
 
 @chunk[<inline-instance-top2>
+       (define (mapping/constructor-top2 [param cp param-type] …)
+         (% <constructor-top2-body>))
+       …
+       
+       (define #,(datum->syntax #'name 'DBG)
+         (list mapping/constructor-top2 …))]
+
+@chunk[<constructor-top2-body>
+       first-graph = (name/first-step #:root mapping/node param …)
+       alists = (list (!each mapping '()) …)
+       with-indices-top1 last-acc = ((inline-instance-top1* result-type ())
+                                     (get first-graph returned)
+                                     (cons 1 alists))
+       (_ . (node/accumulator …)) = last-acc
+       in
        ;; Call the second step graph constructor:
-       (name #:roots (ann (cdr LAST-ACCUMULATOR)
-                          (list (vectorof (name/first-step mapping/node)))))]
+       (name #:roots [node (lists (cdrs node/accumulator))] …)]
 
 @chunk[<inline-instance-top3>
        (replace-in-instance #'TYPE??

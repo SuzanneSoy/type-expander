@@ -1,7 +1,7 @@
 #lang typed/racket
 (require "typed-untyped.rkt")
 (define-typed/untyped-modules #:no-test
-  (provide cars cdrs)
+  (provide cars cdrs lists)
   
   #|
   ;; This does not work, in the end.
@@ -22,4 +22,7 @@
   (define (cars l) ((inst map A (Pairof A Any)) car l))
   
   (: cdrs (∀ (B) (→ (Listof (Pairof Any B)) (Listof B))))
-  (define (cdrs l) ((inst map B (Pairof Any B)) cdr l)))
+  (define (cdrs l) ((inst map B (Pairof Any B)) cdr l))
+
+  (: lists (∀ (A) (→ (Listof A) (Listof (List A)))))
+  (define (lists l) ((inst map (List A) A) (λ (x) (list x)) l)))

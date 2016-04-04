@@ -7,6 +7,11 @@
            AListof)
 
   (define-type (AListof K V) (Listof (Pairof K V)))
+  (define-match-expander alistof
+    (λ (stx)
+      (syntax-case stx ()
+        [(keys-pat vals-pat)
+         #'(list (cons keys-pat vals-pat) …)])))
   
   (: indexof (∀ (A B) (→ A (Listof B) (→ A B Any) (U #f Integer))))
   (define (indexof elt lst [compare equal?])

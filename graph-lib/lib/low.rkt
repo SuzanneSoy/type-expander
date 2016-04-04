@@ -12,6 +12,7 @@
    "low/typed-rackunit.rkt"
    "low/typed-rackunit-extensions.rkt"
    "low/syntax-parse.rkt"
+   "low/tmpl.rkt"
    "low/threading.rkt"
    "low/aliases.rkt"
    "low/sequence.rkt"
