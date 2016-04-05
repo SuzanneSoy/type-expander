@@ -3,7 +3,7 @@
 (module test typed/racket
   (require "variant2.lp2.rkt"
            "constructor.lp2.rkt"
-           "../lib/low.rkt"
+           phc-toolkit
            "../type-expander/type-expander.lp2.rkt")
   
   (define-variant v1 [x Number String] [y String Number] [z Number String])

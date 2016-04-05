@@ -7,7 +7,7 @@
     (require . mods)
     (provide (all-from-out . mods))))
 
-(r/p "lib/low.rkt"
+(r/p phc-toolkit
      "type-expander/multi-id.lp2.rkt"
      "type-expander/type-expander.lp2.rkt"
      "graph/adt.lp2.rkt"

@@ -2,7 +2,7 @@
 
 (module test typed/racket
   (require "constructor.lp2.rkt"
-           "../lib/low.rkt"
+           phc-toolkit
            "../type-expander/type-expander.lp2.rkt")
   
   (check-equal?: (constructor-values

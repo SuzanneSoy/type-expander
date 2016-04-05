@@ -420,11 +420,11 @@ its arguments across compilations, and adds them to the file
                                 racket/sequence
                                 ;; in-syntax on older versions:
                                 ;;;unstable/sequence
-                                (submod "../lib/low.rkt" untyped)
+                                (submod phc-toolkit untyped)
                                 "meta-struct.rkt"
                                 "remember-lib.rkt"
                                 mischief/transform)
-                    "../lib/low.rkt"
+                    phc-toolkit
                     "../type-expander/type-expander.lp2.rkt"
                     "../type-expander/multi-id.lp2.rkt")
            (provide define-structure

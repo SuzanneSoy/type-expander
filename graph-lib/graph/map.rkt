@@ -3,8 +3,8 @@
 (require (for-syntax racket/syntax
                      racket/function
                      syntax/parse
-                     (submod "../lib/low.rkt" untyped))
-         "../lib/low.rkt"
+                     (submod phc-toolkit untyped))
+         phc-toolkit
          "get.lp2.rkt"
          "../type-expander/type-expander.lp2.rkt")
 

@@ -193,46 +193,6 @@ Type-expander
 Library functions and utilities
 -------------------------------
 
-* `lib/eval-get-values.rkt`
-
-  Wrapper for the racket `eval` function that allows evaluation of code with
-  multiple return values in typed/racket.
-
-* `lib/lib.rkt`
-  
-  Utilities that complement racket and typed/racket's standard libraries.
-
-* `lib/low.rkt` and `lib/low/*.rkt`
-
-  Lower-level utilities that complement racket and typed/racket's standard
-  libraries.
-
-* `lib/untyped/for-star-list-star.rkt`
-
-  A utility macro similar to `for*/list` to iterate over collections and return
-  a list of results, but which can return nested lists instead of just a flat
-  one.
-
-* `lib/untyped.rkt`
-
-  Aggregates `(submod "lib/low.rkt" untyped)`, and
-  `lib/untyped/for-star-list-star.rkt`.
-
-* `lib/test-framework.rkt`
-  
-  Some wrappers and utilities that allow easier use of the rackunit test
-  framework from typed/racket files.
-
-* `lib/syntax/quasitemplate.rkt`
-
-  Extension of the `syntax/parse/experimental/template` library, that allows
-  using `unsyntax` and `unsyntax-splicing` inside a `quasitemplate`, just like
-  in the normal `quasisyntax`.
-
-* `lib/path.rkt`
-
-  Filesystem path manipulation utilities.
-
 * `lib/doc.rkt`
 
   Enhancements and utilities for documentation and literate programming files

@@ -2,7 +2,7 @@
 
 (module test-~>-bound typed/racket
   (require "graph-6-rich-returns.lp2.rkt"
-           "../lib/low.rkt"
+           phc-toolkit
            "get.lp2.rkt"
            "../type-expander/type-expander.lp2.rkt")
   
@@ -45,9 +45,7 @@
 
 (module test-~>-unbound typed/racket
   (require "graph-6-rich-returns.lp2.rkt"
-           (only-in "../lib/low.rkt"
-                    check-equal?:
-                    …)
+           (only-in phc-toolkit check-equal?: …)
            "get.lp2.rkt"
            "../type-expander/type-expander.lp2.rkt")
   

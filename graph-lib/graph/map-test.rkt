@@ -6,7 +6,7 @@
   (require (submod "graph-test.rkt" test)
            "get.lp2.rkt"
            "map.rkt"
-           "../lib/low.rkt"
+           phc-toolkit
            "../type-expander/type-expander.lp2.rkt")
   
   (begin

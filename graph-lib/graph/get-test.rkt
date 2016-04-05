@@ -4,7 +4,7 @@
   (require (submod "graph-test.rkt" test))
   (require "get.lp2.rkt")
   (require "adt.lp2.rkt")
-  (require "../lib/low.rkt")
+  (require phc-toolkit)
   (require "../type-expander/type-expander.lp2.rkt")
   
   (check-equal?: (get '((1 2) (3)) … …)

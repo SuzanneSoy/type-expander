@@ -2,4 +2,4 @@
 (require syntax/parse
          syntax/parse/experimental/template)
 (require (for-template "../type-expander/type-expander.lp2.rkt"))
-(require (submod "../lib/low.rkt" untyped))
+(require (submod phc-toolkit untyped))

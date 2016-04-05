@@ -8,7 +8,7 @@
     (replace-context stx tests))
   
   (require "structure.lp2.rkt"
-           "../lib/low.rkt"
+           phc-toolkit
            "../type-expander/type-expander.lp2.rkt"
            typed/rackunit)
   

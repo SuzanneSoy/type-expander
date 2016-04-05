@@ -9,7 +9,7 @@
     (replace-context stx tests))
   
   (require "graph.lp2.rkt"
-           (only-in "../lib/low.rkt" cars cdrs check-equal?: check-true: % in)
+           (only-in phc-toolkit cars cdrs check-equal?: check-true: % in)
            (only-in "adt.lp2.rkt" uniform-get)
            "../type-expander/type-expander.lp2.rkt")
   

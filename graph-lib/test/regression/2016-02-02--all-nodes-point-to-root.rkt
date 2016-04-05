@@ -1,6 +1,6 @@
 #lang typed/racket
 
-(require "../../lib/low.rkt"
+(require phc-toolkit
          "../../graph/graph.lp2.rkt"
          "../../graph/get.lp2.rkt"
          "../../type-expander/type-expander.lp2.rkt")

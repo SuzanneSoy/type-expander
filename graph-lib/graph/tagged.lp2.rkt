@@ -123,8 +123,8 @@ for a structure.
                                 syntax/parse
                                 syntax/parse/experimental/template
                                 racket/syntax
-                                (submod "../lib/low.rkt" untyped))
-                    "../lib/low.rkt"
+                                (submod phc-toolkit untyped))
+                    phc-toolkit
                     "../type-expander/multi-id.lp2.rkt"
                     "../type-expander/type-expander.lp2.rkt"
                     "constructor.lp2.rkt"

@@ -4,10 +4,10 @@
   (require "type-expander.lp2.rkt"
            ;(submod "type-expander.lp2.rkt" test)
            typed/rackunit
-           "../lib/low.rkt"
+           phc-toolkit
            (for-syntax (submod "type-expander.lp2.rkt" expander)
                        racket/list
-                       (submod "../lib/low.rkt" untyped)))
+                       (submod phc-toolkit untyped)))
   
   ; Tests for expand-type
   (begin

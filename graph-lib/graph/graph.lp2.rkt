@@ -829,12 +829,12 @@ We will be able to use this type expander in function types, for example:
                               racket/sequence
                               racket/pretty
                               "rewrite-type.lp2.rkt"
-                              (submod "../lib/low.rkt" untyped)
+                              (submod phc-toolkit untyped)
                               "meta-struct.rkt")
                   racket/splicing
                   "fold-queues.lp2.rkt"
                   "rewrite-type.lp2.rkt"
-                  "../lib/low.rkt"
+                  phc-toolkit
                   "adt.lp2.rkt"
                   "../type-expander/type-expander.lp2.rkt"
                   "../type-expander/multi-id.lp2.rkt"

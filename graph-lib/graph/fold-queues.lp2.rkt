@@ -247,8 +247,8 @@ position in the vector equal to the index associated to it in the hash table:
          (require (for-syntax syntax/parse
                               syntax/parse/experimental/template
                               racket/syntax
-                              (submod "../lib/low.rkt" untyped))
-                  "../lib/low.rkt"
+                              (submod phc-toolkit untyped))
+                  phc-toolkit
                   "../type-expander/type-expander.lp2.rkt")
          
          (provide fold-queues)

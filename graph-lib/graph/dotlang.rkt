@@ -13,7 +13,7 @@
     
   
   (require "get.lp2.rkt"
-           (submod "../lib/low.rkt" untyped)
+           (submod phc-toolkit untyped)
            (for-syntax racket/string
                        syntax/parse
                        racket/syntax
@@ -21,7 +21,7 @@
                        racket/struct
                        racket/function
                        syntax/srcloc
-                       (submod "../lib/low.rkt" untyped)))
+                       (submod phc-toolkit untyped)))
   
   #|
   (define-syntax/parse (dot x:id)

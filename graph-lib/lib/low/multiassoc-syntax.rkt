@@ -9,7 +9,7 @@
   (require-typed/untyped "aliases.rkt"
                          "stx.rkt")
   
-  ;; TODO: cdr-stx-assoc is already defined in lib/low.rkt
+  ;; TODO: cdr-stx-assoc is already defined in phc-toolkit
   
   (define-type (Stx-AList A)
     (Syntaxof (Listof (Syntaxof (Pairof Identifier A)))))

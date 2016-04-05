@@ -1,10 +1,10 @@
 #lang typed/racket
 
 (module test typed/racket
-  (require (submod "graph-test.rkt" test))
-  (require "adt.lp2.rkt")
-  (require "../lib/low.rkt")
-  (require "../type-expander/type-expander.lp2.rkt")
+  (require (submod "graph-test.rkt" test)
+           "adt.lp2.rkt"
+           phc-toolkit
+           "../type-expander/type-expander.lp2.rkt")
 
   (define-tagged st2 [b String] [a Number])
   

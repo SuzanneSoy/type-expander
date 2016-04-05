@@ -7,11 +7,16 @@
 
 (define (categorize x)
   (match x
+    [(? symbol?
+        (? (λ (x) (regexp-match #px"^phc-toolkit(/|$)" (symbol->string x)))))
+     'phc-toolkit]
+    #;[(? (λ (x) (regexp-match #px"phc-toolkit" (format "~a" x))))
+     'phc-toolkit]
     [(? symbol?) 'lib]
     [(list 'quote (? symbol?
                      (? (λ (x) (regexp-match #rx"^#%" (symbol->string x))))))
      'lib]
-    [(list 'submod (? symbol?) _ ...) 'lib]
+    [(list 'submod sub _ ...) (categorize sub)]
     [(list (? symbol? s) _ ...) s]
     [_ #f]))
 
@@ -119,10 +124,16 @@
       [_ #f]))
   
   (define (tag-pair dep)
-    (append (if (equal? (cdr dep) "lib/low.rkt") '(lib/low) '())
+    (append (if (eq? (categorize (cdr dep)) 'phc-toolkit)
+                '(phc-toolkit)
+                '())
             (if (equal? (categorize-main-module (car dep))
-                        (categorize-main-module (cdr dep))) '(submodule) '())
-            (if (lib? (cdr dep)) '(lib) '())))
+                        (categorize-main-module (cdr dep)))
+                '(submodule)
+                '())
+            (if (lib? (cdr dep))
+                '(lib)
+                '())))
   
   (define tagged-dep-pairs
     (map (λ (dep)
@@ -190,7 +201,7 @@
   
   (define (dep-tag->style t)
     (case t
-      [(lib/low) "color=grey,style=dotted"]
+      [(phc-toolkit) "color=grey,style=dotted"]
       [(submodule) "color=grey"]
       [(lib) "style=dashed"]
       [else #f]))

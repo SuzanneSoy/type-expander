@@ -677,7 +677,7 @@ To get around that problem, we define @tc[:] in a separate module, and
        (module colon typed/racket
          (require (for-syntax racket
                               syntax/parse)
-                  "../lib/low.rkt")
+                  phc-toolkit)
          (require (for-syntax (submod ".." expander)))
          
          (provide new-:)
@@ -698,7 +698,7 @@ in a separate module (that will be used only by macros, so it will be written in
                   syntax/parse
                   racket/format
                   syntax/id-table
-                  (submod "../lib/low.rkt" untyped))
+                  (submod phc-toolkit untyped))
          
          (require (for-template typed/racket))
          
@@ -727,8 +727,8 @@ We can finally define the overloaded forms, as well as the extra
                               racket/syntax
                               syntax/parse
                               syntax/parse/experimental/template
-                              (submod "../lib/low.rkt" untyped))
-                  "../lib/low.rkt")
+                              (submod phc-toolkit untyped))
+                  phc-toolkit)
          
          (require (submod ".." expander))
          (require (for-syntax (submod ".." expander)))

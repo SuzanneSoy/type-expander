@@ -126,12 +126,12 @@ used. The macro's expansion will use this to declare
                                 syntax/parse
                                 syntax/parse/experimental/template
                                 racket/syntax
-                                (submod "../lib/low.rkt" untyped))
+                                (submod phc-toolkit untyped))
                     (for-meta 2 racket/base)
                     "constructor.lp2.rkt"
                     (submod "constructor.lp2.rkt" main private)
                     "tagged.lp2.rkt"
-                    "../lib/low.rkt"
+                    phc-toolkit
                     "../type-expander/multi-id.lp2.rkt"
                     "../type-expander/type-expander.lp2.rkt")
            

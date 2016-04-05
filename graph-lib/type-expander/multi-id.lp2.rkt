@@ -192,7 +192,7 @@ Test with @tc[#:else]:
        (begin
          (module main typed/racket
            (require "type-expander.lp2.rkt"
-                    "../lib/low.rkt")
+                    phc-toolkit)
            (require (for-syntax
                      racket/syntax
                      syntax/parse

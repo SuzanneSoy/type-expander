@@ -549,11 +549,11 @@ These metafunctions just extract the arguments for @tc[replace-in-type] and
              racket/format
              syntax/parse/experimental/template
              racket/sequence
-             (submod "../lib/low.rkt" untyped)
+             (submod phc-toolkit untyped)
              (only-in "../type-expander/type-expander.lp2.rkt"
                       expand-type)
              "meta-struct.rkt"
-             "../lib/low/backtrace.rkt"
+             phc-toolkit/backtrace
              racket/require
              debug ;; DEBUG
              (for-template (subtract-in
@@ -561,7 +561,7 @@ These metafunctions just extract the arguments for @tc[replace-in-type] and
                             "../type-expander/type-expander.lp2.rkt")
                            "../type-expander/multi-id.lp2.rkt"
                            "../type-expander/type-expander.lp2.rkt"
-                           "../lib/low.rkt"))
+                           phc-toolkit))
            (provide replace-in-type
                     ;replace-in-instance
                     fold-instance

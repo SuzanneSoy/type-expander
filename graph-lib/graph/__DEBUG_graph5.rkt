@@ -41,7 +41,7 @@
 |#
 
 (require "graph-5-multi-ctors.lp2.rkt"
-         "../lib/low.rkt"
+         phc-toolkit
          "graph.lp2.rkt"
          "get.lp2.rkt"
          "../type-expander/type-expander.lp2.rkt"

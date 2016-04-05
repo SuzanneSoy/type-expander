@@ -375,8 +375,8 @@ was a tag requested.
          (module main typed/racket
            (require (for-syntax syntax/parse
                                 racket/syntax
-                                (submod "../lib/low.rkt" untyped))
-                    "../lib/low.rkt"
+                                (submod phc-toolkit untyped))
+                    phc-toolkit
                     racket/set
                     racket/format)
            

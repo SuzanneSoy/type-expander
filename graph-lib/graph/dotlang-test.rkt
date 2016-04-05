@@ -2,7 +2,7 @@
 
 (module test "dotlang.rkt"
   (require typed/rackunit
-           "../lib/low.rkt"
+           phc-toolkit
            "get.lp2.rkt"
            (submod "graph-test.rkt" test)
            "map.rkt")

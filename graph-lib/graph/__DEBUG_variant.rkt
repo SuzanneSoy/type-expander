@@ -40,7 +40,7 @@
          
          (module* test typed/racket
            (require (submod "..")
-                    "../lib/low.rkt"
+                    phc-toolkit
                     "../type-expander/type-expander.lp2.rkt"
                     typed/rackunit
                     "adt.lp2.rkt")

@@ -13,4 +13,12 @@ clean:
 .PHONY: build-dep
 build-dep:
 	# datatype is only used as an example in the docs.
-	raco pkg install --deps search-auto --update-deps --skip-installed alexis-util cover cover-coveralls debug datatype mischief https://github.com/jsmaniac/scribble-enhanced.git#823fdda5a65552ce4fe8d6f8fbe07391ccca73bd
+	raco pkg install --deps search-auto --update-deps --skip-installed \
+	  alexis-util \
+	  cover \
+	  cover-coveralls \
+	  debug \
+	  datatype \
+	  mischief \
+	  https://github.com/jsmaniac/scribble-enhanced.git#d4c8f889b4d68c0acef8f73b15641af095051b8e \
+	  https://github.com/jsmaniac/phc-toolkit.git#31dff12f8c0ca13f2bc97d3ad098dbe5b274ec50

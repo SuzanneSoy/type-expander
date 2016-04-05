@@ -115,9 +115,9 @@ declared using @tc[define-syntax].
 
 @chunk[<for-syntax-declarations>
        (require mzlib/etc
-                (submod "../lib/low.rkt" untyped)
+                (submod phc-toolkit untyped)
                 (for-syntax mzlib/etc
-                            (submod "../lib/low.rkt" untyped)
+                            (submod phc-toolkit untyped)
                             racket/string
                             racket/format
                             mischief/transform))

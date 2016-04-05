@@ -3,15 +3,15 @@
 (require (for-syntax racket/syntax
                      syntax/parse
                      syntax/parse/experimental/template
-                     (submod "../lib/low.rkt" untyped))
+                     (submod phc-toolkit untyped))
          (for-meta 2
                    racket/base
                    racket/syntax)
-         "../lib/low.rkt"
+         phc-toolkit
          "get.lp2.rkt"
          "../type-expander/type-expander.lp2.rkt")
 
-(provide map: apply-compose) ;; TODO: move apply-compose to lib/low.rkt
+(provide map: apply-compose) ;; TODO: move apply-compose to phc-toolkit
 
 (begin-for-syntax
   (define-syntax-class lam
@@ -198,7 +198,7 @@
 
 (module* test typed/racket
   (require (submod "..")
-           "../lib/low.rkt")
+           phc-toolkit)
   
   (check-equal?: (map: add1 '(1 2 3))
                  : (Listof Number)

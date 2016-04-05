@@ -841,11 +841,11 @@ checker, unless it is absorbed by a larger type, like in
                                 racket/syntax
                                 racket/function
                                 racket/pretty
-                                (submod "../lib/low.rkt" untyped)
-                                "../lib/untyped.rkt")
+                                (submod phc-toolkit untyped)
+                                phc-toolkit/untyped/for-star-list-star)
                     (prefix-in DEBUG-tr: typed/racket)
                     syntax/parse
-                    "../lib/low.rkt"
+                    phc-toolkit
                     "adt.lp2.rkt"
                     "../type-expander/multi-id.lp2.rkt"
                     "../type-expander/type-expander.lp2.rkt")
@@ -866,12 +866,12 @@ checker, unless it is absorbed by a larger type, like in
          (module* test typed/racket
            (require (submod "..")
                     "../type-expander/type-expander.lp2.rkt"
-                    "../lib/test-framework.rkt")
+                    phc-toolkit/test-framework)
            
            ;; Debug
            <pre-declare-transform/link-request>
            (require syntax/parse
-                    "../lib/low.rkt"
+                    phc-toolkit
                     "adt.lp2.rkt"
                     "../type-expander/multi-id.lp2.rkt"
                     "../type-expander/type-expander.lp2.rkt")

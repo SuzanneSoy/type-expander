@@ -147,8 +147,8 @@ name) with the right type, so that the user doesn't see all the types in the
          (require (for-syntax syntax/parse
                               syntax/parse/experimental/template
                               racket/syntax
-                              (submod "../lib/low.rkt" untyped))
-                  "../lib/low.rkt"
+                              (submod phc-toolkit untyped))
+                  phc-toolkit
                   "graph.lp2.rkt"
                   "get.lp2.rkt"
                   "../type-expander/type-expander.lp2.rkt"

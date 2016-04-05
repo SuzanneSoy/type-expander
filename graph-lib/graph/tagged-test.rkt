@@ -2,7 +2,7 @@
 
 (module test typed/racket
   (require "tagged.lp2.rkt"
-           "../lib/low.rkt"
+           phc-toolkit
            "../type-expander/type-expander.lp2.rkt")
   
   (check-equal?: (match (ann (tagged t1 [x 1] [y "b"])

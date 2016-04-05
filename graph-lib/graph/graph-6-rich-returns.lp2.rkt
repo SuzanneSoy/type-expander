@@ -741,10 +741,10 @@ encapsulating the result types of mappings.
          (require (for-syntax syntax/parse
                               syntax/parse/experimental/template
                               racket/syntax
-                              (submod "../lib/low.rkt" untyped)
+                              (submod phc-toolkit untyped)
                               "rewrite-type.lp2.rkt"
                               racket/format)
-                  "../lib/low.rkt"
+                  phc-toolkit
                   "graph.lp2.rkt"
                   "get.lp2.rkt"
                   "../type-expander/type-expander.lp2.rkt"
