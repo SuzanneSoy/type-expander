@@ -1,0 +1,27 @@
+This software was initially written as part of a project at Cortus, S.A.S. which
+can be reached at 97 Rue de Freyr, 34000 Montpellier, France.
+
+This software may contain a few pieces of code copied from typed/racket
+https://github.com/racket/typed-racket (mostly the syntax-parse syntax classes
+for the various overloaded forms) and is therefore licensed under the
+GNU Lesser General Public License (LGPL).
+
+
+This package is distributed under the GNU Lesser General Public
+License (LGPL).  This means that you can link this package into proprietary
+applications, provided you follow the rules stated in the LGPL.  You
+can also modify this package; if you distribute a modified version,
+you must distribute it under the terms of the LGPL, which in
+particular means that you must release the source code for the
+modified software.  See http://www.gnu.org/copyleft/lesser.html
+for more information.
+
+under the BSD license, at your option. Both licenses can be found in the
+`licenses/` folder.
+
+This double-licensing has been chosen in order to make it possible to integrate
+the type-expander library with Typed/Racket
+(https://github.com/racket/typed-racket) and/or Racket
+(https://github.com/racket/racket), which are both under the LGPL license, as
+well as integrate the graph library with the Nanopass Compiler Framework
+(https://github.com/akeep/nanopass-framework), which is under the BSD license.
