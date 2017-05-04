@@ -842,3 +842,5 @@ arguments to a type expander.
  define-struct/exec:]
 
 @include-section{deprecated-colon.scrbl}
+
+@include-section{contracts-to-types.scrbl}
