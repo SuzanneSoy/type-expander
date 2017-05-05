@@ -51,6 +51,6 @@
                                              W)
                                      number?
                                      string?))
-                 '(Rec W (U (Pairof (Rec R (U (Pairof R W) Null)) W)
+                 '(Rec W (U (Pairof (Rec R (U (Pairof W R) Null)) W)
                             Number
                             String)))
