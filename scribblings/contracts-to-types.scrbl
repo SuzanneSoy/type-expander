@@ -14,10 +14,15 @@
  following are supported: @racket[or/c], @racket[and/c] (the translation may
  produce a type too complex for Typed/Racket to understand properly, though),
  @racket[listof], @racket[list/c], @racket[*list/c], @racket[vectorof],
- @racket[vector/c], @racket[cons/c], @racket[integer?], @racket[string?],
- @racket[symbol?], @racket[exact-nonnegative-integer?],
- @racket[exact-positive-integer?], @racket['quoted-datum],
- @racket[`quasiquoted-datum-with-unquoted-types].
+ @racket[vector/c], @racket[cons/c], @racket[number?], @racket[integer?],
+ @racket[string?], @racket[symbol?], @racket[char?], @racket[boolean?],
+ @racket[bytes?], @racket[void?], @racket[exact-nonnegative-integer?],
+ @racket[exact-positive-integer?], @racket[syntax/c], @racket[parameter/c],
+ @racket[promise/c], @racket[suggest/c], @racket[flat-rec-contract], some uses
+ of @racket[->] and @racket[->*], @racket['quoted-datum],
+ @racket[`quasiquoted-datum-with-unquoted-types]. Literal data (numbers,
+ strings, characters, booleans, byte strings, regular expressions and byte
+ regular expressions) are also interpreted as singleton types.
 
  Furthermore, using @racket[,_τ] anywhere outside of a quoted datum will leave
  the type @racket[_τ] unchaged, allowing the user to manually convert to types

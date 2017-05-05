@@ -255,9 +255,9 @@ used in many of @racketmodname[typed/racket]'s forms.
 
 @racketblock[
  (define-type three-ints (HomogeneousList 3 Integer))
- (define (incr3 [x : three-ints]) : HomogeneousList
+ (define (incr3 [x : three-ints]) : (HomogeneousList 3 Integer)
    (map add1 x))
- (ann (incr3 '(1 2 3)) HomogeneousList)]
+ (ann (incr3 '(1 2 3)) (HomogeneousList 3 Integer))]
 
 Type expanders can produce types which may contain other
 uses of type expanders, much in the same way as macros can
