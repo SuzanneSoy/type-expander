@@ -16,7 +16,8 @@
  @racket[listof], @racket[list/c], @racket[*list/c], @racket[vectorof],
  @racket[vector/c], @racket[cons/c], @racket[number?], @racket[integer?],
  @racket[string?], @racket[symbol?], @racket[char?], @racket[boolean?],
- @racket[bytes?], @racket[void?], @racket[exact-nonnegative-integer?],
+ @racket[bytes?], @racket[void?], @racket[null?], @racket[empty?],
+ @racket[list?], @racket[exact-nonnegative-integer?],
  @racket[exact-positive-integer?], @racket[syntax/c], @racket[parameter/c],
  @racket[promise/c], @racket[suggest/c], @racket[flat-rec-contract], some uses
  of @racket[->] and @racket[->*], @racket['quoted-datum],

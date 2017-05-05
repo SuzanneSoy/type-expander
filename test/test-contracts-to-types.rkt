@@ -43,3 +43,14 @@
 (check-written=? (:contract→type
                   (flat-rec-contract W (cons/c W W) number? string?))
                  '(Rec W (U (Pairof W W) Number String)))
+(check-written=? (:contract→type
+                  (flat-rec-contract W
+                                     (cons/c (flat-rec-contract R
+                                                                (cons/c W R)
+                                                                null?)
+                                             W)
+                                     number?
+                                     string?))
+                 '(Rec W (U (Pairof '(Rec R (U (Pairof R W) Null)) W)
+                            Number
+                            String)))
