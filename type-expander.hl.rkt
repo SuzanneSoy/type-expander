@@ -426,8 +426,8 @@ identifier would have to implement the @tc[prop:rename-transformer],
          (make-struct-type-property 'type-expander prop-guard))]
 
 The value of the @tc[prop:type-expander] property should either be a
-transformer procedure which will be called when expanding the type, or the
-index of a field containing such a procedure.
+transformer procedure of one or two arguments which will be called when
+expanding the type, or the index of a field containing such a procedure.
 
 @chunk[<prop-guard>
        (define (prop-guard val struct-type-info-list)
@@ -453,13 +453,19 @@ corresponding to the use of the expander. If the property's value is a
 procedure, we therefore check that its arity includes 1.
 
 @chunk[<prop-guard-field-value>
-       (if (and (procedure? type-expander)
-                (arity-includes? (procedure-arity type-expander) 1))
-           type-expander
-           (raise-argument-error 'prop:type-expander-guard
-                                 (~a "the value of the " val "-th field should"
-                                     " be a procedure whose arity includes 1")
-                                 type-expander))]
+       (cond
+         [(and (procedure? type-expander)
+               (arity-includes? (procedure-arity type-expander) 2))
+          (curry type-expander instance)]
+         [(and (procedure? type-expander)
+               (arity-includes? (procedure-arity type-expander) 1))
+          type-expander]
+         [else
+          (raise-argument-error 'prop:type-expander-guard
+                                (~a "the value of the " val "-th field should"
+                                    " be a procedure whose arity includes 1 or"
+                                    " 2")
+                                type-expander)])]
 
 In the first case, when the property value is a field index, we return an
 accessor function. The accessor function expects a struct instance, performs
@@ -472,11 +478,15 @@ argument).
 
 @chunk[<prop-guard-procedure>
        [(procedure? val)
-        (if (arity-includes? (procedure-arity val) 1)
-            (λ (_) val)
-            (raise-argument-error 'prop:type-expander-guard
-                                  "a procedure whose arity includes 1"
-                                  val))]]
+        (cond
+          [(arity-includes? (procedure-arity val) 2)
+           (λ (s) (curry val s))]
+          [(arity-includes? (procedure-arity val) 1)
+           (λ (_) val)]
+          [else
+           (raise-argument-error 'prop:type-expander-guard
+                                 "a procedure whose arity includes 1 or 2"
+                                 val)])]]
 
 When the value of the @racket[prop:type-expander] property is neither a
 positive field index nor a procedure, an error is raised:
@@ -485,10 +495,10 @@ positive field index nor a procedure, an error is raised:
        [else
         (raise-argument-error
          'prop:type-expander-guard
-         (~a "a procedure whose arity includes 1, or an exact "
+         (~a "a procedure whose arity includes 1 or 2, or an exact "
              "non-negative integer designating a field index within "
              "the structure that should contain a procedure whose "
-             "arity includes 1.")
+             "arity includes 1 or 2.")
          val)]]
 
 @subsection{The @racket[type-expander] struct}
@@ -1823,10 +1833,19 @@ will be written in @tc[racket], not @tc[typed/racket]).
                   syntax/stx
                   auto-syntax-e
                   "parameterize-lexical-context.rkt"
-                  debug-scopes)
+                  debug-scopes
+                  racket/contract/base)
          ;; TODO: move this in a separate chunk and explain it
          
          (provide prop:type-expander
+                  (contract-out
+                   (rename has-prop:type-expander?
+                           prop:type-expander?
+                           (-> any/c boolean?))
+                   (rename get-prop:type-expander-value
+                           prop:type-expander-ref
+                           (-> has-prop:type-expander?
+                               any/c)))
                   type-expander
                   apply-type-expander
                   ;bind-type-vars
@@ -1877,8 +1896,10 @@ We can finally define the overloaded forms, as well as the
          (require (submod ".." expander))
          (require (for-syntax (submod ".." expander)))
          (require (for-syntax typed-racket/base-env/annotate-classes))
-         
+
          (provide prop:type-expander
+                  prop:type-expander?
+                  prop:type-expander-ref
                   expand-type
                   define-type-expander
                   patch-type-expander

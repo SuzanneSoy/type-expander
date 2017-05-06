@@ -320,17 +320,26 @@ arguments. More than two levels of nesting are possible.
   assignment transformer} macros with the syntax 
  @racket[(set! macro-name arg …)] as an argument).}
 
-@defthing[prop:type-expander struct-type-property?]{
+@deftogether[
+ (@defthing[prop:type-expander
+          (struct-type-property/c
+           (or/c exact-positive-integer?
+                 (→ prop:type-expander? any/c any/c)
+                 (→ any/c any/c)))]
+   @defproc[(prop:type-expander? [v any/c]) boolean?]
+   @defproc[(prop:type-expander-ref [v prop:type-expander?]) any/c])]{
  A 
  @tech[#:doc '(lib "scribblings/reference/reference.scrbl")]{
   structure type property} to identify structure types that
  act as @tech[#:key "type expander"]{type expanders} like
  the ones created by @racket[define-type-expander].
 
- The property value must be a procedure of arity 1 or an 
- @racket[exact-nonnegative-integer?] designating a field
- index within the structure which contains such a
- procedure.
+ The property value must be a procedure of arity 1 or 2, or an
+ @racket[exact-nonnegative-integer?] designating a field index within the
+ structure which contains such a procedure. If the procedure's arity includes
+ 2, then the first argument is the structure itself (which satisfies
+ @racket[prop:type-expander?]), and the second argument is the syntax object to
+ transform. Otherwise, the single argument is the syntax object to transform.
 
  The procedure serves as a syntax transformer when
  expanding the use of a type expander. If the type expander
