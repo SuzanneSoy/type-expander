@@ -7,7 +7,8 @@
                "typed-racket-more"
                "hyper-literate"
                "auto-syntax-e"
-               "debug-scopes"))
+               "debug-scopes"
+               "version-case"))
 (define build-deps '("scribble-lib"
                      "racket-doc"
                      "typed-racket-more"
