@@ -2,7 +2,7 @@
 [![Coverage Status,](https://img.shields.io/coveralls/jsmaniac/type-expander/master.svg)](https://coveralls.io/github/jsmaniac/type-expander)
 [![Build Stats,](https://img.shields.io/website-stats-stats%20unavailable-blue-red/http/jsmaniac.github.io/travis-stats/.svg?label=build)](http://jsmaniac.github.io/travis-stats/#jsmaniac/type-expander)
 [![Online Documentation,](https://img.shields.io/website-online-offline-blue-red/http/docs.racket-lang.org/type-expander/.svg?label=docs)](http://docs.racket-lang.org/type-expander/)
-[![Maintained as of 2017.](https://img.shields.io/maintenance/yes/2017.svg)](https://github.com/jsmaniac/type-expander/issues)
+[![Maintained as of 2018.](https://img.shields.io/maintenance/yes/2018.svg)](https://github.com/jsmaniac/type-expander/issues)
 
 Type-expander
 =============
