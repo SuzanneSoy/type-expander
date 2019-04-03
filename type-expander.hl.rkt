@@ -1387,7 +1387,7 @@ definitions.
 @chunk[<define-type>
        (define-syntax new-define-type
          (syntax-parser
-           [(_ (~or name:id (name:id maybe-tvar …)) . whole-rest)
+           [(_ (~or name:id (name:id maybe-tvar:id …)) . whole-rest)
             #:with (tvar …) (if (attribute maybe-tvar) #'(maybe-tvar …) #'())
             #:with (tvar-not-ooo …) (filter (λ (tv) (not (free-identifier=? tv #'(… …))))
                                             (syntax->list #'(tvar …)))
