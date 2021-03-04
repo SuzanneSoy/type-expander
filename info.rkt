@@ -23,4 +23,4 @@
                       ("scribblings/type-expander-implementation.scrbl" (multi-page) ("typed-racket"))))
 (define pkg-desc "Description Here")
 (define version "1.0")
-(define pkg-authors '(|Georges Dupéron|))
+(define pkg-authors '(|Suzanne Soy|))

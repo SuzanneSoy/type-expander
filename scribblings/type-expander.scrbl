@@ -1,7 +1,7 @@
 #lang scribble/manual
 
 @title{Type expander library}
-@author{@author+email["Georges Dupéron" "georges.duperon@gmail.com"]}
+@author{@author+email["Suzanne Soy" "racket@suzanne.soy"]}
 
 @defmodule[type-expander
            #:use-sources [(lib "type-expander/type-expander.hl.rkt")
