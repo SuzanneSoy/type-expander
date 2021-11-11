@@ -27,47 +27,47 @@
               #'type))
            #`(check-equal? '#,actual
                            '#,expected))])))
-    
+
   ; Simple identity expander test, with a different case when used as a
   ; simple identifier.
-    
+
   (begin
     (define-type-expander (id stx)
       (syntax-case stx ()
         [(_ t) #'t]
         [x #'(∀ (A) (→ A A))]))
-      
+
     (test-expander (id Number) Number)
     (test-expander id (∀ (A) (→ A A))))
-    
+
   (begin
     (define-type-expander (double stx)
       (syntax-case stx ()
         [(_ t) #'(id (Pairof (id t) t))]))
-      
+
     (test-expander (∀ (A) (→ A (id (double (id A)))))
                    (∀ (A) (→ A (Pairof A A))))
-      
+
     (test-expander (→ Any Boolean : (double (id A)))
                    (→ Any Boolean : (Pairof A A))))
-    
+
   ;; Curry expander arguments:
   (begin
     (define-type-expander (CPairof stx)
       (syntax-case stx ()
         [(_ a) #'(curry Pairof a)]
         [(_ a b) #'(Pairof a b)]))
-      
+
     (test-expander (CPairof Number String)
                    (Pairof Number String))
-      
+
     (test-expander ((CPairof Number) String)
                    (Pairof Number String))
-      
+
     (check-equal? (ann (ann '(1 . "b") (CPairof Number String))
                        (Pairof Number String))
                   '(1 . "b"))
-      
+
     (check-equal? (ann (ann '(1 . "c") ((CPairof Number) String))
                        (Pairof Number String))
                   '(1 . "c")))
@@ -78,28 +78,28 @@
                    (∀ (id) (→ id)))
     (test-expander (∀ (id2) (→ id))
                    (∀ (id2) (→ (∀ (A) (→ A A))))))
-    
+
   (begin
     (define-type-expander (Repeat stx)
       (syntax-case stx ()
         [(_ t n) #`(List #,@(map (λ (x) #'t)
                                  (range (syntax->datum #'n))))]))
-      
+
     (test-expander (Repeat Number 5)
                    (List Number Number Number Number Number)))
-    
+
   (begin
     (: count-five-more (→ Number (Repeat Number 5)))
     (define (count-five-more x)
       (list (+ x 1) (+ x 2) (+ x 3) (+ x 4) (+ x 5)))
-      
+
     (check-equal? (count-five-more 3)
                   '(4 5 6 7 8))
     (check-equal? (ann (count-five-more 15) (Repeat Number 5))
                   '(16 17 18 19 20)))
-    
+
   ;; Shadowing with Rec variables:
-    
+
   (begin
     (: repeat-shadow (→ Number (Rec Repeat (U Null (List Number Repeat)))))
     (define (repeat-shadow n)
@@ -110,21 +110,21 @@
                   '(5 (4 (3 (2 (1 ()))))))
     (test-expander (→ Number (Rec Repeat (U Null (List Number Repeat))))
                    (→ Number (Rec Repeat (U Null (List Number Repeat))))))
-    
+
   ;; Shadowing with Let:
-    
+
   (begin
     (let ()
       (define-type-expander (exp stx)
         #'(List 1 2 3))
-        
+
       (define-type e String)
       (: x (List e (Let ([e exp]) e)))
       (define x (list "e1" (list 1 2 3)))
       (check-equal? x '("e1" (1 2 3)))
       (test-expander (List e (Let ([e exp]) e))
                      (List e (List 1 2 3)))
-        
+
       (: y (List e))
       (define y (list "e2"))
       (check-equal? y '("e2"))
@@ -185,7 +185,7 @@
                                  A1)))))
                       Number)
                      Number)
-      
+
       (void)))
 
   ;; Let*, Letrec
@@ -216,27 +216,27 @@
 (begin
   (: c0 `(2 "abc" #,,(Pairof (U 'x 'y) (U 'y 'z)) #(1 "b" x) d))
   (define c0 '(2 "abc" #,(x . z) #(1 "b" x) d))
-    
+
   (let ()
     (define-type-expander (Repeat stx)
       (syntax-case stx ()
         [(_ t n) #`(List #,@(map (λ (x) #'t)
                                  (range (syntax->datum #'n))))]))
-      
+
     (: x (→ (Repeat Number 5)))
     (define (x) (list 1 2 3 4 5))
     (check-equal? (x) '(1 2 3 4 5))))
-  
+
 ;; Test define-type
 (let ()
   (define-type-expander (Repeat stx)
     (syntax-case stx ()
       [(_ t n) #`(List #,@(map (λ (x) #'t)
                                (range (syntax->datum #'n))))]))
-    
+
   (define-type R5 (Repeat Number 5))
   (check-equal? (ann '(1 2 3 4 5) R5) '(1 2 3 4 5)))
-  
+
 ;; Test define
 (begin
   (define d0
@@ -248,18 +248,18 @@
                                     (Pairof (U 'x 'y) (U 'y 'z)))
                               (Vector 1 "b" 'x) 'd))
                 '(2 "abc" (unsyntax (x . z)) #(1 "b" x) d))
-    
+
   (: d1 (→ Number (→ Number Number)))
   (define ((d1 [x : Number]) [y : Number]) : Number (+ x y))
   (check-equal? (ann ((d1 2) 3) Number) 5)
-    
+
   (: d2 (→ Number (→ Number Number)))
   (define ((d2 [x : Number]) [y : Number]) (+ x y))
   (check-equal? (ann ((d2 3) 4) Number) 7)
-    
+
   (define #:∀ (T) ((d3 [x : T]) [y : T]) : (Pairof T T) (cons x y))
   (check-equal? (ann ((d3 'x) 'y) (Pairof Symbol Symbol)) '(x . y)))
-  
+
 ;; Test lambda
 (begin
   (check-equal? ((ann (lambda ([x : Number]) : Number (* x 2))
@@ -310,7 +310,7 @@
   (struct (A B C) s9 s5 ([z : C]) #:transparent)
   (struct (A B C) s10 s2 ([z : C]) #:transparent)
   (struct (A B C) s11 s5 ([z : C]))
-    
+
   (check (λ (a b) (not (equal? a b))) (s0) (s0))
   (check-equal? (s1-x (s1 123)) 123)
   (check-equal? (s2-x (s2 2 3)) 2)
@@ -324,7 +324,7 @@
   (check-equal? ((inst s5 Number String) 6 "g") (s5 6 "g"))
   (check-equal? (s6) (s6))
   (check-equal? ((inst s6 Number String)) (s6))
-    
+
   ;(check-equal? (s7-x (s7 -1 -2 "c") -1))
   ;(check-equal? (s7-y (s7 -1 -2 "c") -2))
   (check-equal? (s7-z (s7 -1 -2 "c")) "c")
@@ -333,7 +333,7 @@
   (check-not-equal? (s7 -1 -2 "c") (s7 -1 -2 "c"))
   (check-not-exn (λ () (ann (s7 -1 -2 "c") s2)))
   (check-true (s2? (s7 -1 -2 "c")))
-    
+
   ;(check-equal? (s8-x (s8 -1 -2 "c") -1))
   ;(check-equal? (s8-y (s8 -1 -2 "c") -2))
   (check-equal? (s8-z (s8 -1 -2 "c")) "c")
@@ -343,7 +343,7 @@
   (check-equal? ((inst s8 String) -1 -2 "c") (s8 -1 -2 "c"))
   (check-not-exn (λ () (ann ((inst s8 String) -1 -2 "c") s3)))
   (check-true (s3? ((inst s8 String) -1 -2 "c")))
-    
+
   ;(check-equal? (s9-x (s9 8 9 10)) 8)
   ;(check-equal? (s9-y (s9 8 9 10)) 9)
   (check-equal? (s9-z (s9 8 9 10)) 10)
@@ -362,7 +362,7 @@
   (check-true (s5? ((inst s9 Number Symbol String) -1 'i "j")))
   (check-not-equal? (s10 11 12 13) (s10 11 12 13))
   (check-not-equal? (s11 14 15 16) (s11 14 15 16)))
-  
+
 ;; Test define-struct/exec
 (begin
   (define-struct/exec se0 ()
@@ -381,19 +381,19 @@
     [(λ (self v w) (list self v w))
      ;: (∀ (A B) (→ se4 A B (List se2 A B)))])
      : (→ se4 Any (→ Number Number) (List se2 Any (→ Number Number)))])
-       
+
   (check (λ (a b) (not (equal? a b))) (se0) (se0))
   (check-equal? (cdr ((se0) 'a)) 'a)
   (check-not-exn (λ () (ann (car ((se0) 'a)) se0)))
   (check-true (se0? (car ((se0) 'a))))
-       
+
   (check (λ (a b) (not (equal? a b))) (se1 123) (se1 123))
   (check-equal? (se1-x (se1 123)) 123)
   (check-equal? (se1-x (car ((se1 123) 'b))) 123)
   (check-equal? (cdr ((se1 123) 'b)) 'b)
   (check-not-exn (λ () (ann (car ((se1 123) 'b)) se1)))
   (check-true (se1? (car ((se1 123) 'b))))
-       
+
   (check (λ (a b) (not (equal? a b))) (se2 2 3) (se2 2 3))
   (check-equal? (se2-x (se2 2 3)) 2)
   (check-equal? (se2-y (se2 2 3)) 3)
@@ -402,7 +402,7 @@
   (check-equal? (cdr ((se2 2 3) 'c)) 'c)
   (check-not-exn (λ () (ann (car ((se2 2 3) 'c)) se2)))
   (check-true (se2? (car ((se2 2 3) 'c))))
-       
+
   (check (λ (a b) (not (equal? a b))) (se3 4 5 "f") (se3 4 5 "f"))
   (check-equal? (se2-x (se3 4 5 "f")) 4)
   (check-equal? (se2-y (se3 4 5 "f")) 5)
@@ -421,7 +421,7 @@
   (check-not-exn (λ () (ann (car ((se3 4 5 "f") 'd 'e)) se2)))
   (check-true (se2? (car ((se3 4 5 "f") 'd 'e))))
   (check-true (se3? (car ((se3 4 5 "f") 'd 'e)))))
-  
+
 ;; Test ann
 (let ()
   (define-type-expander (Repeat stx)
@@ -432,17 +432,17 @@
                           (Repeat Number 3))
                      (List Number Number Number))
                 '(1 2 3)))
-  
+
 ;; Test inst
 (let ()
   (define-type-expander (Repeat stx)
     (syntax-case stx ()
       [(_ t n) #`(List #,@(map (λ (x) #'t)
                                (range (syntax->datum #'n))))]))
-    
+
   (: f (∀ (A B C D) (→ (Pairof A B) (Pairof C D) (List A C B D))))
   (define (f x y) (list (car x) (car y) (cdr x) (cdr y)))
-    
+
   (check-equal? ((inst f
                        (Repeat Number 3)
                        (Repeat String 2)
@@ -451,7 +451,7 @@
                  '((1 2 3) . ("a" "b"))
                  '((x) . ()))
                 '((1 2 3) (x) ("a" "b") ())))
-  
+
 ;; Test let
 (begin
   (check-equal? (ann (let loop-id ([x 1])
@@ -466,47 +466,47 @@
                        (cons a b))
                      (Pairof Number (Pairof Number Number)))
                 '(3 5 . 7)))
-  
+
 ;; Test let*
 (let ()
   (define-type-expander (Repeat stx)
     (syntax-case stx ()
       [(_ t n) #`(List #,@(map (λ (x) #'t)
                                (range (syntax->datum #'n))))]))
-    
+
   (check-equal? (let* ([x* : (Repeat Number 3) '(1 2 3)]
                        [y* : (Repeat Number 3) x*])
                   y*)
                 '(1 2 3)))
-  
+
 ;; Test let-values
 (let ()
   (define-type-expander (Repeat stx)
     (syntax-case stx ()
       [(_ t n) #`(List #,@(map (λ (x) #'t)
                                (range (syntax->datum #'n))))]))
-    
+
   (check-equal? (ann (let-values
                          ([([x : (Repeat Number 3)])
                            (list 1 2 3)])
                        (cdr x))
                      (List Number Number))
                 '(2 3))
-    
+
   (check-equal? (ann (let-values
                          ([([x : (Repeat Number 3)] [y : Number])
                            (values (list 1 2 3) 4)])
                        (cons y x))
                      (Pairof Number (List Number Number Number)))
                 '(4 . (1 2 3)))
-    
+
   (check-equal? (ann (let-values
                          ([(x y)
                            (values (list 1 2 3) 4)])
                        (cons y x))
                      (Pairof Number (List Number Number Number)))
                 '(4 . (1 2 3))))
-  
+
 ;; Test make-predicate
 (let ()
   (define-type-expander (Repeat stx)
@@ -554,7 +554,7 @@
                       (Listof abc))
                    Integer))
 
-    (ann '(1 2 3) ((Let () 
+    (ann '(1 2 3) ((Let ()
                      (∀ (abc)
                         (Listof abc)))
                    Integer))
@@ -573,9 +573,8 @@
 
     (ann '(1 2 3) (poly1 Integer))
 
-    (define-type poly2
-      (∀ (ty)
-         (Listof ty)))
+    (define-type (poly2 ty)
+      (Listof ty))
 
     (ann '(1 2 3) (poly2 Integer))
 
